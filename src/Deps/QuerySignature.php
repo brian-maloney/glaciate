@@ -25,14 +25,56 @@ namespace Stillpress\Deps;
  *     par  int[]     post_parent, post_parent__in
  *     tax  array{rel:string, clauses: array<int, array{op:string, tt:int[]|null}>}
  *     date array{y?:int, m?:int, d?:int}|"complex"
+ *     fix  1         the query's results and their order follow only from the fields in FIELDS and "ob"
+ *     ob   string[]  snapshot fields the results are ordered by (with "fix" only)
  *
  * A snapshot describes a changed post as sets of every value it had before or after the change:
  *
- *     ids, types, statuses, names, authors, parents, tt (term_taxonomy_ids), dates ("Y-m-d")
+ *     ids, types, statuses, names, authors, parents, tt (term_taxonomy_ids), dates ("Y-m-d"), datetimes,
+ *     titles, orders (menu_order), modified, protected (0 or 1)
+ *     moved: the fields whose value changed, when both states are known; absent means anything may have
+ *
+ * A post whose edit moved none of the fields a "fix" query selects or orders by stays exactly where it was in that
+ * query's results, so pages showing those results don't change through the query. They still depend on the post
+ * itself, which the recorder notes for every post a query returned.
  *
  * Pure: no WordPress calls.
  */
 final class QuerySignature {
+
+	/** Snapshot fields that decide whether a post is in a "fix" query's results, whatever it is ordered by. */
+	const FIELDS = array( 'types', 'statuses', 'authors', 'parents', 'names', 'datetimes', 'tt', 'protected', 'meta' );
+
+	/** Orderby values => the snapshot field they sort on (null: nothing that changes). */
+	const ORDER_FIELDS = array(
+		''                => 'datetimes',
+		'date'            => 'datetimes',
+		'post_date'       => 'datetimes',
+		'modified'        => 'modified',
+		'post_modified'   => 'modified',
+		'title'           => 'titles',
+		'post_title'      => 'titles',
+		'name'            => 'names',
+		'post_name'       => 'names',
+		'author'          => 'authors',
+		'post_author'     => 'authors',
+		'parent'          => 'parents',
+		'post_parent'     => 'parents',
+		'type'            => 'types',
+		'post_type'       => 'types',
+		'menu_order'      => 'orders',
+		'id'              => null,
+		'none'            => null,
+		'post__in'        => null,
+		'post_name__in'   => null,
+		'post_parent__in' => null,
+	);
+
+	/**
+	 * Query vars whose values the signature (or FIELDS) accounts for, or that only affect paging and output. A query
+	 * with any other non-empty var (search, meta, custom vars a plugin filters on) can't be marked "fix".
+	 */
+	const FIXED_VARS = array( 'error', 'm', 'p', 'post_parent', 'attachment', 'attachment_id', 'name', 'pagename', 'page_id', 'second', 'minute', 'hour', 'day', 'monthnum', 'year', 'w', 'category_name', 'tag', 'cat', 'tag_id', 'author', 'author_name', 'feed', 'tb', 'paged', 'page', 'cpage', 'fields', 'embed', 'category__in', 'category__not_in', 'category__and', 'post__in', 'post__not_in', 'post_name__in', 'tag__in', 'tag__not_in', 'tag__and', 'tag_slug__in', 'tag_slug__and', 'post_parent__in', 'post_parent__not_in', 'author__in', 'author__not_in', 'post_type', 'post_status', 'posts_per_page', 'posts_per_archive_page', 'numberposts', 'nopaging', 'offset', 'orderby', 'order', 'ignore_sticky_posts', 'suppress_filters', 'cache_results', 'update_post_term_cache', 'update_post_meta_cache', 'update_menu_item_cache', 'lazy_load_term_meta', 'comments_per_page', 'no_found_rows', 'taxonomy', 'term', 'tax_query', 'date_query', 'has_password' );
 
 	/**
 	 * Builds a signature from WP_Query query vars and the resolved tax clauses.
@@ -154,7 +196,51 @@ final class QuerySignature {
 			}
 		}//end if
 
+		$order = self::order_fields( $qv );
+		if ( null !== $order ) {
+			$sig['fix'] = 1;
+			if ( $order ) {
+				$sig['ob'] = $order;
+			}
+		}
+
 		return $sig;
+	}
+
+	/**
+	 * The snapshot fields a query is ordered by, or null when its results may depend on anything else.
+	 *
+	 * @param array<string,mixed> $qv Query vars.
+	 * @return string[]|null
+	 */
+	private static function order_fields( array $qv ): ?array {
+		foreach ( $qv as $key => $value ) {
+			if ( null === $value || '' === $value || false === $value || 0 === $value || '0' === $value || array() === $value ) {
+				continue;
+			}
+			if ( ! in_array( (string) $key, self::FIXED_VARS, true ) ) {
+				return null;
+			}
+		}
+		$orderby = $qv['orderby'] ?? '';
+		if ( is_array( $orderby ) ) {
+			$orderby = array_keys( $orderby );
+		} else {
+			$orderby = preg_split( '/[\s,]+/', trim( (string) $orderby ) );
+		}
+		$fields = array();
+		foreach ( (array) $orderby as $name ) {
+			$name = strtolower( (string) $name );
+			if ( ! array_key_exists( $name, self::ORDER_FIELDS ) ) {
+				return null;
+			}
+			if ( null !== self::ORDER_FIELDS[ $name ] ) {
+				$fields[] = self::ORDER_FIELDS[ $name ];
+			}
+		}
+		$fields = array_values( array_unique( $fields ) );
+		sort( $fields );
+		return $fields;
 	}
 
 	/**
@@ -176,6 +262,9 @@ final class QuerySignature {
 	 * @return bool
 	 */
 	public static function matches( array $sig, array $snapshot ): bool {
+		if ( ! empty( $sig['fix'] ) && isset( $snapshot['moved'] ) && is_array( $snapshot['moved'] ) && ! array_intersect( array_merge( self::FIELDS, (array) ( $sig['ob'] ?? array() ) ), $snapshot['moved'] ) ) {
+			return false;
+		}
 		if ( isset( $sig['ids'] ) && ! self::intersects( $sig['ids'], $snapshot['ids'] ?? array() ) ) {
 			return false;
 		}

@@ -348,6 +348,16 @@ final class Recorder {
 			foreach ( (array) $tq->terms as $term ) {
 				$this->add( 'term', $term instanceof \WP_Term ? $term->term_id : (int) $term );
 			}
+			// A post's own terms (get_the_terms) change only with that post's assignments, which are changes to the
+			// post. Only term lists (category widgets, tag clouds) depend on every term in the taxonomy: on a large
+			// site nearly every page shows its post's categories, so a "tq" dep there would rebuild every page.
+			$objects = wp_parse_id_list( $tq->query_vars['object_ids'] ?? array() );
+			if ( $objects ) {
+				foreach ( $objects as $object_id ) {
+					$this->add( 'post', $object_id );
+				}
+				continue;
+			}
 			foreach ( (array) ( $tq->query_vars['taxonomy'] ?? array() ) as $taxonomy ) {
 				$this->add( 'tq', (string) $taxonomy );
 			}

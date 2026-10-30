@@ -55,6 +55,20 @@ final class RecorderTest extends \WP_UnitTestCase {
 		$this->assertNotEmpty( $deps['query'] );
 	}
 
+	public function test_a_posts_own_terms_depend_on_the_post_not_the_taxonomy(): void {
+		$cat  = self::factory()->category->create();
+		$id   = self::factory()->post->create( array( 'post_category' => array( $cat ) ) );
+		$deps = $this->record(
+			static function () use ( $id ) {
+				clean_object_term_cache( $id, 'post' );
+				get_the_category( $id );
+			}
+		);
+		$this->assertContains( (string) $id, $deps['post'] );
+		$this->assertContains( (string) $cat, $deps['term'] );
+		$this->assertArrayNotHasKey( 'tq', $deps, 'A post\'s own terms are not a term list.' );
+	}
+
 	public function test_query_signature_resolves_category_to_term_taxonomy_id(): void {
 		$cat  = self::factory()->category->create();
 		$term = get_term( $cat, 'category' );

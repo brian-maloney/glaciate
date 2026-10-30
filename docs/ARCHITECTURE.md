@@ -88,6 +88,9 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - Some options change constantly (cron, transients, `doing_cron`, Action Scheduler state, our own). They're denylisted
   as triggers (filterable). `rewrite_rules`, `permalink_structure` and the active theme trigger a full rebuild.
 - Change capture writes to a `changes` table with a debounce (default 60 s), so a burst of saves becomes one incremental build.
+- A post's own terms (`get_the_terms()`) depend on the post; only term lists record `tq:<taxonomy>`, and only a term count
+  that actually moved invalidates them. A simple query (no search, meta or custom ordering) doesn't match a post whose
+  edit moved none of the fields it selects or sorts on: that post's pages are reached through `post:<id>` (D23).
 - Affected set = URLs from the object deps ∪ matching query signatures ∪ option deps ∪ the changed post's old and new permalinks
   ∪ `deps=unknown` URLs ∪ URLs marked volatile (`stillpress_url_is_volatile` filter).
 - **Orphans**: URLs that now return 404 or redirect get removed from the manifest, so deployers delete them.

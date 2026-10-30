@@ -164,6 +164,11 @@ final class InvalidatorTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'https://example.test/tag/x/' ), $result['urls'] );
 	}
 
+	public function test_term_count_change_hits_only_term_lists(): void {
+		list( $names ) = $this->affected( array( $this->change( 'term_count', 'post_tag' ) ) );
+		$this->assertSame( array( 'other' ), $names );
+	}
+
 	public function test_full_change(): void {
 		$result = ( new Invalidator() )->affected( array( $this->change( 'full', 'code' ) ) );
 		$this->assertTrue( $result['full'] );

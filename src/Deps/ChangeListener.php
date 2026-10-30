@@ -45,6 +45,27 @@ final class ChangeListener {
 	private $users = array();
 
 	/**
+	 * Post IDs => fields known to have moved without showing in the before/after comparison (terms, meta).
+	 *
+	 * @var array<int,array<string,bool>>
+	 */
+	private $moved = array();
+
+	/**
+	 * Post IDs created in this request: their "before" (if any) was taken after they existed.
+	 *
+	 * @var array<int,bool>
+	 */
+	private $created = array();
+
+	/**
+	 * Term counts before a count update: term_taxonomy_id => count.
+	 *
+	 * @var array<int,int>
+	 */
+	private $counts = array();
+
+	/**
 	 * Option names changed.
 	 *
 	 * @var array<string,bool>
@@ -103,6 +124,7 @@ final class ChangeListener {
 		add_action( 'created_term', array( $this, 'term' ), 10, 3 );
 		add_action( 'edited_term', array( $this, 'term' ), 10, 3 );
 		add_action( 'delete_term', array( $this, 'term' ), 10, 3 );
+		add_action( 'edit_term_taxonomy', array( $this, 'before_term_taxonomy' ), 10, 1 );
 		add_action( 'edited_term_taxonomy', array( $this, 'term_taxonomy' ), 10, 2 );
 		add_action( 'added_term_meta', array( $this, 'term_meta' ), 10, 2 );
 		add_action( 'updated_term_meta', array( $this, 'term_meta' ), 10, 2 );
@@ -244,6 +266,9 @@ final class ChangeListener {
 		if ( $this->muted() || ! $post instanceof \WP_Post || in_array( $post->post_type, self::IGNORED_POST_TYPES, true ) ) {
 			return;
 		}
+		if ( 'new' === $old_status ) {
+			$this->created[ $post->ID ] = true;
+		}
 		if ( ! array_key_exists( $post->ID, $this->posts ) && 'new' !== $old_status ) {
 			$snapshot                 = self::post_snapshot( $post );
 			$snapshot['statuses']     = array( (string) $old_status );
@@ -272,14 +297,18 @@ final class ChangeListener {
 		if ( ! $post instanceof \WP_Post || in_array( $post->post_type, self::IGNORED_POST_TYPES, true ) ) {
 			return;
 		}
-		$extra                     = array( 'tt' => array_map( 'intval', array_merge( (array) $old_tt_ids, (array) $tt_ids ) ) );
-		$this->posts[ $object_id ] = isset( $this->posts[ $object_id ] ) ? self::union( $this->posts[ $object_id ], $extra ) : self::union( self::post_snapshot( $post ), $extra );
-		foreach ( array_merge( (array) $old_tt_ids, (array) $tt_ids ) as $tt_id ) {
-			$term = get_term_by( 'term_taxonomy_id', (int) $tt_id, (string) $taxonomy );
-			if ( $term instanceof \WP_Term ) {
-				$this->note_term( (int) $term->term_id, (string) $taxonomy );
-			}
+		$extra = array( 'tt' => array_map( 'intval', array_merge( (array) $old_tt_ids, (array) $tt_ids ) ) );
+		// "before" now holds both sets, so it can't show the move: note it here.
+		$old = array_map( 'intval', (array) $old_tt_ids );
+		$new = array_map( 'intval', (array) $tt_ids );
+		sort( $old );
+		sort( $new );
+		if ( $old !== $new ) {
+			$this->moved[ $object_id ]['tt'] = true;
 		}
+		$this->posts[ $object_id ] = isset( $this->posts[ $object_id ] ) ? self::union( $this->posts[ $object_id ], $extra ) : self::union( self::post_snapshot( $post ), $extra );
+		// The terms themselves don't change: their archives match the post's queries through "tt", and a term count
+		// that moves is caught by term_taxonomy(). Noting them here would rebuild every page that links them.
 		$this->touch_post( $object_id );
 	}
 
@@ -304,6 +333,10 @@ final class ChangeListener {
 			return;
 		}
 		$this->before_post( (int) $object_id );
+		if ( ! $this->muted() ) {
+			// Queries can select by meta through filters the signature doesn't see.
+			$this->moved[ (int) $object_id ]['meta'] = true;
+		}
 		$this->touch_post( (int) $object_id );
 	}
 
@@ -356,17 +389,41 @@ final class ChangeListener {
 	}
 
 	/**
-	 * Term counts and descriptions (edited_term_taxonomy).
+	 * Captures a term's count before WordPress updates it (edit_term_taxonomy).
+	 *
+	 * @param int $tt_id Term taxonomy ID.
+	 * @return void
+	 */
+	public function before_term_taxonomy( $tt_id ): void {
+		global $wpdb;
+		$tt_id = (int) $tt_id;
+		if ( $this->muted() || array_key_exists( $tt_id, $this->counts ) ) {
+			return;
+		}
+		$this->counts[ $tt_id ] = (int) $wpdb->get_var( $wpdb->prepare( "SELECT count FROM {$wpdb->term_taxonomy} WHERE term_taxonomy_id = %d", $tt_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- The count as stored, before core changes it; no API reads past the term cache.
+	}
+
+	/**
+	 * Term counts (edited_term_taxonomy). Every post save recounts the post's terms; only a count that moved matters,
+	 * and only to term lists, which may show counts or hide empty terms. Other term edits fire edited_term.
 	 *
 	 * @param int    $tt_id    Term taxonomy ID.
 	 * @param string $taxonomy Taxonomy.
 	 * @return void
 	 */
 	public function term_taxonomy( $tt_id, $taxonomy ): void {
-		$term = get_term_by( 'term_taxonomy_id', (int) $tt_id, is_string( $taxonomy ) ? $taxonomy : '' );
-		if ( $term instanceof \WP_Term ) {
-			$this->note_term( (int) $term->term_id, (string) $term->taxonomy );
+		global $wpdb;
+		$tt_id = (int) $tt_id;
+		if ( $this->muted() || ! is_string( $taxonomy ) ) {
+			return;
 		}
+		$count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT count FROM {$wpdb->term_taxonomy} WHERE term_taxonomy_id = %d", $tt_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- See before_term_taxonomy().
+		if ( array_key_exists( $tt_id, $this->counts ) && $this->counts[ $tt_id ] === $count ) {
+			return;
+		}
+		$this->counts[ $tt_id ]                 = $count;
+		$this->other['term_count'][ $taxonomy ] = true;
+		$this->schedule_flush();
 	}
 
 	/**
@@ -528,6 +585,9 @@ final class ChangeListener {
 			if ( ! $snapshot ) {
 				continue;
 			}
+			if ( is_array( $before ) && null !== $after && empty( $this->created[ $post_id ] ) ) {
+				$snapshot['moved'] = self::moved( $before, $after, array_keys( $this->moved[ $post_id ] ?? array() ) );
+			}
 			// A post that was never public and still isn't can't affect the static site.
 			if ( ! array_intersect( $snapshot['statuses'] ?? array(), array( 'publish', 'inherit' ) ) ) {
 				continue;
@@ -535,7 +595,7 @@ final class ChangeListener {
 			$snapshot['ids'] = array( $post_id );
 			$repo->record( 'post', (string) $post_id, $snapshot );
 			++$written;
-		}
+		}//end foreach
 
 		$structure = (string) get_option( 'permalink_structure' );
 		foreach ( $this->terms as $term_id => $info ) {
@@ -579,6 +639,9 @@ final class ChangeListener {
 		$this->users   = array();
 		$this->options = array();
 		$this->other   = array();
+		$this->counts  = array();
+		$this->moved   = array();
+		$this->created = array();
 
 		if ( $written > 0 ) {
 			/**
@@ -628,15 +691,20 @@ final class ChangeListener {
 	 */
 	public static function post_snapshot( \WP_Post $post, bool $with_terms = true ): array {
 		$snapshot = array(
-			'ids'      => array( (int) $post->ID ),
-			'types'    => array( (string) $post->post_type ),
-			'statuses' => array( (string) $post->post_status ),
-			'authors'  => array( (int) $post->post_author ),
-			'parents'  => array( (int) $post->post_parent ),
-			'names'    => array( (string) $post->post_name ),
-			'dates'    => array( substr( (string) $post->post_date, 0, 10 ) ),
-			'tt'       => array(),
-			'urls'     => array(),
+			'ids'       => array( (int) $post->ID ),
+			'types'     => array( (string) $post->post_type ),
+			'statuses'  => array( (string) $post->post_status ),
+			'authors'   => array( (int) $post->post_author ),
+			'parents'   => array( (int) $post->post_parent ),
+			'names'     => array( (string) $post->post_name ),
+			'dates'     => array( substr( (string) $post->post_date, 0, 10 ) ),
+			'datetimes' => array( (string) $post->post_date ),
+			'titles'    => array( (string) $post->post_title ),
+			'orders'    => array( (int) $post->menu_order ),
+			'modified'  => array( (string) $post->post_modified ),
+			'protected' => array( '' === $post->post_password ? 0 : 1 ),
+			'tt'        => array(),
+			'urls'      => array(),
 		);
 		if ( $with_terms ) {
 			$taxonomies = get_object_taxonomies( $post->post_type );
@@ -654,6 +722,37 @@ final class ChangeListener {
 			}
 		}
 		return $snapshot;
+	}
+
+	/**
+	 * The snapshot fields whose values differ between two states of a post.
+	 *
+	 * @param array<string,array<int,mixed>> $before Snapshot (possibly merged from several "before" states).
+	 * @param array<string,array<int,mixed>> $after  Snapshot.
+	 * @param string[]                       $known  Fields already known to have moved.
+	 * @return string[]
+	 */
+	public static function moved( array $before, array $after, array $known = array() ): array {
+		$moved = $known;
+		// "meta" never shows in a snapshot: it is only ever known.
+		foreach ( array_diff( array_merge( QuerySignature::FIELDS, array( 'titles', 'orders', 'modified' ) ), array( 'meta' ) ) as $field ) {
+			if ( ! isset( $before[ $field ] ) ) {
+				$moved[] = $field;
+				continue;
+			}
+			$a = array_map( 'strval', (array) $before[ $field ] );
+			$b = array_map( 'strval', (array) ( $after[ $field ] ?? array() ) );
+			$a = array_values( array_unique( $a ) );
+			$b = array_values( array_unique( $b ) );
+			sort( $a );
+			sort( $b );
+			if ( $a !== $b ) {
+				$moved[] = $field;
+			}
+		}
+		$moved = array_values( array_unique( $moved ) );
+		sort( $moved );
+		return $moved;
 	}
 
 	/**

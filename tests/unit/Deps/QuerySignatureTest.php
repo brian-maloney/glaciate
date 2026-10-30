@@ -73,7 +73,68 @@ final class QuerySignatureTest extends TestCase {
 				'post_parent' => '',
 			)
 		);
-		$this->assertSame( array(), $sig );
+		$this->assertSame(
+			array(
+				'fix' => 1,
+				'ob'  => array( 'datetimes' ),
+			),
+			$sig
+		);
+	}
+
+	public function test_simple_queries_are_fixed_by_their_fields_and_order(): void {
+		$sig = QuerySignature::from_query_vars(
+			array(
+				'post_type'      => 'page',
+				'orderby'        => array(
+					'menu_order' => 'ASC',
+					'title'      => 'ASC',
+				),
+				'posts_per_page' => 10,
+				'paged'          => 3,
+			)
+		);
+		$this->assertSame( 1, $sig['fix'] );
+		$this->assertSame( array( 'orders', 'titles' ), $sig['ob'] );
+		$this->assertArrayNotHasKey( 'ob', QuerySignature::from_query_vars( array( 'orderby' => 'ID' ) ) );
+	}
+
+	/**
+	 * @dataProvider unfixed_queries
+	 */
+	public function test_queries_that_depend_on_more_are_not_fixed( array $qv ): void {
+		$this->assertArrayNotHasKey( 'fix', QuerySignature::from_query_vars( $qv ) );
+	}
+
+	public function unfixed_queries(): array {
+		// phpcs:disable WordPress.DB.SlowDBQuery -- Query vars as data, never run.
+		return array(
+			'search'        => array( array( 's' => 'static' ) ),
+			'meta query'    => array( array( 'meta_query' => array( array( 'key' => 'featured' ) ) ) ),
+			'meta key'      => array( array( 'meta_key' => 'featured' ) ),
+			'random order'  => array( array( 'orderby' => 'rand' ) ),
+			'comment order' => array( array( 'orderby' => 'comment_count' ) ),
+			'meta order'    => array( array( 'orderby' => 'meta_value_num' ) ),
+			'plugin var'    => array( array( 'event_after' => '2026-01-01' ) ),
+			'by title'      => array( array( 'title' => 'Hello' ) ),
+			'mime type'     => array( array( 'post_mime_type' => 'image' ) ),
+		);
+	}
+
+	public function test_a_post_that_moved_nothing_the_query_uses_does_not_match(): void {
+		$sig = QuerySignature::from_query_vars( array( 'post_type' => 'post' ) );
+		$this->assertFalse( QuerySignature::matches( $sig, $this->post( array( 'moved' => array() ) ) ) );
+		$this->assertFalse( QuerySignature::matches( $sig, $this->post( array( 'moved' => array( 'modified', 'titles' ) ) ) ), 'Date order ignores titles.' );
+		$this->assertTrue( QuerySignature::matches( $sig, $this->post( array( 'moved' => array( 'tt' ) ) ) ) );
+		$this->assertTrue( QuerySignature::matches( $sig, $this->post( array( 'moved' => array( 'meta' ) ) ) ) );
+		$this->assertTrue( QuerySignature::matches( $sig, $this->post( array( 'moved' => array( 'datetimes' ) ) ) ) );
+		$this->assertTrue( QuerySignature::matches( $sig, $this->post() ), 'Without "moved", anything may have changed.' );
+
+		$by_title = QuerySignature::from_query_vars( array( 'orderby' => 'title' ) );
+		$this->assertTrue( QuerySignature::matches( $by_title, $this->post( array( 'moved' => array( 'modified', 'titles' ) ) ) ) );
+
+		$search = QuerySignature::from_query_vars( array( 's' => 'hello' ) );
+		$this->assertTrue( QuerySignature::matches( $search, $this->post( array( 'moved' => array( 'modified' ) ) ) ), 'Content edits can change search results.' );
 	}
 
 	public function test_m_query_var_parses_into_date(): void {

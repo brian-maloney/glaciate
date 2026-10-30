@@ -28,9 +28,10 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 	}
 
 	private function changes(): array {
+		static $build = 999;
 		$this->listener->flush();
 		$out = array();
-		foreach ( ( new ChangeRepository() )->claim( 999 ) as $c ) {
+		foreach ( ( new ChangeRepository() )->claim( ++$build ) as $c ) {
 			$out[ $c['object_type'] . ':' . $c['object_key'] ] = $c['payload'];
 		}
 		return $out;
@@ -68,6 +69,60 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 		$p = $this->changes()[ "post:{$id}" ];
 		$this->assertContains( (int) get_term( $a )->term_taxonomy_id, $p['tt'] );
 		$this->assertContains( (int) get_term( $b )->term_taxonomy_id, $p['tt'] );
+	}
+
+	public function test_editing_content_records_no_term_changes(): void {
+		$cat = self::factory()->category->create();
+		$tag = self::factory()->tag->create();
+		$id  = self::factory()->post->create(
+			array(
+				'post_category' => array( $cat ),
+				'tags_input'    => array( $tag ),
+			)
+		);
+		$this->changes();
+		wp_update_post(
+			array(
+				'ID'           => $id,
+				'post_content' => 'Edited.',
+			)
+		);
+		$changes = $this->changes();
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertSame( array( "post:{$id}" ), array_keys( $changes ), 'Recounting unchanged terms is not a change.' );
+		$this->assertSame( array(), array_values( array_intersect( \Stillpress\Deps\QuerySignature::FIELDS, $changes[ "post:{$id}" ]['moved'] ) ) );
+	}
+
+	public function test_moved_fields_are_recorded(): void {
+		$cat = self::factory()->category->create();
+		$id  = self::factory()->post->create();
+		$this->changes();
+		wp_update_post(
+			array(
+				'ID'         => $id,
+				'post_title' => 'Renamed',
+			)
+		);
+		$this->assertContains( 'titles', $this->changes()[ "post:{$id}" ]['moved'] );
+
+		wp_set_post_categories( $id, array( $cat ), true );
+		$this->assertContains( 'tt', $this->changes()[ "post:{$id}" ]['moved'], 'Adding a term moves the terms even though "before" already lists them.' );
+
+		update_post_meta( $id, 'featured', '1' );
+		$this->assertContains( 'meta', $this->changes()[ "post:{$id}" ]['moved'] );
+
+		$new = self::factory()->post->create();
+		$this->assertArrayNotHasKey( 'moved', $this->changes()[ "post:{$new}" ], 'A new post has no "before".' );
+	}
+
+	public function test_a_term_count_that_moves_records_a_term_list_change(): void {
+		$cat = self::factory()->category->create();
+		$this->changes();
+		$id      = self::factory()->post->create( array( 'post_category' => array( $cat ) ) );
+		$changes = $this->changes();
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertArrayHasKey( 'term_count:category', $changes );
+		$this->assertArrayNotHasKey( "term:{$cat}", $changes, 'The term itself is unchanged.' );
 	}
 
 	public function test_unpublishing_keeps_publish_status_in_snapshot(): void {

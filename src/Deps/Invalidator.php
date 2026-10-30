@@ -95,6 +95,9 @@ final class Invalidator {
 				case 'option':
 					$keys['option'][] = $change['object_key'];
 					break;
+				case 'term_count':
+					$keys['tq'][] = $change['object_key'];
+					break;
 				case 'comment':
 					$any_comm = true;
 					break;

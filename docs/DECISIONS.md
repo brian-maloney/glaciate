@@ -338,3 +338,32 @@ plugin's own submission code, so its validation, mail templates, stored entries 
 
 Not supported: file uploads, multi-page Gravity Forms, and plugins' own captcha widgets (use the receiver's captcha
 instead). Revisit if people need uploads; they would need storage on the receiver.
+
+
+## D23. Incremental builds skip what an edit provably can't change
+
+The 100,000-address benchmark (M5) showed that editing one post's text rebuilt every page. Saving a post re-sets its
+terms and recounts them, which was recorded as a change to each term; every page that printed its post's categories
+depended on "any term in the taxonomy" and on those terms. The paginated archives (`/page/2/` … `/page/8000/`) all share
+one query signature, which matched any post. A one-line edit cost a full build. Three narrowings, each sound under the
+assumptions stated:
+
+- **A post's own terms depend on the post.** A term query scoped to `object_ids` (`get_the_terms()`, `the_category()`)
+  records the posts and the terms it returned, not `tq:<taxonomy>`. Its result changes only when those posts' term
+  assignments change (a change to the post) or one of those terms changes (`term:<id>`). Term *lists* (widgets, tag
+  clouds, the categories block) still record `tq`.
+- **Only a term count that moved is a change, and only to term lists.** The count is read before and after
+  `edited_term_taxonomy`; when it moved, a `term_count` change invalidates `tq:<taxonomy>`. Assigning a term to a post is
+  no longer a change to the term: the term's archive is found through the post's query signatures. Counts printed outside
+  a term list (a theme reading `$term->count` from `get_the_terms()`) are not tracked.
+- **Edits that move nothing a simple query uses don't match it.** A signature is marked `fix` when the query uses only
+  vars the signature or the snapshot covers (no search, meta, unknown vars a plugin may filter on, or random, meta or
+  comment ordering), and records the fields it is ordered by. The change listener records which snapshot fields an
+  edit moved (status, type, author, parent, slug, full date, terms, password, title, menu order, modified; any meta
+  write counts as moving). A post that moved none of the fields a `fix` query selects or sorts on is exactly where it
+  was in that query's results, and every page that showed it already depends on `post:<id>`. New posts have no
+  trustworthy "before" and match as before. Not covered: plugins that filter `posts_where` on a post's content.
+
+The differential test now has a page with a category list and a tag cloud, both with counts, and passes 200 random
+sequences; with the count change removed it fails within a few iterations. On the benchmark site a content or title
+edit renders 19 addresses instead of all of them.

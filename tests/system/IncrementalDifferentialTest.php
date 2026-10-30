@@ -182,6 +182,15 @@ final class IncrementalDifferentialTest extends SystemTestCase {
 		$parent = $this->new_page( 'Company', 0 );
 		$this->new_page( 'Team', $parent );
 		$this->new_page( 'Contact', 0 );
+		// Term lists that show counts and hide empty terms: they must follow every count change.
+		wp_insert_post(
+			array(
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => 'Topics',
+				'post_content' => '<!-- wp:categories {"showPostCounts":true} /--><!-- wp:tag-cloud {"showTagCounts":true} /-->',
+			)
+		);
 		unset( $cats );
 	}
 

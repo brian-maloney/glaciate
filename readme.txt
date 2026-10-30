@@ -3,7 +3,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -83,6 +83,14 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 1.0.0 (not released yet) =
+* Large sites: tested with 100,000 addresses. Paginated archives are listed from the database instead of found one link at a time, the build queue no longer slows down as it grows, and links are looked up a batch at a time.
+* Incremental builds rebuild far less: editing a post's text or title no longer rebuilds every archive page and every page that shows its categories.
+* The address limit now counts only pages found by following links, on top of everything listed from the database, and files such as images don't count (default 100,000).
+* Translations: the build log, deploy messages and the static search's result count (in every plural form) are translatable; admin styles follow right-to-left languages.
+* Accessibility: the search dialog and form answers announce reliably to screen readers, settings fields carry their help text, and publishing is announced when it starts and finishes.
+* The standalone form receiver is stored as a text template inside the plugin, so it can't run on the WordPress site.
 
 = 0.4.0 (in development) =
 * Forms on the static site: Contact Form 7, WPForms, Gravity Forms, comments and forms marked with `data-stillpress-form` post to a receiver, and WordPress hands each submission to the form plugin. Answers and field errors appear in the form; without JavaScript a short page answers.

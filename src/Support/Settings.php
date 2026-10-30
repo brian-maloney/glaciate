@@ -61,7 +61,7 @@ final class Settings {
 			'concurrency'                     => 4,
 			'connect_to'                      => '',
 			'feeds'                           => 'main',
-			'max_urls'                        => 50000,
+			'max_urls'                        => 100000,
 			// builtin: an index built in PHP and searched by the bundled script; pagefind: run the binary named by
 			// STILLPRESS_PAGEFIND_BINARY; pagefind_host: the host's build step runs Pagefind; off.
 			'search'                          => 'builtin',

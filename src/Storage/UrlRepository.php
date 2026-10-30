@@ -50,6 +50,61 @@ final class UrlRepository {
 	}
 
 	/**
+	 * Returns IDs for many URLs, adding the ones not stored yet.
+	 *
+	 * @param array<string,string> $urls   Canonical URL => kind (for new rows).
+	 * @param string               $source How new rows were found.
+	 * @return array<string,array{id:int,published:bool}> URL => ID and whether it is published now.
+	 */
+	public function ensure_many( array $urls, string $source = 'crawl' ): array {
+		global $wpdb;
+		$table = Schema::table( 'urls' );
+		$out   = $this->lookup( array_keys( $urls ) );
+		$new   = array_diff_key( $urls, $out );
+		foreach ( array_chunk( $new, 200, true ) as $chunk ) {
+			$rows   = array();
+			$values = array( $table );
+			foreach ( $chunk as $url => $kind ) {
+				$rows[] = '(%s, %s, %s, %s)';
+				array_push( $values, sha1( (string) $url ), (string) $url, (string) $kind, $source );
+			}
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Placeholders built above.
+			$wpdb->query( $wpdb->prepare( 'INSERT IGNORE INTO %i (url_hash, url, kind, source) VALUES ' . implode( ', ', $rows ), $values ) );
+		}
+		return $new ? $out + $this->lookup( array_keys( $new ) ) : $out;
+	}
+
+	/**
+	 * Finds stored URLs.
+	 *
+	 * @param string[] $urls Canonical URLs.
+	 * @return array<string,array{id:int,published:bool}> Stored URLs only.
+	 */
+	public function lookup( array $urls ): array {
+		global $wpdb;
+		$by_hash = array();
+		foreach ( $urls as $url ) {
+			$by_hash[ sha1( (string) $url ) ] = (string) $url;
+		}
+		$out = array();
+		foreach ( array_chunk( array_keys( $by_hash ), 500 ) as $chunk ) {
+			$in   = implode( ', ', array_fill( 0, count( $chunk ), '%s' ) );
+			$rows = $wpdb->get_results(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $in holds placeholders only.
+				$wpdb->prepare( "SELECT id, url_hash, content_hash IS NOT NULL AS published FROM %i WHERE url_hash IN ($in)", array_merge( array( Schema::table( 'urls' ) ), $chunk ) ),
+				ARRAY_A
+			);
+			foreach ( (array) $rows as $row ) {
+				$out[ $by_hash[ $row['url_hash'] ] ] = array(
+					'id'        => (int) $row['id'],
+					'published' => (bool) $row['published'],
+				);
+			}
+		}
+		return $out;
+	}
+
+	/**
 	 * Looks up a URL row by URL.
 	 *
 	 * @param string $url Canonical URL.

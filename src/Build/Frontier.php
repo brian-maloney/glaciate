@@ -27,6 +27,14 @@ final class Frontier {
 	private $build_id;
 
 	/**
+	 * URLs per state, read once and then kept up to date by this object's own writes (a slice holds the build lock, so
+	 * no one else writes this build's queue meanwhile). Null until first needed.
+	 *
+	 * @var array<string,int>|null
+	 */
+	private $counts = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param int $build_id Build ID.
@@ -58,6 +66,9 @@ final class Frontier {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Placeholders built above.
 			$added += (int) $wpdb->query( $wpdb->prepare( 'INSERT IGNORE INTO %i (build_id, url_id, depth) VALUES ' . implode( ', ', $placeholders ), $values ) );
 		}
+		if ( null !== $this->counts ) {
+			$this->counts['pending'] += $added;
+		}
 		return $added;
 	}
 
@@ -84,27 +95,35 @@ final class Frontier {
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $in holds placeholders only.
 				$wpdb->prepare( "UPDATE %i SET state = 'running', attempts = attempts + 1 WHERE build_id = %d AND url_id IN ($in)", array_merge( array( $table, $this->build_id ), array_keys( $out ) ) )
 			);
+			if ( null !== $this->counts ) {
+				$this->counts['pending'] -= count( $out );
+				$this->counts['running'] += count( $out );
+			}
 		}
 		return $out;
 	}
 
 	/**
-	 * Sets the state of one URL.
+	 * Sets the state of claimed (running) URLs.
 	 *
-	 * @param int    $url_id URL ID.
-	 * @param string $state  done, failed or skipped.
+	 * @param int[]  $url_ids URL IDs.
+	 * @param string $state   done, failed or skipped.
 	 * @return void
 	 */
-	public function mark( int $url_id, string $state ): void {
+	public function mark( array $url_ids, string $state ): void {
 		global $wpdb;
-		$wpdb->update(
-			Schema::table( 'build_urls' ),
-			array( 'state' => $state ),
-			array(
-				'build_id' => $this->build_id,
-				'url_id'   => $url_id,
-			)
-		);
+		$url_ids = array_values( array_unique( array_map( 'intval', $url_ids ) ) );
+		foreach ( array_chunk( $url_ids, 500 ) as $chunk ) {
+			$in      = implode( ', ', array_fill( 0, count( $chunk ), '%d' ) );
+			$changed = (int) $wpdb->query(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $in holds placeholders only.
+				$wpdb->prepare( "UPDATE %i SET state = %s WHERE build_id = %d AND state = 'running' AND url_id IN ($in)", array_merge( array( Schema::table( 'build_urls' ), $state, $this->build_id ), $chunk ) )
+			);
+			if ( null !== $this->counts ) {
+				$this->counts['running'] -= $changed;
+				$this->counts[ $state ]  += $changed;
+			}
+		}
 	}
 
 	/**
@@ -118,6 +137,7 @@ final class Frontier {
 		$table = Schema::table( 'build_urls' );
 		$wpdb->query( $wpdb->prepare( "UPDATE %i SET state = 'failed' WHERE build_id = %d AND state = 'running' AND attempts >= %d", $table, $this->build_id, $max_attempts ) );
 		$wpdb->query( $wpdb->prepare( "UPDATE %i SET state = 'pending' WHERE build_id = %d AND state = 'running'", $table, $this->build_id ) );
+		$this->counts = null;
 	}
 
 	/**
@@ -132,12 +152,38 @@ final class Frontier {
 	}
 
 	/**
+	 * The URLs not in this build's queue yet.
+	 *
+	 * @param int[] $url_ids URL IDs.
+	 * @return int[]
+	 */
+	public function missing( array $url_ids ): array {
+		global $wpdb;
+		$url_ids = array_values( array_unique( array_map( 'intval', $url_ids ) ) );
+		$queued  = array();
+		foreach ( array_chunk( $url_ids, 500 ) as $chunk ) {
+			$in     = implode( ', ', array_fill( 0, count( $chunk ), '%d' ) );
+			$queued = array_merge(
+				$queued,
+				(array) $wpdb->get_col(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $in holds placeholders only.
+					$wpdb->prepare( "SELECT url_id FROM %i WHERE build_id = %d AND url_id IN ($in)", array_merge( array( Schema::table( 'build_urls' ), $this->build_id ), $chunk ) )
+				)
+			);
+		}
+		return array_values( array_diff( $url_ids, array_map( 'intval', $queued ) ) );
+	}
+
+	/**
 	 * Number of URLs in each state.
 	 *
 	 * @return array<string,int>
 	 */
 	public function counts(): array {
 		global $wpdb;
+		if ( null !== $this->counts ) {
+			return $this->counts;
+		}
 		$rows = $wpdb->get_results(
 			$wpdb->prepare( 'SELECT state, COUNT(*) AS n FROM %i WHERE build_id = %d GROUP BY state', Schema::table( 'build_urls' ), $this->build_id ),
 			ARRAY_A
@@ -152,6 +198,7 @@ final class Frontier {
 		foreach ( (array) $rows as $row ) {
 			$out[ $row['state'] ] = (int) $row['n'];
 		}
+		$this->counts = $out;
 		return $out;
 	}
 
@@ -186,5 +233,6 @@ final class Frontier {
 	public function clear(): void {
 		global $wpdb;
 		$wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE build_id = %d', Schema::table( 'build_urls' ), $this->build_id ) );
+		$this->counts = null;
 	}
 }

@@ -15,7 +15,7 @@ namespace Stillpress\Storage;
 final class Schema {
 
 	/** Bump when the table definitions change. */
-	const VERSION = 2;
+	const VERSION = 3;
 
 	/** Option holding the installed schema version. */
 	const OPTION = 'stillpress_schema_version';
@@ -117,7 +117,7 @@ depth smallint(5) unsigned NOT NULL DEFAULT 0,
 state varchar(10) NOT NULL DEFAULT 'pending',
 attempts tinyint(3) unsigned NOT NULL DEFAULT 0,
 PRIMARY KEY  (build_id,url_id),
-KEY build_state (build_id,state)
+KEY claim (build_id,state,depth,url_id)
 ) $charset;";
 
 		$sql[] = "CREATE TABLE {$t['deps']} (
@@ -189,6 +189,12 @@ PRIMARY KEY  (kind,dirty_key)
 ) $charset;";
 
 		dbDelta( $sql );
+
+		// dbDelta adds indexes but never drops them. Version 3 replaced build_urls.build_state with "claim", which also
+		// orders the next batch, so claiming doesn't sort the whole queue (quadratic over a 100,000-URL build).
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW INDEX FROM %i WHERE Key_name = %s', $t['build_urls'], 'build_state' ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Schema upgrade of our own table.
+			$wpdb->query( $wpdb->prepare( 'ALTER TABLE %i DROP INDEX build_state', $t['build_urls'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Schema upgrade of our own table.
+		}
 		update_option( self::OPTION, self::VERSION, false );
 	}
 

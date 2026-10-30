@@ -56,11 +56,13 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 
 ## Discovery / crawl
 - Seeds: home; core sitemaps (`wp-sitemap.xml` and any index listed in robots.txt); enumerated content (public posts of
-  public post types, term archives, author archives, paginated archives up to a limit); feeds; robots.txt; favicon;
+  public post types, term archives, author archives, and every later page of the blog, term, author and post type
+  archives, from their post counts and `posts_per_page`, so they don't form a chain of links (D24)); feeds; robots.txt; favicon;
   additional URLs and paths from settings; a 404 rendered from a guaranteed-missing URL and saved as `404.html`.
 - Frontier: a deduplicated, normalized URL set held in a DB table. `WP_HTML_Tag_Processor` (core) extracts links from
   href/src/srcset/poster/`link[rel]`/meta; a CSS tokenizer handles `url()` and `@import`. Only same-origin URLs are
-  followed. Limits: depth, URL count, and a trap guard (calendar/infinite pagination). Query-string URLs are skipped
+  followed. Limits: depth, the address limit (pages found through links, beyond the seeds; files don't count), and a trap guard
+  (calendar/infinite pagination). Query-string URLs are skipped
   and reported by default.
 - Assets under uploads, themes, plugins or wp-includes are **copied from the filesystem**, which is faster than HTTP.
   This only happens after the path is proven inside an allowed root and its extension is on the allowlist (see the

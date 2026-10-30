@@ -11,6 +11,12 @@
 - **Visual-diff themes:** Twenty Twenty-Five (block); **Astra** (classic; the first production sites use it, so it gets the most fixture content);
   Hello Elementor + Elementor (page builder). All three are GPL. Twenty Twenty-One is a cheap fourth job if a vanilla classic baseline proves useful.
 
+- **Site size:** tested to about 128,000 addresses (80,000 posts with their term, author and paginated archives) with
+  `npm run perf` (D24). A full build's time is mostly WordPress rendering pages: 43 minutes for 128,000 addresses at concurrency 8
+  on the benchmark theme, so real themes take longer in proportion to their page time. Builds run in background slices of 20 seconds
+  and resume after interruptions; `wp stillpress build --sync` runs one without slices. The address limit (default
+  100,000) counts only pages found through links, beyond everything listed from the database; files don't count.
+
 
 ## Deploy targets
 

@@ -110,6 +110,66 @@ final class FullBuildTest extends SystemTestCase {
 		$this->assertSame( 0, $second['stats']['deploy']['added'] + $second['stats']['deploy']['modified'] + $second['stats']['deploy']['deleted'], 'Builds must be deterministic.' );
 	}
 
+	public function test_address_limit_caps_only_what_links_lead_to(): void {
+		$links = '';
+		foreach ( array( 2024, 2025, 2026 ) as $year ) {
+			wp_insert_post(
+				array(
+					'post_title'  => "Story from {$year}",
+					'post_name'   => "story-{$year}",
+					'post_status' => 'publish',
+					'post_date'   => "{$year}-05-01 12:00:00",
+				)
+			);
+			$links .= '<a href="' . home_url( "/{$year}/" ) . '">' . $year . '</a> ';
+		}
+		// Year archives are never listed from the database: only links lead to them.
+		wp_insert_post(
+			array(
+				'post_title'   => 'Years',
+				'post_name'    => 'years',
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_content' => '<!-- wp:paragraph --><p>' . $links . '</p><!-- /wp:paragraph -->',
+			)
+		);
+		\Stillpress\Support\Settings::update( array( 'max_urls' => 1 ) );
+		$build = $this->build();
+		$files = $this->snapshot();
+
+		foreach ( array( 'story-2024', 'story-2025', 'story-2026', 'years' ) as $slug ) {
+			$this->assertArrayHasKey( "{$slug}/index.html", $files, 'Posts listed from the database are never cut.' );
+		}
+		$this->assertSame( 1, $build['stats']['followed'], 'One page was queued by following links.' );
+		$this->assertLessThanOrEqual( 1, count( preg_grep( '#^\d{4}/index\.html$#', array_keys( $files ) ) ) );
+		$this->assertNotEmpty( preg_grep( '#\.css$#', array_keys( $files ) ), 'Files pages use are not limited.' );
+		$this->assertStringContainsString( 'Reached the address limit', $this->log( (int) $build['id'] ) );
+	}
+
+	public function test_paginated_archives_are_listed_not_crawled(): void {
+		$cat = wp_insert_term( 'Busy', 'category', array( 'slug' => 'busy' ) )['term_id'];
+		for ( $n = 1; $n <= 10; $n++ ) {
+			wp_insert_post(
+				array(
+					'post_title'    => "Busy {$n}",
+					'post_status'   => 'publish',
+					'post_category' => array( $cat ),
+				)
+			);
+		}
+		$build = $this->build();
+		$files = $this->snapshot();
+		// Three posts a page: four pages each for the blog and the category.
+		foreach ( array( 'page/4/index.html', 'category/busy/page/4/index.html' ) as $path ) {
+			$this->assertArrayHasKey( $path, $files );
+		}
+		$this->assertArrayNotHasKey( 'page/5/index.html', $files );
+		foreach ( array( '/page/4/', '/category/busy/page/4/' ) as $path ) {
+			$row = ( new \Stillpress\Storage\UrlRepository() )->find( home_url( $path ) );
+			$this->assertSame( 'paged', $row['source'] ?? null, "{$path} is listed, not found one link at a time.\n" . $this->log( (int) $build['id'] ) );
+		}
+	}
+
 	public function test_user_redirects_and_404(): void {
 		\Stillpress\Support\Settings::update( array( 'redirects' => "/old-page/ /new-page/ 301\n/gone https://example.org/elsewhere 302" ) );
 		$this->build();

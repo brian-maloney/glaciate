@@ -368,6 +368,47 @@ The differential test now has a page with a category list and a tag cloud, both 
 sequences; with the count change removed it fails within a few iterations. On the benchmark site a content or title
 edit renders 19 addresses instead of all of them.
 
+
+## D24. Builds of 100,000 addresses: list what can be listed, never rescan the queue
+
+Measured with `npm run perf` (tests/perf): 80,000 posts in 50 categories and 500 tags, by 5 authors, 10 a page, on the
+one-file benchmark theme; wp-env on an Apple-silicon laptop, concurrency 8. That is about 128,000 addresses.
+
+- **The queue is never rescanned per batch.** Claiming the next URLs sorted the whole pending queue
+  (`ORDER BY depth, url_id` on an index that only had `build_id, state`), and every batch of 8 recounted the queue by
+  state, once per page with links. Both grow with the queue, so a build was quadratic. The `claim` index covers the
+  order, and `Frontier` keeps its counts in memory once read: a slice holds the build lock, so only it changes them.
+  Pages are marked done a batch at a time.
+- **Links are looked up a batch at a time.** A page's links were each a `SELECT` (and an `INSERT` when new): 25 a page,
+  2.5 million per build. One lookup and one multi-row insert per batch now. Seeds are inserted the same way, and
+  permalinks are primed a batch at a time.
+- **Paginated archives are listed, not crawled.** `/page/N/` of the blog, each term, each author and each post type
+  archive is only linked from the page before it, so the crawler found them one level at a time. In the first
+  100k run, 24 minutes in, 92,000 pages were done and the archives were 12 levels deep, each level taking about 20
+  seconds; the blog alone needs about 4,000 levels, with a level holding two pages once the shorter archives end. The seeds now list them from the counts and
+  `posts_per_page`. A theme that shows more posts per page makes the last few answer 404 (dropped, at the cost of a
+  render); one that shows fewer has the rest found through links as before.
+- **The address limit counts pages that links lead to.** It exists to stop crawler traps, which only links to pages
+  create. It used to count every address in the queue, files included, so its default (50,000) cut big sites short. It
+  now counts pages a build queued by following links, beyond everything listed from the database, and defaults to
+  100,000.
+
+Results with all of the above (wp-env, concurrency 8; times include the benchmark's query logging):
+
+| Build | Pages rendered | Time | Notes |
+|---|---|---|---|
+| Full | 127,962 | 42.6 min | 35.5 min rendering (~60 a second), 7 min search index, generated files and folder deploy; 0 failed |
+| No change | 0 | 1.2 s | |
+| Edit a post's text | 58 | 9.7 s | the post, its neighbours, the archive pages that show it |
+| Edit a post's title | 58 | 4.3 s | |
+| New post | 16,055 | 5.9 min | every later page of the blog, its category and its author shifts by one post |
+
+Memory stays flat while rendering (54 MB over 3,000 pages in one process) and peaks at 53 MB when finalizing and
+deploying the whole 133,000-file manifest. The Publish screen's status takes 30 ms and Site Health 72 ms.
+
+Not addressed: rendering itself (WordPress's own time per page) dominates; raise concurrency where the server allows.
+
+
 ## D25. The build log is written in the site's language; pure classes stay in English
 
 The build log is read on the Publish screen and through WP-CLI, so its lines are translated, with `__()` / `_n()` at
@@ -383,6 +424,7 @@ result count needs every plural form of the language: `Frontend::result_counts()
 digit per count from 0 to 199 naming the form (cut after the last change, so English sends "010"); gettext plural rules
 depend only on n, n % 10 and n % 100, so the client maps larger counts to 100 + n % 100. `npm run i18n:check` (CI)
 fails on any `make-pot` warning.
+
 
 ## D26. Accessibility: WCAG 2.2 AA for what Stillpress adds, checked with axe-core in Playwright
 

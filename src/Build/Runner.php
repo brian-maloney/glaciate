@@ -253,8 +253,8 @@ final class Runner {
 			$stats['seed_cursor'] = array( 'stage' => 'core' );
 			( new Invalidator() )->consume_all( (int) $build['id'] );
 		}
-		$batch = ( new Seeds() )->next( (array) $stats['seed_cursor'] );
-		$ids   = array();
+		$batch  = ( new Seeds() )->next( (array) $stats['seed_cursor'] );
+		$by_src = array();
 		foreach ( $batch['seeds'] as $seed ) {
 			$classified = $pipeline->classifier->classify( $seed['url'] );
 			if ( null === $classified ) {
@@ -267,9 +267,15 @@ final class Runner {
 					continue;
 				}
 			}
-			$ids[] = $this->urls->ensure( $classified['url'], $seed['source'], $classified['kind'] );
+			$by_src[ $seed['source'] ][ $classified['url'] ] = $classified['kind'];
 		}
-		$frontier->add( $ids );
+		foreach ( $by_src as $source => $urls ) {
+			$frontier->add( wp_list_pluck( $this->urls->ensure_many( $urls, (string) $source ), 'id' ) );
+		}
+		// Seeding loads every post and term into the in-memory object cache, which nothing empties during a long run.
+		if ( wp_cache_supports( 'flush_runtime' ) ) {
+			wp_cache_flush_runtime();
+		}
 		$this->builds->merge_stats( (int) $build['id'], array( 'seed_cursor' => $batch['cursor'] ) );
 		return 'done' === $batch['cursor']['stage'];
 	}
@@ -325,36 +331,86 @@ final class Runner {
 			) : $processor->process( $row, $result );
 		}
 
-		$max_urls = (int) $pipeline->settings['max_urls'];
+		$states = array();
+		$found  = array();
 		foreach ( $results as $id => $outcome ) {
-			$frontier->mark( (int) $id, 'failed' === $outcome['outcome'] ? 'failed' : 'done' );
-			if ( ! $outcome['discovered'] ) {
-				continue;
-			}
-			$new_ids = array();
-			foreach ( $outcome['discovered'] as $found ) {
-				$existing = $this->urls->find( $found['url'] );
-				// Incremental builds only follow links to URLs that aren't published right now: new URLs, and URLs
-				// that were gone (404) or redirecting before, which the change may have brought back.
-				if ( 'full' !== $build['kind'] && null !== $existing && null !== $existing['content_hash'] ) {
-					continue;
-				}
-				$new_ids[] = null !== $existing ? $existing['id'] : $this->urls->ensure( $found['url'], 'crawl', $found['kind'] );
-			}
-			if ( $new_ids ) {
-				if ( $frontier->total() + count( $new_ids ) > $max_urls ) {
-					$logger->warning( sprintf( 'Reached the limit of %d URLs; some links were not followed.', $max_urls ) );
-					$new_ids = array_slice( $new_ids, 0, max( 0, $max_urls - $frontier->total() ) );
-				}
-				$frontier->add( $new_ids, $claimed[ $id ] + 1 );
+			$states[ 'failed' === $outcome['outcome'] ? 'failed' : 'done' ][] = (int) $id;
+			foreach ( $outcome['discovered'] as $link ) {
+				$found[ $link['url'] ] = $link['kind'];
 			}
 		}
-		$this->builds->merge_stats( $build_id, array( 'urls' => $frontier->counts() ) );
+		foreach ( $states as $state => $ids ) {
+			$frontier->mark( $ids, $state );
+		}
+		$followed = (int) ( $build['stats']['followed'] ?? 0 );
+		if ( $found ) {
+			$followed = $this->queue_discovered( $build, $results, $claimed, $found, $frontier, $logger, (int) $pipeline->settings['max_urls'], $followed );
+		}
+		$this->builds->merge_stats(
+			$build_id,
+			array(
+				'urls'     => $frontier->counts(),
+				'followed' => $followed,
+			)
+		);
 
 		// The HTTP library leaves reference cycles (transport <-> hooks) holding whole response bodies. PHP only
 		// collects cycles when its root buffer fills, which a long build can outrun, so collect after each batch.
 		gc_collect_cycles();
 		return true;
+	}
+
+	/**
+	 * Queues the links found in a batch of pages, one lookup for the whole batch.
+	 *
+	 * The address limit stops crawler traps (calendars, endless archives), which only links to pages can make. It counts
+	 * pages a build queued by following links, so the posts, terms and archives listed from the database, and the
+	 * files pages use, never use it up.
+	 *
+	 * @param array<string,mixed>                                                                     $build     Build row.
+	 * @param array<int,array{outcome:string,discovered:array<int,array{url:string,kind:string}>}> $results   Outcomes by URL ID.
+	 * @param array<int,int>                                                                          $claimed   URL ID => depth.
+	 * @param array<string,string>                                                                    $found     Every discovered URL => kind.
+	 * @param Frontier                                                                                $frontier  Queue.
+	 * @param Logger                                                                                  $logger    Build log.
+	 * @param int                                                                                     $max_pages The address limit.
+	 * @param int                                                                                     $followed  Pages queued through links so far.
+	 * @return int Pages queued through links, including this batch's.
+	 */
+	private function queue_discovered( array $build, array $results, array $claimed, array $found, Frontier $frontier, Logger $logger, int $max_pages, int $followed ): int {
+		$known = $this->urls->lookup( array_keys( $found ) );
+		// Incremental builds only follow links to URLs that aren't published right now: new URLs, and URLs that were
+		// gone (404) or redirecting before, which the change may have brought back.
+		if ( 'full' !== $build['kind'] ) {
+			foreach ( $known as $url => $row ) {
+				if ( $row['published'] ) {
+					unset( $found[ $url ], $known[ $url ] );
+				}
+			}
+		}
+		$ids = $known + $this->urls->ensure_many( array_diff_key( $found, $known ) );
+
+		$by_depth = array();
+		foreach ( $results as $id => $outcome ) {
+			foreach ( $outcome['discovered'] as $link ) {
+				if ( isset( $ids[ $link['url'] ] ) ) {
+					$by_depth[ $claimed[ $id ] + 1 ][ 'page' === $link['kind'] ? 'pages' : 'files' ][ $ids[ $link['url'] ]['id'] ] = true;
+				}
+			}
+		}
+		ksort( $by_depth );
+		foreach ( $by_depth as $depth => $sets ) {
+			if ( ! empty( $sets['files'] ) ) {
+				$frontier->add( array_keys( $sets['files'] ), $depth );
+			}
+			$pages = empty( $sets['pages'] ) ? array() : $frontier->missing( array_keys( $sets['pages'] ) );
+			if ( count( $pages ) > $max_pages - $followed ) {
+				$logger->warning( __( 'Reached the address limit (Settings → Advanced); some links were not followed.', 'stillpress' ) );
+				$pages = array_slice( $pages, 0, max( 0, $max_pages - $followed ) );
+			}
+			$followed += $frontier->add( $pages, $depth );
+		}
+		return $followed;
 	}
 
 	/**

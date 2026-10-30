@@ -835,7 +835,7 @@ final class SettingsPage {
 			esc_attr( self::name( 'max_urls' ) ),
 			(int) Settings::get( 'max_urls' )
 		);
-		self::description( 'stillpress-max-urls', array( __( 'Stops the crawler from following links forever, for example on infinite calendars.', 'stillpress' ) ) );
+		self::description( 'stillpress-max-urls', array( __( 'How many pages the crawler may find by following links, beyond the posts, pages, terms, authors and archive pages it lists from the database. Files such as images don\'t count. Stops it from following links forever, for example on infinite calendars.', 'stillpress' ) ) );
 	}
 
 	/**

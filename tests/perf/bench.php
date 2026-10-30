@@ -73,6 +73,16 @@ function stillpress_perf_build( string $kind ): array {
 	wp_cache_flush();
 	stillpress_perf_drain( $digests );
 	$digests = array();
+	// A slice can run hundreds of thousands of queries (a local deploy is one slice); drain as they pile up, or the
+	// saved queries themselves become the peak memory.
+	$drain = static function ( $query ) use ( &$digests ) {
+		global $wpdb;
+		if ( count( $wpdb->queries ) >= 5000 ) {
+			stillpress_perf_drain( $digests );
+		}
+		return $query;
+	};
+	add_filter( 'query', $drain );
 	if ( function_exists( 'memory_reset_peak_usage' ) ) {
 		memory_reset_peak_usage();
 	}
@@ -93,6 +103,7 @@ function stillpress_perf_build( string $kind ): array {
 		}
 	);
 	$phases[ $phase ] = round( ( $phases[ $phase ] ?? 0 ) + microtime( true ) - $phase_started, 1 );
+	remove_filter( 'query', $drain );
 	stillpress_perf_drain( $digests );
 
 	uasort(

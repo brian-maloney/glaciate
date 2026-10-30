@@ -36,6 +36,7 @@ npm run test:e2e            # Playwright: live vs static screenshots, 3 themes (
 npm run sftp:start          # Test-only SFTP server as sftp.test on the wp-env network (SftpTest skips without it)
 npm run git:start           # Test-only HTTPS Git server as git.test (GitTest skips without it)
 npm run check:licenses      # Runtime Composer dependencies must be GPL-compatible
+npm run perf -- seed 80000  # Benchmark site, ~100k addresses (ERASES :8889); then `npm run perf -- bench` (tests/perf/README.md)
 npm run wp -- stillpress build --sync   # WP-CLI inside the dev site
 ```
 

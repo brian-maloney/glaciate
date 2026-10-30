@@ -1,0 +1,7 @@
+/*
+Theme Name: Stillpress Perf
+Description: Minimal classic theme for the Stillpress performance benchmark. Not for real sites.
+Version: 1.0
+License: GPL-2.0-or-later
+*/
+body { font: 16px/1.5 sans-serif; max-width: 40em; margin: 0 auto; }

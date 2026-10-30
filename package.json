@@ -30,7 +30,8 @@
     "sftp:start": "bin/sftp-test-server.sh start",
     "sftp:stop": "bin/sftp-test-server.sh stop",
     "git:start": "bin/git-test-server.sh start",
-    "git:stop": "bin/git-test-server.sh stop"
+    "git:stop": "bin/git-test-server.sh stop",
+    "perf": "bin/perf.sh"
   },
   "engines": {
     "node": ">=20"

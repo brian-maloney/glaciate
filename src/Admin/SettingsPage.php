@@ -101,7 +101,7 @@ final class SettingsPage {
 			}
 		}
 		self::field( 'public_url', __( 'Public address', 'stillpress' ), 'stillpress_deploy', array( self::class, 'field_public_url' ) );
-		self::field( 'publish_mode', __( 'Publish changes', 'stillpress' ), 'stillpress_publishing', array( self::class, 'field_publish_mode' ) );
+		self::field( 'publish_mode', __( 'Publish changes', 'stillpress' ), 'stillpress_publishing', array( self::class, 'field_publish_mode' ), false );
 		self::field( 'full_rebuild', __( 'Full rebuild', 'stillpress' ), 'stillpress_publishing', array( self::class, 'field_full_rebuild' ) );
 		self::field( 'additional_urls', __( 'Extra addresses', 'stillpress' ), 'stillpress_content', array( self::class, 'field_additional_urls' ) );
 		self::field( 'exclude', __( 'Leave out', 'stillpress' ), 'stillpress_content', array( self::class, 'field_exclude' ) );
@@ -126,10 +126,26 @@ final class SettingsPage {
 	 * @param string   $title    Label.
 	 * @param string   $section  Section ID.
 	 * @param callable $callback Renderer.
+	 * @param bool     $label    Link the title to the input; false for a group of inputs in a fieldset with a legend.
 	 * @return void
 	 */
-	private static function field( string $key, string $title, string $section, callable $callback ): void {
-		add_settings_field( 'stillpress_' . $key, $title, $callback, Admin::SETTINGS_PAGE, $section, array( 'label_for' => 'stillpress-' . str_replace( '_', '-', $key ) ) );
+	private static function field( string $key, string $title, string $section, callable $callback, bool $label = true ): void {
+		add_settings_field( 'stillpress_' . $key, $title, $callback, Admin::SETTINGS_PAGE, $section, $label ? array( 'label_for' => 'stillpress-' . str_replace( '_', '-', $key ) ) : array() );
+	}
+
+	/**
+	 * Help text for an input, which the input names with aria-describedby="{$input_id}-description".
+	 *
+	 * @param string   $input_id Input element ID.
+	 * @param string[] $texts    Paragraphs.
+	 * @return void
+	 */
+	private static function description( string $input_id, array $texts ): void {
+		echo '<div id="' . esc_attr( $input_id . '-description' ) . '">';
+		foreach ( $texts as $text ) {
+			echo '<p class="description">' . esc_html( $text ) . '</p>';
+		}
+		echo '</div>';
 	}
 
 	/**
@@ -345,10 +361,8 @@ final class SettingsPage {
 		if ( ! Settings::is_pinned( $key ) ) {
 			return false;
 		}
-		echo '<p class="description">';
 		/* translators: %s: constant name. */
-		echo esc_html( sprintf( __( 'Set by %s in wp-config.php.', 'stillpress' ), Settings::CONSTANTS[ $key ] ) );
-		echo '</p>';
+		self::description( 'stillpress-' . str_replace( '_', '-', $key ), array( sprintf( __( 'Set by %s in wp-config.php.', 'stillpress' ), Settings::CONSTANTS[ $key ] ) ) );
 		return true;
 	}
 
@@ -377,17 +391,18 @@ final class SettingsPage {
 		$value   = (string) Settings::get( 'local_path' );
 		$locked  = Settings::is_pinned( 'local_path' ) || ! self::can_edit_paths();
 		printf(
-			'<input type="text" class="large-text code" id="stillpress-local-path" name="%s" value="%s" placeholder="%s" %s>',
+			'<input type="text" class="large-text code" id="stillpress-local-path" name="%s" value="%s" placeholder="%s" aria-describedby="stillpress-local-path-description" %s>',
 			esc_attr( self::name( 'local_path' ) ),
 			esc_attr( $value ),
 			esc_attr( $default ),
 			disabled( $locked, true, false )
 		);
 		if ( ! self::pinned_note( 'local_path' ) ) {
-			echo '<p class="description">' . esc_html__( 'Used when the destination is a folder. Leave empty for the default. The folder must be empty or already used by this plugin; files this plugin did not create are never deleted.', 'stillpress' ) . '</p>';
+			$texts = array( __( 'Used when the destination is a folder. Leave empty for the default. The folder must be empty or already used by this plugin; files this plugin did not create are never deleted.', 'stillpress' ) );
 			if ( ! self::can_edit_paths() ) {
-				echo '<p class="description">' . esc_html__( 'Only a network administrator can change this.', 'stillpress' ) . '</p>';
+				$texts[] = __( 'Only a network administrator can change this.', 'stillpress' );
 			}
+			self::description( 'stillpress-local-path', $texts );
 		}
 	}
 
@@ -398,14 +413,14 @@ final class SettingsPage {
 	 */
 	public static function field_public_url(): void {
 		printf(
-			'<input type="url" class="regular-text code" id="stillpress-public-url" name="%s" value="%s" placeholder="%s" %s>',
+			'<input type="url" class="regular-text code" id="stillpress-public-url" name="%s" value="%s" placeholder="%s" aria-describedby="stillpress-public-url-description" %s>',
 			esc_attr( self::name( 'public_url' ) ),
 			esc_attr( (string) Settings::get( 'public_url' ) ),
 			esc_attr( home_url() ),
 			disabled( Settings::is_pinned( 'public_url' ), true, false )
 		);
 		if ( ! self::pinned_note( 'public_url' ) ) {
-			echo '<p class="description">' . esc_html__( 'The address visitors will use. Leave empty to keep this site\'s address.', 'stillpress' ) . '</p>';
+			self::description( 'stillpress-public-url', array( __( 'The address visitors will use. Leave empty to keep this site\'s address.', 'stillpress' ) ) );
 		}
 	}
 
@@ -421,7 +436,7 @@ final class SettingsPage {
 			'scheduled' => __( 'At set times', 'stillpress' ),
 			'manual'    => __( 'Only when I click Publish', 'stillpress' ),
 		);
-		echo '<fieldset id="stillpress-publish-mode"><legend class="screen-reader-text">' . esc_html__( 'Publish changes', 'stillpress' ) . '</legend>';
+		echo '<fieldset id="stillpress-publish-mode" aria-describedby="stillpress-publish-mode-description"><legend class="screen-reader-text">' . esc_html__( 'Publish changes', 'stillpress' ) . '</legend>';
 		foreach ( $options as $value => $label ) {
 			printf(
 				'<label><input type="radio" name="%s" value="%s" %s> %s</label><br>',
@@ -454,7 +469,7 @@ final class SettingsPage {
 			);
 		}
 		echo '</fieldset></div>';
-		echo '<p class="description">' . esc_html__( 'Only the pages affected by a change are rebuilt.', 'stillpress' ) . '</p>';
+		self::description( 'stillpress-publish-mode', array( __( 'Only the pages affected by a change are rebuilt.', 'stillpress' ) ) );
 	}
 
 	/**
@@ -487,13 +502,15 @@ final class SettingsPage {
 			'weekly' => __( 'Every week', 'stillpress' ),
 			'off'    => __( 'Never', 'stillpress' ),
 		);
-		echo '<select id="stillpress-full-rebuild" name="' . esc_attr( self::name( 'full_rebuild' ) ) . '">';
+		echo '<select id="stillpress-full-rebuild" name="' . esc_attr( self::name( 'full_rebuild' ) ) . '" aria-describedby="stillpress-full-rebuild-description">';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'full_rebuild' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		echo '</select> ';
+		// The hidden words complete the names screen readers announce ("Weekly rebuild on", "Full rebuild at").
 		printf(
-			'<label>%s <select name="%s">',
+			'<label><span class="screen-reader-text">%s</span> %s <select name="%s">',
+			esc_html__( 'Weekly rebuild', 'stillpress' ),
 			esc_html__( 'on', 'stillpress' ),
 			esc_attr( self::name( 'full_rebuild_day' ) )
 		);
@@ -502,13 +519,14 @@ final class SettingsPage {
 		}
 		echo '</select></label> ';
 		printf(
-			'<label>%s <input type="time" name="%s" value="%s" step="60"></label>',
+			'<label><span class="screen-reader-text">%s</span> %s <input type="time" name="%s" value="%s" step="60"></label>',
+			esc_html__( 'Full rebuild', 'stillpress' ),
 			esc_html__( 'at', 'stillpress' ),
 			esc_attr( self::name( 'full_rebuild_time' ) ),
 			esc_attr( (string) Settings::get( 'full_rebuild_time' ) )
 		);
 		/* translators: %s: timezone name. */
-		echo '<p class="description">' . esc_html( sprintf( __( 'A full rebuild catches changes no plugin announces, such as content from external services. Pick a quiet time; the day applies to weekly rebuilds. Times are in the site\'s timezone (%s).', 'stillpress' ), wp_timezone_string() ) ) . '</p>';
+		self::description( 'stillpress-full-rebuild', array( sprintf( __( 'A full rebuild catches changes no plugin announces, such as content from external services. Pick a quiet time; the day applies to weekly rebuilds. Times are in the site\'s timezone (%s).', 'stillpress' ), wp_timezone_string() ) ) );
 	}
 
 	/**
@@ -530,13 +548,13 @@ final class SettingsPage {
 			);
 		}
 		printf(
-			'<textarea class="large-text code" rows="4" id="stillpress-%s" name="%s" placeholder="%s">%s</textarea>',
+			'<textarea class="large-text code" rows="4" id="stillpress-%1$s" name="%2$s" placeholder="%3$s" aria-describedby="stillpress-%1$s-description">%4$s</textarea>',
 			esc_attr( str_replace( '_', '-', $key ) ),
 			esc_attr( self::name( $key ) ),
 			esc_attr( $placeholder ),
 			esc_textarea( implode( "\n", $value ) )
 		);
-		echo '<p class="description">' . esc_html( $description ) . '</p>';
+		self::description( 'stillpress-' . str_replace( '_', '-', $key ), array( $description ) );
 	}
 
 	/**
@@ -596,20 +614,23 @@ final class SettingsPage {
 			'pagefind_host' => __( 'Pagefind, run by your host\'s build step', 'stillpress' ),
 			'off'           => __( 'Off', 'stillpress' ),
 		);
-		echo '<select id="stillpress-search" name="' . esc_attr( self::name( 'search' ) ) . '">';
+		echo '<select id="stillpress-search" name="' . esc_attr( self::name( 'search' ) ) . '" aria-describedby="stillpress-search-description">';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'search' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		echo '</select>';
-		echo '<p class="description">' . esc_html__( 'Publishes an index of your pages with the site, so search forms work without a server. Changing this rebuilds the whole site.', 'stillpress' ) . '</p>';
-		echo '<p class="description">' . esc_html(
-			sprintf(
-				/* translators: 1: constant name, 2: command. */
-				__( 'Pagefind is a separate program that Stillpress doesn\'t include. To run it here, put its full path in %1$s in wp-config.php. If your host builds the site (a GitHub Actions workflow, Netlify or Cloudflare Pages), add "%2$s" to that build instead.', 'stillpress' ),
-				\Stillpress\Search\Pagefind::CONSTANT,
-				'npx pagefind --site .'
+		self::description(
+			'stillpress-search',
+			array(
+				__( 'Publishes an index of your pages with the site, so search forms work without a server. Changing this rebuilds the whole site.', 'stillpress' ),
+				sprintf(
+					/* translators: 1: constant name, 2: command. */
+					__( 'Pagefind is a separate program that Stillpress doesn\'t include. To run it here, put its full path in %1$s in wp-config.php. If your host builds the site (a GitHub Actions workflow, Netlify or Cloudflare Pages), add "%2$s" to that build instead.', 'stillpress' ),
+					\Stillpress\Search\Pagefind::CONSTANT,
+					'npx pagefind --site .'
+				),
 			)
-		) . '</p>';
+		);
 	}
 
 	/**
@@ -632,18 +653,21 @@ final class SettingsPage {
 			'site'     => __( 'This site receives them', 'stillpress' ),
 			'receiver' => __( 'A receiver I run elsewhere', 'stillpress' ),
 		);
-		echo '<select id="stillpress-forms" name="' . esc_attr( self::name( 'forms' ) ) . '">';
+		echo '<select id="stillpress-forms" name="' . esc_attr( self::name( 'forms' ) ) . '" aria-describedby="stillpress-forms-description">';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'forms' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		echo '</select>';
-		echo '<p class="description">' . esc_html(
-			sprintf(
-				/* translators: %s: address of the REST route. */
-				__( '"This site" needs this WordPress site to be reachable from the internet at its own address: forms post to %s.', 'stillpress' ),
-				rest_url( 'stillpress/v1/forms/submit' )
+		self::description(
+			'stillpress-forms',
+			array(
+				sprintf(
+					/* translators: %s: address of the REST route. */
+					__( '"This site" needs this WordPress site to be reachable from the internet at its own address: forms post to %s.', 'stillpress' ),
+					rest_url( 'stillpress/v1/forms/submit' )
+				),
 			)
-		) . '</p>';
+		);
 	}
 
 	/**
@@ -653,11 +677,11 @@ final class SettingsPage {
 	 */
 	public static function field_forms_endpoint(): void {
 		printf(
-			'<input type="url" class="regular-text code" id="stillpress-forms-endpoint" name="%s" value="%s" placeholder="https://forms.example.org/stillpress-form.php">',
+			'<input type="url" class="regular-text code" id="stillpress-forms-endpoint" name="%s" value="%s" placeholder="https://forms.example.org/stillpress-form.php" aria-describedby="stillpress-forms-endpoint-description">',
 			esc_attr( self::name( 'forms_endpoint' ) ),
 			esc_attr( (string) Settings::get( 'forms_endpoint' ) )
 		);
-		echo '<p class="description">' . esc_html__( 'Only for "A receiver I run elsewhere". Download one with this site\'s settings filled in, put it online, and enter its address here. It forwards each submission it accepts to this site, signed with the shared secret.', 'stillpress' ) . '</p>';
+		self::description( 'stillpress-forms-endpoint', array( __( 'Only for "A receiver I run elsewhere". Download one with this site\'s settings filled in, put it online, and enter its address here. It forwards each submission it accepts to this site, signed with the shared secret.', 'stillpress' ) ) );
 		$downloads = array(
 			'php'        => __( 'PHP file (any PHP host)', 'stillpress' ),
 			'cloudflare' => __( 'Cloudflare Worker', 'stillpress' ),
@@ -686,12 +710,12 @@ final class SettingsPage {
 	 */
 	public static function field_forms_email(): void {
 		printf(
-			'<input type="email" class="regular-text" id="stillpress-forms-email" name="%s" value="%s" placeholder="%s">',
+			'<input type="email" class="regular-text" id="stillpress-forms-email" name="%s" value="%s" placeholder="%s" aria-describedby="stillpress-forms-email-description">',
 			esc_attr( self::name( 'forms_email' ) ),
 			esc_attr( (string) Settings::get( 'forms_email' ) ),
 			esc_attr( (string) get_option( 'admin_email' ) )
 		);
-		echo '<p class="description">' . esc_html__( 'Gets the submissions of forms your theme marks with data-stillpress-form. Form plugins send their own email, as set up in each form.', 'stillpress' ) . '</p>';
+		self::description( 'stillpress-forms-email', array( __( 'Gets the submissions of forms your theme marks with data-stillpress-form. Form plugins send their own email, as set up in each form.', 'stillpress' ) ) );
 	}
 
 	/**
@@ -701,13 +725,13 @@ final class SettingsPage {
 	 */
 	public static function field_forms_webhook(): void {
 		printf(
-			'<input type="url" class="regular-text code" id="stillpress-forms-webhook" name="%s" value="%s" placeholder="https://hooks.example.org/forms" %s>',
+			'<input type="url" class="regular-text code" id="stillpress-forms-webhook" name="%s" value="%s" placeholder="https://hooks.example.org/forms" aria-describedby="stillpress-forms-webhook-description" %s>',
 			esc_attr( self::name( 'forms_webhook' ) ),
 			esc_attr( (string) Settings::get( 'forms_webhook' ) ),
 			disabled( ! self::can_edit_paths(), true, false )
 		);
 		$note = self::can_edit_paths() ? '' : __( 'Only a network administrator can change this.', 'stillpress' ) . ' ';
-		echo '<p class="description">' . esc_html( $note . __( 'Optional, https only. Gets a signed JSON copy of every accepted submission (needs the shared secret).', 'stillpress' ) ) . '</p>';
+		self::description( 'stillpress-forms-webhook', array( $note . __( 'Optional, https only. Gets a signed JSON copy of every accepted submission (needs the shared secret).', 'stillpress' ) ) );
 	}
 
 	/**
@@ -721,12 +745,12 @@ final class SettingsPage {
 			'turnstile' => __( 'Cloudflare Turnstile', 'stillpress' ),
 			'hcaptcha'  => __( 'hCaptcha', 'stillpress' ),
 		);
-		echo '<select id="stillpress-forms-captcha" name="' . esc_attr( self::name( 'forms_captcha' ) ) . '">';
+		echo '<select id="stillpress-forms-captcha" name="' . esc_attr( self::name( 'forms_captcha' ) ) . '" aria-describedby="stillpress-forms-captcha-description">';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'forms_captcha' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		echo '</select>';
-		echo '<p class="description">' . esc_html__( 'Optional. These are outside services: visitors\' browsers load the provider\'s script on pages with forms, and each answer is checked with the provider, along with the visitor\'s IP address. Without one, forms are protected by a hidden field, the time the page was open and a limit per visitor.', 'stillpress' ) . '</p>';
+		self::description( 'stillpress-forms-captcha', array( __( 'Optional. These are outside services: visitors\' browsers load the provider\'s script on pages with forms, and each answer is checked with the provider, along with the visitor\'s IP address. Without one, forms are protected by a hidden field, the time the page was open and a limit per visitor.', 'stillpress' ) ) );
 		printf(
 			'<p><label for="stillpress-forms-captcha-site-key">%s</label><br><input type="text" class="regular-text code" id="stillpress-forms-captcha-site-key" name="%s" value="%s"></p>',
 			esc_html__( 'Site key', 'stillpress' ),
@@ -776,11 +800,11 @@ final class SettingsPage {
 	 */
 	public static function field_concurrency(): void {
 		printf(
-			'<input type="number" min="1" max="16" class="small-text" id="stillpress-concurrency" name="%s" value="%d">',
+			'<input type="number" min="1" max="16" class="small-text" id="stillpress-concurrency" name="%s" value="%d" aria-describedby="stillpress-concurrency-description">',
 			esc_attr( self::name( 'concurrency' ) ),
 			(int) Settings::get( 'concurrency' )
 		);
-		echo '<p class="description">' . esc_html__( 'How many pages are rendered at once. Lower this on small hosting plans.', 'stillpress' ) . '</p>';
+		self::description( 'stillpress-concurrency', array( __( 'How many pages are rendered at once. Lower this on small hosting plans.', 'stillpress' ) ) );
 	}
 
 	/**
@@ -790,13 +814,13 @@ final class SettingsPage {
 	 */
 	public static function field_connect_to(): void {
 		printf(
-			'<input type="text" class="regular-text code" id="stillpress-connect-to" name="%s" value="%s" placeholder="127.0.0.1:80" %s>',
+			'<input type="text" class="regular-text code" id="stillpress-connect-to" name="%s" value="%s" placeholder="127.0.0.1:80" aria-describedby="stillpress-connect-to-description" %s>',
 			esc_attr( self::name( 'connect_to' ) ),
 			esc_attr( (string) Settings::get( 'connect_to' ) ),
 			disabled( Settings::is_pinned( 'connect_to' ) || ! self::can_edit_paths(), true, false )
 		);
 		if ( ! self::pinned_note( 'connect_to' ) ) {
-			echo '<p class="description">' . esc_html__( 'Only needed when this server can\'t reach its own public address (common behind proxies and in containers). Pages are still requested with the site\'s address; only the network connection goes here.', 'stillpress' ) . '</p>';
+			self::description( 'stillpress-connect-to', array( __( 'Only needed when this server can\'t reach its own public address (common behind proxies and in containers). Pages are still requested with the site\'s address; only the network connection goes here.', 'stillpress' ) ) );
 		}
 	}
 
@@ -807,11 +831,11 @@ final class SettingsPage {
 	 */
 	public static function field_max_urls(): void {
 		printf(
-			'<input type="number" min="1" class="small-text" id="stillpress-max-urls" name="%s" value="%d">',
+			'<input type="number" min="1" class="small-text" id="stillpress-max-urls" name="%s" value="%d" aria-describedby="stillpress-max-urls-description">',
 			esc_attr( self::name( 'max_urls' ) ),
 			(int) Settings::get( 'max_urls' )
 		);
-		echo '<p class="description">' . esc_html__( 'Stops the crawler from following links forever, for example on infinite calendars.', 'stillpress' ) . '</p>';
+		self::description( 'stillpress-max-urls', array( __( 'Stops the crawler from following links forever, for example on infinite calendars.', 'stillpress' ) ) );
 	}
 
 	/**

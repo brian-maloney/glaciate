@@ -412,6 +412,8 @@
 			status.setAttribute( 'role', 'status' );
 			list = document.createElement( 'ol' );
 			list.className = 'stillpress-search__results';
+			// Safari drops list semantics from lists styled without markers; the count matters to screen readers.
+			list.setAttribute( 'role', 'list' );
 			dialog.append( form, status, list );
 			document.body.append( dialog );
 

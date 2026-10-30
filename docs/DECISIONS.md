@@ -384,6 +384,21 @@ digit per count from 0 to 199 naming the form (cut after the last change, so Eng
 depend only on n, n % 10 and n % 100, so the client maps larger counts to 100 + n % 100. `npm run i18n:check` (CI)
 fails on any `make-pot` warning.
 
+## D26. Accessibility: WCAG 2.2 AA for what Stillpress adds, checked with axe-core in Playwright
+
+`tests/e2e/a11y.spec.mjs` runs axe-core (MPL-2.0, a test-only dev dependency) with the WCAG 2.0–2.2 A and AA rules over
+the search dialog and form answers on the static site, and over the plugin's own part of its admin screens (core's
+admin chrome is WordPress's to audit). Axe can't hear a screen reader, so the spec also checks what it misses: focus
+moves into the dialog and back to where search started, keyboard order, a visible focus ring, live regions that exist
+before they speak, and that every settings field has a name and its help text attached.
+
+Fixes from the audit: the search status region was `display: none` while empty, so screen readers missed its first
+announcement; result lists lost their list role in Safari; the forms answer region was created at the moment it spoke;
+two schedule controls were named "on" and "at"; most settings help text wasn't tied to its field; a `<label for>`
+pointed at a fieldset; the progress bar had no name. Publishing start and finish are announced with `wp.a11y.speak()`,
+the finish across the reload that refreshes the screen. Admin CSS uses logical properties, so it follows RTL languages.
+
+
 ## D27. Release packaging and WordPress.org readiness
 
 `npm run build:zip` builds the release from a commit: `git archive` (honouring `export-ignore`), runtime Composer

@@ -17,6 +17,7 @@
 	const part = ( name ) => app.querySelector( '[data-stillpress="' + name + '"]' );
 	let state = app.dataset.state;
 	let timer = null;
+	const ANNOUNCE = 'stillpress-announce';
 
 	function setDisabled( el, disabled ) {
 		if ( ! el ) {
@@ -63,7 +64,8 @@
 		state = status.state;
 		app.dataset.state = state;
 		if ( finished ) {
-			// Refresh the history table and counts.
+			// Refresh the history table and counts. The reload would cut off an announcement, so it is made after.
+			remember( status.label );
 			window.location.reload();
 		}
 	}
@@ -78,11 +80,32 @@
 			} );
 	}
 
+	function remember( message ) {
+		try {
+			window.sessionStorage.setItem( ANNOUNCE, message );
+		} catch ( e ) {
+			// Storage blocked: the result is still on the page.
+		}
+	}
+
+	function announceRemembered() {
+		try {
+			const message = window.sessionStorage.getItem( ANNOUNCE );
+			if ( message ) {
+				window.sessionStorage.removeItem( ANNOUNCE );
+				wp.a11y.speak( message );
+			}
+		} catch ( e ) {
+			// Storage blocked: nothing was remembered.
+		}
+	}
+
 	function act( event, request ) {
 		event.preventDefault();
 		if ( 'true' === event.currentTarget.getAttribute( 'aria-disabled' ) ) {
 			return;
 		}
+		wp.a11y.speak( __( 'Publishing started.', 'stillpress' ) );
 		state = 'building';
 		apiFetch( request )
 			.then( ( response ) => render( response.status || response ) )
@@ -126,5 +149,7 @@
 		} );
 	} );
 
+	// wp.a11y adds its live regions when the DOM is ready; a region needs a moment in the page before it is read.
+	wp.domReady( () => window.setTimeout( announceRemembered, 500 ) );
 	poll();
 } )( window.wp );

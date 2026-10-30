@@ -149,7 +149,7 @@ final class PublishPage {
 				<strong data-stillpress="label"><?php echo esc_html( $status['label'] ); ?></strong>
 			</p>
 			<div class="stillpress-progress" data-stillpress="progress" <?php echo $building ? '' : 'hidden'; ?>>
-				<progress max="100" value="<?php echo esc_attr( (string) ( $building ? $active['percent'] : 0 ) ); ?>"></progress>
+				<progress max="100" value="<?php echo esc_attr( (string) ( $building ? $active['percent'] : 0 ) ); ?>" aria-label="<?php esc_attr_e( 'Publishing progress', 'stillpress' ); ?>"></progress>
 				<span data-stillpress="progress-text">
 					<?php
 					if ( $building ) {

@@ -59,7 +59,8 @@
 }
 
 .stillpress-search__status:empty {
-	display: none;
+	/* Collapsed, not display: none: a live region must stay in the accessibility tree to have its changes read out. */
+	padding: 0;
 }
 
 .stillpress-search__results {
@@ -85,6 +86,12 @@
 .stillpress-search__result p {
 	margin: 0.25rem 0 0;
 	font-size: 0.9em;
+}
+
+.stillpress-search :focus-visible {
+	/* Themes sometimes remove focus outlines; keyboard users must still see where they are. */
+	outline: 2px solid Highlight;
+	outline-offset: 2px;
 }
 
 .stillpress-search mark {

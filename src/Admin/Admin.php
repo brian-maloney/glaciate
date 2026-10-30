@@ -97,7 +97,7 @@ final class Admin {
 			return;
 		}
 		wp_enqueue_style( 'stillpress-admin', \Stillpress\Support\Assets::url( 'assets/css/admin.css' ), array(), \Stillpress\Support\Assets::version( 'assets/css/admin.css' ) );
-		wp_enqueue_script( 'stillpress-admin', \Stillpress\Support\Assets::url( 'assets/js/admin.js' ), array( 'wp-api-fetch', 'wp-i18n' ), \Stillpress\Support\Assets::version( 'assets/js/admin.js' ), true );
+		wp_enqueue_script( 'stillpress-admin', \Stillpress\Support\Assets::url( 'assets/js/admin.js' ), array( 'wp-api-fetch', 'wp-i18n', 'wp-a11y', 'wp-dom-ready' ), \Stillpress\Support\Assets::version( 'assets/js/admin.js' ), true );
 		wp_set_script_translations( 'stillpress-admin', 'stillpress' );
 	}
 

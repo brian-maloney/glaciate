@@ -110,7 +110,7 @@
 			}
 			const el = doc.createElement( 'style' );
 			el.id = 'stillpress-forms-style';
-			el.textContent = '.stillpress-form-message{margin:1em 0}.stillpress-form-message.is-error,.stillpress-form-error{color:#b32d2e}.stillpress-form-error{display:block;font-size:.9em}';
+			el.textContent = '.stillpress-form-message{margin:1em 0}.stillpress-form-message:empty{margin:0}.stillpress-form-message.is-error,.stillpress-form-error{color:#b32d2e}.stillpress-form-error{display:block;font-size:.9em}';
 			doc.head.appendChild( el );
 		}
 
@@ -257,6 +257,8 @@
 			return;
 		}
 		style();
+		// Live regions announce changes only once they exist: add each (empty) answer box up front, so "Sending…" is read.
+		forms().forEach( messageBox );
 		loadCaptcha();
 		// Capture on the document runs before listeners on the form itself, including form plugins' own.
 		doc.addEventListener(

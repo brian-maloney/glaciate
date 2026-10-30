@@ -164,7 +164,7 @@ final class Pagefind {
 			if ( microtime( true ) >= $deadline ) {
 				proc_terminate( $process, 9 );
 				/* translators: %d: seconds. */
-				$output .= "\n" . sprintf( __( 'Pagefind was stopped after %d seconds.', 'stillpress' ), $timeout );
+				$output .= "\n" . sprintf( _n( 'Pagefind was stopped after %d second.', 'Pagefind was stopped after %d seconds.', $timeout, 'stillpress' ), $timeout );
 				break;
 			}
 		}//end while

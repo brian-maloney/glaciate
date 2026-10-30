@@ -247,12 +247,14 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 			try {
 				$file = $source->absolute_path( $path );
 			} catch ( UnsafePathException $e ) {
-				$logger->error( sprintf( 'Could not deploy %s: %s', $path, $e->getMessage() ) );
+				/* translators: 1: file path, 2: error message. */
+				$logger->error( sprintf( __( 'Could not deploy %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
 				++$result->failed;
 				continue;
 			}
 			if ( ! is_file( $file ) ) {
-				$logger->error( sprintf( 'Could not deploy %s: the built file is missing.', $path ) );
+				/* translators: %s: file path. */
+				$logger->error( sprintf( __( 'Could not deploy %s: the built file is missing.', 'stillpress' ), $path ) );
 				++$result->failed;
 				continue;
 			}
@@ -328,7 +330,8 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		foreach ( $batch as $i => $item ) {
 			$body = file_get_contents( $item['file'] );
 			if ( false === $body ) {
-				$logger->error( sprintf( 'Could not read %s from the build cache.', $item['path'] ) );
+				/* translators: %s: file path. */
+				$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $item['path'] ) );
 				++$result->failed;
 				continue;
 			}
@@ -340,7 +343,8 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 			$item = $batch[ $i ];
 			if ( ! S3Client::ok( $response ) ) {
 				self::fail_on_rejection( $response, $item['path'] );
-				$logger->error( sprintf( 'Could not upload %s to S3: %s', $item['path'], S3Client::describe( $response ) ) );
+				/* translators: 1: file path, 2: error message. */
+				$logger->error( sprintf( __( 'Could not upload %1$s to S3: %2$s', 'stillpress' ), $item['path'], S3Client::describe( $response ) ) );
 			}
 			$this->record( $files, $item, S3Client::ok( $response ), $result );
 		}
@@ -370,7 +374,8 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 			$upload   = S3Client::ok( $response ) ? S3Client::upload_id( $response['body'] ) : '';
 			if ( '' === $upload ) {
 				self::fail_on_rejection( $response, $item['path'] );
-				$logger->error( sprintf( 'Could not start the upload of %s: %s', $item['path'], S3Client::describe( $response ) ) );
+				/* translators: 1: file path, 2: error message. */
+				$logger->error( sprintf( __( 'Could not start the upload of %1$s: %2$s', 'stillpress' ), $item['path'], S3Client::describe( $response ) ) );
 				return 'failed';
 			}
 			$state = array(
@@ -384,7 +389,8 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		$parts  = (int) ceil( $item['size'] / self::PART_SIZE );
 		$handle = fopen( $item['file'], 'rb' );
 		if ( false === $handle ) {
-			$logger->error( sprintf( 'Could not read %s from the build cache.', $item['path'] ) );
+			/* translators: %s: file path. */
+			$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $item['path'] ) );
 			return 'failed';
 		}
 		try {
@@ -402,19 +408,21 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 				$etag = $response['headers']['etag'] ?? '';
 				if ( ! S3Client::ok( $response ) || '' === $etag ) {
 					self::fail_on_rejection( $response, $item['path'] );
-					$logger->error( sprintf( 'Could not upload part %d of %s: %s', $number, $item['path'], S3Client::describe( $response ) ) );
+					/* translators: 1: part number, 2: file path, 3: error message. */
+					$logger->error( sprintf( __( 'Could not upload part %1$d of %2$s: %3$s', 'stillpress' ), $number, $item['path'], S3Client::describe( $response ) ) );
 					return 'failed';
 				}
 				$state['etags'][ $number ] = $etag;
 				$this->save_multipart( $item['path'], $state );
-			}
+			}//end for
 		} finally {
 			fclose( $handle );
 		}//end try
 
 		$response = $client->send( array( $client->complete_multipart_request( $key, (string) $state['upload_id'], $state['etags'] ) ) )[0];
 		if ( ! S3Client::ok( $response ) ) {
-			$logger->error( sprintf( 'Could not finish the upload of %s: %s', $item['path'], S3Client::describe( $response ) ) );
+			/* translators: 1: file path, 2: error message. */
+			$logger->error( sprintf( __( 'Could not finish the upload of %1$s: %2$s', 'stillpress' ), $item['path'], S3Client::describe( $response ) ) );
 			if ( false !== strpos( $response['body'], 'NoSuchUpload' ) ) {
 				$this->save_multipart( $item['path'], null );
 			}
@@ -443,7 +451,8 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		$response = $client->send( array( $client->delete_request( array_keys( $by_key ) ) ) )[0];
 		if ( ! S3Client::ok( $response ) ) {
 			self::fail_on_rejection( $response, 'deleted files' );
-			$logger->error( sprintf( 'Could not delete %d files from S3: %s', count( $paths ), S3Client::describe( $response ) ) );
+			/* translators: 1: number of files, 2: error message. */
+			$logger->error( sprintf( _n( 'Could not delete %1$d file from S3: %2$s', 'Could not delete %1$d files from S3: %2$s', count( $paths ), 'stillpress' ), count( $paths ), S3Client::describe( $response ) ) );
 			$result->failed += count( $paths );
 			return;
 		}
@@ -456,7 +465,8 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 			}
 		}
 		foreach ( $answer['errors'] as $key => $error ) {
-			$logger->error( sprintf( 'Could not delete %s from S3: %s', $by_key[ $key ] ?? $key, $error ) );
+			/* translators: 1: file path, 2: error message. */
+			$logger->error( sprintf( __( 'Could not delete %1$s from S3: %2$s', 'stillpress' ), $by_key[ $key ] ?? $key, $error ) );
 			++$result->failed;
 		}
 	}
@@ -546,9 +556,11 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		unset( $all[ $this->target_key() ] );
 		update_option( self::INVALIDATE_OPTION, $all, false );
 		if ( S3Client::ok( $response ) ) {
-			$logger->info( sprintf( 'Asked CloudFront to refresh %s.', array( '/*' ) === $paths ? 'every page' : count( $paths ) . ' paths' ) );
+			/* translators: %d: number of paths. */
+			$logger->info( array( '/*' ) === $paths ? __( 'Asked CloudFront to refresh every page.', 'stillpress' ) : sprintf( _n( 'Asked CloudFront to refresh %d path.', 'Asked CloudFront to refresh %d paths.', count( $paths ), 'stillpress' ), count( $paths ) ) );
 		} else {
-			$logger->error( sprintf( 'CloudFront invalidation failed: %s. Cached copies will update when they expire.', S3Client::describe( $response ) ) );
+			/* translators: %s: error message. */
+			$logger->error( sprintf( __( 'CloudFront invalidation failed: %s. Cached copies will update when they expire.', 'stillpress' ), S3Client::describe( $response ) ) );
 		}
 	}
 

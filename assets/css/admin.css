@@ -20,11 +20,11 @@
 .stillpress .stillpress-choice span {
 	color: #646970;
 	display: block;
-	margin-left: 24px;
+	margin-inline-start: 24px;
 }
 
 .stillpress .stillpress-indent {
-	margin-left: 24px;
+	margin-inline-start: 24px;
 }
 
 .stillpress .button.hero {
@@ -96,7 +96,7 @@
 }
 
 .stillpress-settings .stillpress-target-fields th {
-	padding-left: 0;
+	padding-inline-start: 0;
 	width: 180px;
 }
 
@@ -119,5 +119,5 @@
 
 .stillpress-settings .stillpress-day {
 	display: inline-block;
-	margin-right: 12px;
+	margin-inline-end: 12px;
 }

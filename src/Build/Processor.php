@@ -156,7 +156,8 @@ final class Processor {
 			}
 			$hash = $this->cache->copy( $source, $relative );
 		} catch ( UnsafePathException $e ) {
-			$this->fail( $row, 'Unsafe output path: ' . $e->getMessage() );
+			/* translators: %s: the reason the path was refused. */
+			$this->fail( $row, sprintf( __( 'Unsafe output path: %s', 'stillpress' ), $e->getMessage() ) );
 			return self::outcome( 'refused' );
 		}
 		$this->publish( $row, 'asset', 200, $mime, $relative, $hash, (int) filesize( $source ), 'static' );
@@ -175,14 +176,16 @@ final class Processor {
 		$is_probe = '404' === $row['source'];
 
 		if ( null !== $result->error ) {
-			$this->fail( $row, 'Request failed: ' . $result->error );
+			/* translators: %s: error message. */
+			$this->fail( $row, sprintf( __( 'Request failed: %s', 'stillpress' ), $result->error ) );
 			return self::outcome( 'failed' );
 		}
 
 		if ( null === $deps_state && ! $result->recorded ) {
 			$deps_state = self::is_text( $result->mime_type() ) && 'text/css' !== $result->mime_type() && 'application/javascript' !== $result->mime_type() ? 'unknown' : 'static';
 			if ( 'unknown' === $deps_state && 'page' === $row['kind'] ) {
-				$this->logger->warning( sprintf( 'No dependency data for %s; a page cache may have answered. It will be rebuilt on every change.', $row['url'] ) );
+				/* translators: %s: address. */
+				$this->logger->warning( sprintf( __( 'No dependency data for %s; a page cache may have answered. It will be rebuilt on every change.', 'stillpress' ), $row['url'] ) );
 			}
 		}
 
@@ -192,7 +195,8 @@ final class Processor {
 
 		if ( $is_probe ) {
 			if ( 404 !== $result->status ) {
-				$this->logger->warning( sprintf( 'The 404 probe returned HTTP %d instead of 404.', $result->status ) );
+				/* translators: %d: HTTP status code. */
+				$this->logger->warning( sprintf( __( 'The 404 probe returned HTTP %d instead of 404.', 'stillpress' ), $result->status ) );
 			}
 			return $this->write_document( $row, $result, '404.html', '404', $deps_state );
 		}
@@ -204,20 +208,23 @@ final class Processor {
 
 		$exclude = $result->recorded ? ( $result->headers[ strtolower( RenderToken::EXCLUDE_HEADER ) ] ?? '' ) : '';
 		if ( '' !== $exclude ) {
-			$this->logger->info( sprintf( 'Left out %s (%s).', $row['url'], $exclude ) );
+			/* translators: 1: address, 2: reason. */
+			$this->logger->info( sprintf( __( 'Left out %1$s (%2$s).', 'stillpress' ), $row['url'], $exclude ) );
 			$this->remove( $row, $result->status );
 			return self::outcome( 'gone' );
 		}
 
 		if ( 200 !== $result->status ) {
-			$this->fail( $row, sprintf( 'HTTP %d', $result->status ) );
+			/* translators: %d: HTTP status code. */
+			$this->fail( $row, sprintf( __( 'HTTP %d', 'stillpress' ), $result->status ) );
 			return self::outcome( 'failed' );
 		}
 
 		try {
 			$relative = $this->relative_path_for( $row['url'], $result->headers['content-type'] ?? 'text/html' );
 		} catch ( UnsafePathException $e ) {
-			$this->fail( $row, 'Unsafe output path: ' . $e->getMessage() );
+			/* translators: %s: the reason the path was refused. */
+			$this->fail( $row, sprintf( __( 'Unsafe output path: %s', 'stillpress' ), $e->getMessage() ) );
 			return self::outcome( 'refused' );
 		}
 		return $this->write_document( $row, $result, $relative, 'asset' === $row['kind'] ? 'asset' : 'page', $deps_state );
@@ -238,7 +245,7 @@ final class Processor {
 		$body = $result->body;
 
 		if ( 'text/html' === $mime && preg_match( '#<body[^>]*\sclass=["\'][^"\']*\blogged-in\b#i', $body ) ) {
-			$this->fail( $row, 'The page rendered for a logged-in user; refusing to publish it.' );
+			$this->fail( $row, __( 'The page rendered for a logged-in user; refusing to publish it.', 'stillpress' ) );
 			return self::outcome( 'refused' );
 		}
 
@@ -281,7 +288,8 @@ final class Processor {
 			}
 			$hash = $this->cache->write( $relative, $body );
 		} catch ( UnsafePathException $e ) {
-			$this->fail( $row, 'Could not write the file: ' . $e->getMessage() );
+			/* translators: %s: error message. */
+			$this->fail( $row, sprintf( __( 'Could not write the file: %s', 'stillpress' ), $e->getMessage() ) );
 			return self::outcome( 'refused' );
 		}
 
@@ -307,7 +315,7 @@ final class Processor {
 		$location   = \Stillpress\Support\Url::resolve( $result->url, $result->headers['location'] );
 		$discovered = array();
 		if ( null === $location ) {
-			$this->fail( $row, 'Redirect without a usable Location header.' );
+			$this->fail( $row, __( 'Redirect without a usable Location header.', 'stillpress' ) );
 			return self::outcome( 'failed' );
 		}
 		$target = $this->classifier->classify( $location );
@@ -378,7 +386,8 @@ final class Processor {
 			$this->urls->unpublish( (int) $owner['id'] );
 			return true;
 		}
-		$this->fail( $row, sprintf( 'Output file %s is already produced by %s.', $relative, $owner['url'] ) );
+		/* translators: 1: file path, 2: address that produces it. */
+		$this->fail( $row, sprintf( __( 'Output file %1$s is already produced by %2$s.', 'stillpress' ), $relative, $owner['url'] ) );
 		return false;
 	}
 

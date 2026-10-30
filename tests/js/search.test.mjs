@@ -7,13 +7,37 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire( import.meta.url );
-const { tokenize, hex, keyFor, Searcher, PagefindSearcher } = require( '../../assets/js/search.js' );
+const { tokenize, hex, keyFor, countLabel, Searcher, PagefindSearcher } = require( '../../assets/js/search.js' );
 const fixture = JSON.parse( readFileSync( new URL( '../fixtures/search-tokenize.json', import.meta.url ), 'utf8' ) );
 
 test( 'tokenizes the shared examples exactly like PHP', () => {
 	for ( const { text, tokens } of fixture.cases ) {
 		assert.deepEqual( tokenize( text ), tokens, text );
 	}
+} );
+
+test( 'picks the plural form of the result count', () => {
+	const english = { results: [ '%d results', '%d result' ], plural: '010' };
+	assert.equal( countLabel( english, 1 ), '%d result' );
+	assert.equal( countLabel( english, 2 ), '%d results' );
+	assert.equal( countLabel( english, 12345 ), '%d results' );
+
+	// Polish: one, few (2-4 except 12-14), many; as Frontend::result_counts() encodes it.
+	const forms = [ '%d wyników', '%d wynik', '%d wyniki' ];
+	let plural = '';
+	for ( let n = 0; n < 200; n++ ) {
+		const few = n % 10 >= 2 && n % 10 <= 4 && ( n % 100 < 10 || n % 100 >= 20 );
+		plural += 1 === n ? '1' : ( few ? '2' : '0' );
+	}
+	const polish = { results: forms, plural };
+	assert.equal( countLabel( polish, 1 ), '%d wynik' );
+	assert.equal( countLabel( polish, 3 ), '%d wyniki' );
+	assert.equal( countLabel( polish, 13 ), '%d wyników' );
+	assert.equal( countLabel( polish, 1022 ), '%d wyniki' );
+	assert.equal( countLabel( polish, 1012 ), '%d wyników' );
+	assert.equal( countLabel( polish, 101 ), '%d wyników' );
+
+	assert.equal( countLabel( { one: 'one', many: 'many' }, 1 ), 'one', 'Labels from a filter written for 0.3 still work.' );
 } );
 
 test( 'names shards like ShardKeys::file_name()', () => {

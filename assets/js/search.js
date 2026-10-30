@@ -483,7 +483,7 @@
 			if ( 0 === found.total ) {
 				status.textContent = format( labels.none, query );
 			} else {
-				status.textContent = format( 1 === found.total ? labels.one : labels.many, found.total );
+				status.textContent = format( countLabel( labels, found.total ), found.total );
 			}
 			list.replaceChildren(
 				...found.results.map( ( result ) => {
@@ -535,5 +535,22 @@
 		}
 	}
 
-	return { normalize, tokenize, hex, keyFor, Searcher, PagefindSearcher, attach };
+	/**
+	 * The "N results" label in the site's language (Stillpress\Search\Frontend::result_counts()). Plural rules
+	 * depend on n, n % 10 and n % 100, so counts from 200 up use the form of 100 + n % 100.
+	 *
+	 * @param {Object} labels Labels: results (forms) and plural (form index per count), or the older one and many.
+	 * @param {number} n      Count.
+	 * @return {string} Template with %d.
+	 */
+	function countLabel( labels, n ) {
+		if ( ! Array.isArray( labels.results ) || ! labels.plural ) {
+			return 1 === n ? labels.one : labels.many;
+		}
+		const at = n < 200 ? n : 100 + ( n % 100 );
+		const form = Number( labels.plural[ Math.min( at, labels.plural.length - 1 ) ] );
+		return labels.results[ form ] || labels.results[ labels.results.length - 1 ];
+	}
+
+	return { normalize, tokenize, hex, keyFor, countLabel, Searcher, PagefindSearcher, attach };
 } );

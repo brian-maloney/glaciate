@@ -112,7 +112,8 @@ final class LocalDirectory implements DeployerInterface {
 				$from = $source->absolute_path( $path );
 				Cache::ensure_dir( dirname( $to ) );
 			} catch ( UnsafePathException $e ) {
-				$logger->error( sprintf( 'Could not deploy %s: %s', $path, $e->getMessage() ) );
+				/* translators: 1: file path, 2: error message. */
+				$logger->error( sprintf( __( 'Could not deploy %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
 				continue;
 			}
 			$tmp = $to . '.tmp-' . bin2hex( random_bytes( 4 ) );
@@ -120,7 +121,8 @@ final class LocalDirectory implements DeployerInterface {
 				if ( file_exists( $tmp ) ) {
 					unlink( $tmp );
 				}
-				$logger->error( sprintf( 'Could not copy %s into the target folder.', $path ) );
+				/* translators: %s: file path. */
+				$logger->error( sprintf( __( 'Could not copy %s into the target folder.', 'stillpress' ), $path ) );
 				continue;
 			}
 			if ( isset( $held[ $path ] ) ) {

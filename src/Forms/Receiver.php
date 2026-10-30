@@ -155,7 +155,8 @@ final class Receiver {
 		try {
 			$result = $adapter->handle( $submission );
 		} catch ( \Throwable $e ) {
-			( new Logger() )->error( sprintf( 'The %s form failed: %s', $submission->key, $e->getMessage() ) );
+			/* translators: 1: form type, such as cf7 or comments, 2: error message. */
+			( new Logger() )->error( sprintf( __( 'The %1$s form failed: %2$s', 'stillpress' ), $submission->key, $e->getMessage() ) );
 			$result = Result::error();
 		}
 		if ( '' !== $result->redirect ) {
@@ -239,7 +240,8 @@ final class Receiver {
 		$code     = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
 		if ( $code < 200 || $code > 299 ) {
 			$reason = is_wp_error( $response ) ? $response->get_error_message() : 'HTTP ' . $code;
-			( new Logger() )->warning( sprintf( 'The forms webhook didn\'t accept a %s submission: %s', $submission->key, $reason ) );
+			/* translators: 1: form type, such as cf7 or comments, 2: reason. */
+			( new Logger() )->warning( sprintf( __( 'The forms webhook didn\'t accept a %1$s submission: %2$s', 'stillpress' ), $submission->key, $reason ) );
 		}
 	}
 

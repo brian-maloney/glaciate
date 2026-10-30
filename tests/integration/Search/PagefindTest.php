@@ -72,7 +72,7 @@ final class PagefindTest extends \WP_UnitTestCase {
 		$result  = ( new Pagefind( $this->fixture( 'slow-pagefind' ) ) )->index( $this->dir . '/site', $this->dir . '/out', 1 );
 		$this->assertLessThan( 5, microtime( true ) - $started );
 		$this->assertSame( -1, $result['code'] );
-		$this->assertStringContainsString( 'stopped after 1 seconds', $result['output'] );
+		$this->assertStringContainsString( 'stopped after 1 second.', $result['output'] );
 	}
 
 	public function test_a_failing_run_reports_its_code_and_message(): void {

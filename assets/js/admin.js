@@ -11,7 +11,9 @@
 		return;
 	}
 	const apiFetch = wp.apiFetch;
-	const { __, sprintf } = wp.i18n;
+	const { __, _n, sprintf } = wp.i18n;
+	// The admin's language, as WordPress gives it to the page (en_US becomes en-US).
+	const locale = ( document.documentElement.lang || 'en' ).replace( '_', '-' );
 	const part = ( name ) => app.querySelector( '[data-stillpress="' + name + '"]' );
 	let state = app.dataset.state;
 	let timer = null;
@@ -39,10 +41,10 @@
 			if ( building && status.active ) {
 				progress.querySelector( 'progress' ).value = status.active.percent;
 				part( 'progress-text' ).textContent = sprintf(
-					/* translators: 1: URLs processed, 2: URLs queued. */
-					__( '%1$d of %2$d addresses', 'stillpress' ),
-					status.active.done,
-					status.active.total
+					/* translators: 1: addresses processed, 2: addresses queued. Both are formatted numbers. */
+					_n( '%1$s of %2$s address', '%1$s of %2$s addresses', status.active.total, 'stillpress' ),
+					status.active.done.toLocaleString( locale ),
+					status.active.total.toLocaleString( locale )
 				);
 			}
 		}

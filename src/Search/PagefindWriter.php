@@ -129,7 +129,8 @@ final class PagefindWriter {
 				$this->generated->write_file( $pseudo, self::DIR . '/' . $relative, $contents, Processor::mime_for_extension( pathinfo( $relative, PATHINFO_EXTENSION ) ) );
 			}
 		} catch ( UnsafePathException $e ) {
-			$this->logger->error( sprintf( 'Pagefind wrote a file that can\'t be published: %s', $e->getMessage() ) );
+			/* translators: %s: error message. */
+			$this->logger->error( sprintf( __( 'Pagefind wrote a file that can\'t be published: %s', 'stillpress' ), $e->getMessage() ) );
 		}
 		foreach ( $this->published_rows() as $row ) {
 			if ( ! isset( $written[ $row['url'] ] ) ) {
@@ -139,7 +140,7 @@ final class PagefindWriter {
 		Paths::delete_tree( $output );
 
 		/* translators: 1: number of files, 2: seconds. */
-		$this->logger->info( sprintf( __( 'Pagefind indexed the site: %1$d files in %2$.1f s.', 'stillpress' ), count( $written ), microtime( true ) - $started ) );
+		$this->logger->info( sprintf( __( 'Pagefind indexed the site in %2$.1f s. Files written: %1$d.', 'stillpress' ), count( $written ), microtime( true ) - $started ) );
 	}
 
 	/**

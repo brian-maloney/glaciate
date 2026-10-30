@@ -218,7 +218,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 				throw new \RuntimeException( $this->foreign_branch_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 			}
 			if ( '' !== $state['head'] ) {
-				$logger->info( '' === $head ? 'The Git branch was deleted; publishing every file again.' : 'The Git branch changed outside Stillpress; publishing every file again.' );
+				$logger->info( '' === $head ? __( 'The Git branch was deleted; publishing every file again.', 'stillpress' ) : __( 'The Git branch changed outside Stillpress; publishing every file again.', 'stillpress' ) );
 			}
 			// We can't tell which objects the server has, so forget what we sent and send everything.
 			$files->clear();
@@ -252,13 +252,15 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 				$file = $source->absolute_path( $path );
 			} catch ( UnsafePathException $e ) {
 				$file = '';
-				$logger->error( sprintf( 'Could not publish %s: %s', $path, $e->getMessage() ) );
+				/* translators: 1: file path, 2: error message. */
+				$logger->error( sprintf( __( 'Could not publish %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
 			}
 			$size = '' === $file ? false : filesize( $file );
 			$blob = false === $size ? null : Objects::blob_id_of_file( $file );
 			if ( null === $blob || $size > self::MAX_FILE ) {
 				if ( null !== $blob ) {
-					$logger->error( sprintf( 'Could not publish %s: Git hosts refuse files over 100 MB.', $path ) );
+					/* translators: %s: file path. */
+					$logger->error( sprintf( __( 'Could not publish %s: Git hosts refuse files over 100 MB.', 'stillpress' ), $path ) );
 				}
 				++$result->failed;
 				if ( isset( $known[ $path ] ) ) {
@@ -347,7 +349,8 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 				$gone = array();
 			}
 			if ( 'ok' !== ( $gone[ $state['upload_ref'] ] ?? '' ) ) {
-				$logger->warning( sprintf( 'Published, but the Git server refused to delete the temporary branch %1$s (%2$s). Delete it by hand.', $state['upload_ref'], $gone[ $state['upload_ref'] ] ?? 'no answer' ) );
+				/* translators: 1: branch, 2: reason from the Git server. */
+				$logger->warning( sprintf( __( 'Published, but the Git server refused to delete the temporary branch %1$s (%2$s). Delete it by hand.', 'stillpress' ), $state['upload_ref'], $gone[ $state['upload_ref'] ] ?? __( 'no answer', 'stillpress' ) ) );
 			}
 		}
 
@@ -373,7 +376,8 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 				'upload_head' => '',
 			)
 		);
-		$logger->info( sprintf( 'Pushed commit %s to %s.', substr( $id, 0, 12 ), $ref ) );
+		/* translators: 1: Git commit ID, 2: Git branch. */
+		$logger->info( sprintf( __( 'Pushed commit %1$s to %2$s.', 'stillpress' ), substr( $id, 0, 12 ), $ref ) );
 		return $result;
 	}
 

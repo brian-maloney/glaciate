@@ -59,6 +59,31 @@ final class Frontend {
 	}
 
 	/**
+	 * The "N results" label in every plural form the site's language uses, for a client that has no gettext.
+	 *
+	 * Plural rules depend on n, n % 10 and n % 100, so the form for any count matches the form for a count below 200
+	 * (the client maps n >= 200 to 100 + n % 100). The rule is sent as one digit per count from 0, naming the form, with
+	 * the trailing run of one form cut to its first digit: "010" for English.
+	 *
+	 * @return array{0:string[],1:string} Forms, and the form index for each count.
+	 */
+	public static function result_counts(): array {
+		$forms = array();
+		$rule  = '';
+		for ( $n = 0; $n < 200; $n++ ) {
+			/* translators: %d: number of search results. */
+			$form  = _n( '%d result', '%d results', $n, 'stillpress' );
+			$index = array_search( $form, $forms, true );
+			if ( false === $index ) {
+				$forms[] = $form;
+				$index   = count( $forms ) - 1;
+			}
+			$rule .= (string) min( 9, (int) $index );
+		}
+		return array( $forms, rtrim( $rule, substr( $rule, -1 ) ) . substr( $rule, -1 ) );
+	}
+
+	/**
 	 * Settings the client reads.
 	 *
 	 * @return array<string,mixed>
@@ -80,12 +105,10 @@ final class Frontend {
 				'close'       => __( 'Close', 'stillpress' ),
 				/* translators: %s: what the visitor searched for. */
 				'none'        => __( 'Nothing found for “%s”.', 'stillpress' ),
-				'one'         => __( '1 result', 'stillpress' ),
-				/* translators: %d: number of results, always more than one. */
-				'many'        => __( '%d results', 'stillpress' ),
 				'error'       => __( 'Search isn’t available right now.', 'stillpress' ),
 			),
 		);
+		list( $settings['labels']['results'], $settings['labels']['plural'] ) = self::result_counts();
 
 		/**
 		 * Filters the settings of the static search client: backend ("builtin" or "pagefind"), index address, public

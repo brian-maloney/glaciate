@@ -188,7 +188,8 @@ final class Generated {
 		try {
 			$relative = $this->pipeline->cache->mapper()->relative_path( $output );
 		} catch ( UnsafePathException $e ) {
-			( new Logger( $this->build_id ) )->warning( sprintf( 'Skipped the redirect from %s: %s', $from, $e->getMessage() ) );
+			/* translators: 1: address, 2: error message. */
+			( new Logger( $this->build_id ) )->warning( sprintf( __( 'Skipped the redirect from %1$s: %2$s', 'stillpress' ), $from, $e->getMessage() ) );
 			return null;
 		}
 		$target = '/' === $to[0] ? $this->pipeline->origins->public_authority() . $to : $to;

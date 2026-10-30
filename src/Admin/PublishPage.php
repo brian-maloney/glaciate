@@ -153,8 +153,8 @@ final class PublishPage {
 				<span data-stillpress="progress-text">
 					<?php
 					if ( $building ) {
-						/* translators: 1: URLs processed, 2: URLs queued. */
-						echo esc_html( sprintf( __( '%1$d of %2$d addresses', 'stillpress' ), $active['done'], $active['total'] ) );
+						/* translators: 1: addresses processed, 2: addresses queued. Both are formatted numbers. */
+						echo esc_html( sprintf( _n( '%1$s of %2$s address', '%1$s of %2$s addresses', (int) $active['total'], 'stillpress' ), number_format_i18n( (int) $active['done'] ), number_format_i18n( (int) $active['total'] ) ) );
 					}
 					?>
 				</span>
@@ -182,8 +182,8 @@ final class PublishPage {
 				<dt><?php esc_html_e( 'Files', 'stillpress' ); ?></dt>
 				<dd>
 					<?php
-					/* translators: 1: number of files, 2: number of pages. */
-					echo esc_html( sprintf( __( '%1$d files, including %2$d pages', 'stillpress' ), $status['files'], (int) ( $status['published']['page'] ?? 0 ) ) );
+					/* translators: 1: number of files, 2: how many of them are pages. Both are formatted numbers. */
+					echo esc_html( sprintf( __( '%1$s (pages: %2$s)', 'stillpress' ), number_format_i18n( (int) $status['files'] ), number_format_i18n( (int) ( $status['published']['page'] ?? 0 ) ) ) );
 					?>
 				</dd>
 				<dt><?php esc_html_e( 'Automatic publishing', 'stillpress' ); ?></dt>
@@ -253,8 +253,8 @@ final class PublishPage {
 						<?php if ( is_array( $summary['deploy'] ) ) : ?>
 							<br><span class="description">
 							<?php
-							/* translators: 1: added files, 2: changed files, 3: deleted files. */
-							echo esc_html( sprintf( __( '%1$d added, %2$d changed, %3$d removed', 'stillpress' ), $summary['deploy']['added'] ?? 0, $summary['deploy']['modified'] ?? 0, $summary['deploy']['deleted'] ?? 0 ) );
+							/* translators: 1: added files, 2: changed files, 3: deleted files. All are formatted numbers. */
+							echo esc_html( sprintf( __( 'Files added: %1$s, changed: %2$s, removed: %3$s', 'stillpress' ), number_format_i18n( (int) ( $summary['deploy']['added'] ?? 0 ) ), number_format_i18n( (int) ( $summary['deploy']['modified'] ?? 0 ) ), number_format_i18n( (int) ( $summary['deploy']['deleted'] ?? 0 ) ) ) );
 							?>
 							</span>
 						<?php endif; ?>

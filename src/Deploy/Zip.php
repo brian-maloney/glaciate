@@ -96,7 +96,8 @@ final class Zip implements DeployerInterface {
 				PathMapper::assert_safe_relative( (string) $path );
 				$from = $source->absolute_path( (string) $path );
 			} catch ( UnsafePathException $e ) {
-				$logger->error( sprintf( 'Skipped %s in the ZIP: %s', $path, $e->getMessage() ) );
+				/* translators: 1: file path, 2: error message. */
+				$logger->error( sprintf( __( 'Skipped %1$s in the ZIP: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
 				continue;
 			}
 			if ( $zip->addFile( $from, (string) $path ) ) {

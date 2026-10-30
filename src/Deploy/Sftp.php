@@ -257,7 +257,8 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 			try {
 				$file = $source->absolute_path( $path );
 			} catch ( UnsafePathException $e ) {
-				$logger->error( sprintf( 'Could not deploy %s: %s', $path, $e->getMessage() ) );
+				/* translators: 1: file path, 2: error message. */
+				$logger->error( sprintf( __( 'Could not deploy %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
 				++$result->failed;
 				continue;
 			}
@@ -272,7 +273,8 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 			}
 			if ( ! $ok ) {
 				self::fail_if_disconnected( $sftp );
-				$logger->error( sprintf( 'Could not upload %s over SFTP.', $path ) );
+				/* translators: %s: file path. */
+				$logger->error( sprintf( __( 'Could not upload %s over SFTP.', 'stillpress' ), $path ) );
 				++$result->failed;
 				continue;
 			}
@@ -299,7 +301,8 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 			if ( ! $sftp->delete( $remote, false ) ) {
 				self::fail_if_disconnected( $sftp );
 				if ( $sftp->file_exists( $remote ) ) {
-					$logger->error( sprintf( 'Could not delete %s over SFTP.', $path ) );
+					/* translators: %s: file path. */
+					$logger->error( sprintf( __( 'Could not delete %s over SFTP.', 'stillpress' ), $path ) );
 					++$result->failed;
 					continue;
 				}

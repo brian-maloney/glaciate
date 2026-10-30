@@ -85,7 +85,8 @@ final class Runner {
 			return $this->work( $build_id, $budget ) ? self::MORE : self::DONE;
 		} catch ( \Throwable $e ) {
 			$logger = new Logger( $build_id );
-			$logger->error( 'Build failed: ' . $e->getMessage() );
+			/* translators: %s: error message. */
+			$logger->error( sprintf( __( 'Build failed: %s', 'stillpress' ), $e->getMessage() ) );
 			$this->builds->update( $build_id, array( 'error' => substr( \Stillpress\Security\Redactor::scrub( $e->getMessage() ), 0, 1000 ) ) );
 			$this->builds->transition( $build_id, 'running', 'failed' );
 			$this->finished( $build_id );
@@ -114,11 +115,11 @@ final class Runner {
 			}
 			$this->builds->update( $build_id, array( 'phase' => 'planning' ) );
 			$names = array(
-				'full'        => 'Started a full build.',
-				'incremental' => 'Started an incremental build.',
-				'urls'        => 'Started a build of selected pages.',
+				'full'        => __( 'Started a full build.', 'stillpress' ),
+				'incremental' => __( 'Started an incremental build.', 'stillpress' ),
+				'urls'        => __( 'Started a build of selected pages.', 'stillpress' ),
 			);
-			( new Logger( $build_id ) )->info( $names[ $build['kind'] ] ?? 'Started a build.' );
+			( new Logger( $build_id ) )->info( $names[ $build['kind'] ] ?? __( 'Started a build.', 'stillpress' ) );
 			$build = $this->builds->get( $build_id );
 		}
 		if ( 'running' !== $build['status'] ) {
@@ -178,7 +179,8 @@ final class Runner {
 					$counts = $frontier->counts();
 					$this->builds->merge_stats( $build_id, array( 'urls' => $counts ) );
 					$this->builds->transition( $build_id, 'running', 'done' );
-					$logger->info( sprintf( 'Build finished: %d URLs processed, %d failed.', $counts['done'] + $counts['failed'], $counts['failed'] ) );
+					/* translators: 1: number of addresses processed, 2: number that failed. */
+					$logger->info( sprintf( __( 'Build finished. Addresses processed: %1$d, failed: %2$d.', 'stillpress' ), $counts['done'] + $counts['failed'], $counts['failed'] ) );
 					$this->finished( $build_id );
 					return false;
 			}
@@ -205,7 +207,7 @@ final class Runner {
 			}
 			$plan = ( new Invalidator() )->plan( (int) $build['id'] );
 			if ( $plan['full'] ) {
-				$logger->info( 'A change affects every page (theme, plugins or site settings); switching to a full build.' );
+				$logger->info( __( 'A change affects every page (theme, plugins or site settings); switching to a full build.', 'stillpress' ) );
 				$this->builds->update( (int) $build['id'], array( 'kind' => 'full' ) );
 				return false; // Plan again, now as a full build.
 			}
@@ -224,7 +226,8 @@ final class Runner {
 				}
 			}
 			$frontier->add( array_merge( $plan['url_ids'], $ids ) );
-			$logger->info( sprintf( 'Planned an incremental build: %1$d %2$s affect %3$d URLs.', $plan['changes'], 1 === $plan['changes'] ? 'change' : 'changes', $frontier->total() ) );
+			/* translators: 1: number of changes, 2: number of addresses. */
+			$logger->info( sprintf( __( 'Planned an incremental build. Changes: %1$d, addresses affected: %2$d.', 'stillpress' ), $plan['changes'], $frontier->total() ) );
 			$this->builds->merge_stats( (int) $build['id'], array( 'changes' => $plan['changes'] ) );
 			return true;
 		}
@@ -234,7 +237,8 @@ final class Runner {
 			foreach ( (array) ( $stats['request_urls'] ?? array() ) as $url ) {
 				$classified = $pipeline->classifier->classify( (string) $url );
 				if ( null === $classified ) {
-					$logger->warning( sprintf( 'Skipped %s (%s).', $url, $pipeline->classifier->reason() ) );
+					/* translators: 1: address, 2: reason. */
+					$logger->warning( sprintf( __( 'Skipped %1$s (%2$s).', 'stillpress' ), $url, $pipeline->classifier->reason() ) );
 					continue;
 				}
 				$ids[] = $this->urls->ensure( $classified['url'], 'request', $classified['kind'] );
@@ -394,7 +398,8 @@ final class Runner {
 		}
 		if ( ! $result->done ) {
 			$this->builds->merge_stats( (int) $build['id'], array( 'deploy_progress' => $totals ) );
-			$logger->info( sprintf( 'Deploying to %s: %d files sent so far; continuing.', $deployer->label(), $totals['added'] + $totals['modified'] ) );
+			/* translators: 1: deploy target, 2: number of files. */
+			$logger->info( sprintf( __( 'Deploying to %1$s. Files sent so far: %2$d; continuing.', 'stillpress' ), $deployer->label(), $totals['added'] + $totals['modified'] ) );
 			return false;
 		}
 		$summary = array(
@@ -407,9 +412,11 @@ final class Runner {
 			'target'    => $target,
 		);
 		$this->builds->merge_stats( (int) $build['id'], array( 'deploy' => $summary ) );
-		$logger->info( sprintf( 'Deployed to %s: %d added, %d changed, %d deleted, %d unchanged.', $deployer->label(), $summary['added'], $summary['modified'], $summary['deleted'], $summary['unchanged'] ) );
+		/* translators: 1: deploy target, 2-5: numbers of files. */
+		$logger->info( sprintf( __( 'Deployed to %1$s. Added: %2$d, changed: %3$d, deleted: %4$d, unchanged: %5$d.', 'stillpress' ), $deployer->label(), $summary['added'], $summary['modified'], $summary['deleted'], $summary['unchanged'] ) );
 		if ( $summary['failed'] > 0 ) {
-			$logger->warning( sprintf( '%d files could not be deployed; the next deploy retries them.', $summary['failed'] ) );
+			/* translators: %d: number of files. */
+			$logger->warning( sprintf( _n( '%d file could not be deployed; the next deploy retries it.', '%d files could not be deployed; the next deploy retries them.', $summary['failed'], 'stillpress' ), $summary['failed'] ) );
 		}
 		return true;
 	}

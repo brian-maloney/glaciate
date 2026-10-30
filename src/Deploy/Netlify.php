@@ -185,14 +185,16 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 		foreach ( $manifest as $path => $hash ) {
 			$path = (string) $path;
 			if ( false !== strpbrk( $path, '#?' ) ) {
-				$logger->error( sprintf( 'Could not publish %s: Netlify does not accept "#" or "?" in file names.', $path ) );
+				/* translators: %s: file path. */
+				$logger->error( sprintf( __( 'Could not publish %s: Netlify does not accept "#" or "?" in file names.', 'stillpress' ), $path ) );
 				++$result->failed;
 				continue;
 			}
 			try {
 				$file = $source->absolute_path( $path );
 			} catch ( UnsafePathException $e ) {
-				$logger->error( sprintf( 'Could not publish %s: %s', $path, $e->getMessage() ) );
+				/* translators: 1: file path, 2: error message. */
+				$logger->error( sprintf( __( 'Could not publish %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
 				++$result->failed;
 				continue;
 			}
@@ -201,7 +203,8 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 			} else {
 				$sha1 = sha1_file( $file );
 				if ( false === $sha1 ) {
-					$logger->error( sprintf( 'Could not read %s from the build cache.', $path ) );
+					/* translators: %s: file path. */
+					$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $path ) );
 					++$result->failed;
 					continue;
 				}
@@ -233,7 +236,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 				$deploy = null;
 				// Start a fresh deploy.
 			} else {
-				$logger->info( 'Continuing the unfinished Netlify deploy.' );
+				$logger->info( __( 'Continuing the unfinished Netlify deploy.', 'stillpress' ) );
 			}
 		}
 		if ( null === $deploy ) {
@@ -363,7 +366,8 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 		}
 		$result->unchanged = count( $digest ) - count( $changed );
 		$this->save_state( array() );
-		$logger->info( sprintf( 'Netlify deploy %s is %s (%d files uploaded in this run).', $id, (string) ( $final['state'] ?? 'uploaded' ), $uploaded ) );
+		/* translators: 1: Netlify deploy ID, 2: Netlify's state for it, such as "ready", 3: number of files. */
+		$logger->info( sprintf( __( 'Netlify deploy %1$s: %2$s. Files uploaded in this run: %3$d.', 'stillpress' ), $id, (string) ( $final['state'] ?? 'uploaded' ), $uploaded ) );
 		return $result;
 	}
 

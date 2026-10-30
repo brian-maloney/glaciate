@@ -52,6 +52,9 @@ jobs:
         name: Runtime dependency licences are GPL-compatible
         run: npm run check:licenses
       - if: ${{ matrix.lint }}
+        name: Translatable strings extract without warnings
+        run: npm run i18n:check
+      - if: ${{ matrix.lint }}
         name: Search and forms clients (Node)
         run: npm run test:js
       - name: Start the test SFTP and Git servers

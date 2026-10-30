@@ -210,13 +210,15 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 			try {
 				$file = $source->absolute_path( $path );
 			} catch ( UnsafePathException $e ) {
-				$logger->error( sprintf( 'Could not publish %s: %s', $path, $e->getMessage() ) );
+				/* translators: 1: file path, 2: error message. */
+				$logger->error( sprintf( __( 'Could not publish %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
 				++$result->failed;
 				continue;
 			}
 			$size = filesize( $file );
 			if ( false === $size || $size > self::MAX_FILE ) {
-				$logger->error( sprintf( 'Could not publish %s: Cloudflare accepts files up to 25 MiB.', $path ) );
+				/* translators: %s: file path. */
+				$logger->error( sprintf( __( 'Could not publish %s: Cloudflare accepts files up to 25 MiB.', 'stillpress' ), $path ) );
 				++$result->failed;
 				continue;
 			}
@@ -225,7 +227,8 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 			} else {
 				$contents = file_get_contents( $file );
 				if ( false === $contents ) {
-					$logger->error( sprintf( 'Could not read %s from the build cache.', $path ) );
+					/* translators: %s: file path. */
+					$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $path ) );
 					++$result->failed;
 					continue;
 				}
@@ -277,7 +280,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 			}
 			$this->save_state( $state );
 		} else {
-			$logger->info( 'Continuing the unfinished Cloudflare upload.' );
+			$logger->info( __( 'Continuing the unfinished Cloudflare upload.', 'stillpress' ) );
 		}//end if
 
 		$uploaded = 0;
@@ -324,7 +327,8 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 				'owned'    => true,
 			)
 		);
-		$logger->info( sprintf( 'Cloudflare Worker %s updated (%d files uploaded).', (string) TargetConfig::value( $this, 'worker_name' ), $uploaded ) );
+		/* translators: 1: Worker name, 2: number of files. */
+		$logger->info( sprintf( __( 'Cloudflare Worker %1$s updated. Files uploaded: %2$d.', 'stillpress' ), (string) TargetConfig::value( $this, 'worker_name' ), $uploaded ) );
 		return $result;
 	}
 

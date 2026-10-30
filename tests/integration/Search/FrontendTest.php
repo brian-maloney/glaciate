@@ -45,4 +45,26 @@ final class FrontendTest extends \WP_UnitTestCase {
 		$this->assertSame( '', $settings['style'] );
 		$this->assertSame( Frontend::LIMIT, $settings['limit'] );
 	}
+
+	public function test_result_counts_carry_every_plural_form(): void {
+		$this->assertSame( array( array( '%d results', '%d result' ), '010' ), Frontend::result_counts() );
+
+		// A three-form language (Polish rules), the way a loaded translation answers _n().
+		$polish = static function ( $translation, $single, $plural, $n ) {
+			if ( 1 === (int) $n ) {
+				return '%d wynik';
+			}
+			$few = $n % 10 >= 2 && $n % 10 <= 4 && ( $n % 100 < 10 || $n % 100 >= 20 );
+			return $few ? '%d wyniki' : '%d wyników';
+		};
+		add_filter( 'ngettext_stillpress', $polish, 10, 4 );
+		list( $forms, $rule ) = Frontend::result_counts();
+		remove_filter( 'ngettext_stillpress', $polish, 10 );
+
+		$this->assertSame( array( '%d wyników', '%d wynik', '%d wyniki' ), $forms );
+		$this->assertSame( 196, strlen( $rule ), 'Up to 194 ("few"), then 195-199 cut to one digit.' );
+		$this->assertSame( '0122200000', substr( $rule, 0, 10 ) );
+		$this->assertSame( '0000000000', substr( $rule, 10, 10 ) );
+		$this->assertSame( '0022200000', substr( $rule, 120, 10 ) );
+	}
 }

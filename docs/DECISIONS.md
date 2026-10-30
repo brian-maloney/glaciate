@@ -367,3 +367,20 @@ assumptions stated:
 The differential test now has a page with a category list and a tag cloud, both with counts, and passes 200 random
 sequences; with the count change removed it fails within a few iterations. On the benchmark site a content or title
 edit renders 19 addresses instead of all of them.
+
+## D25. The build log is written in the site's language; pure classes stay in English
+
+The build log is read on the Publish screen and through WP-CLI, so its lines are translated, with `__()` / `_n()` at
+the moment they are written. Builds run in the background, so a line is in the site's language, not the reading
+user's: storing message IDs and arguments to translate on display would add a format to keep stable for little gain.
+Counts are phrased as labels ("Files added: 3") wherever a plural would otherwise be needed.
+
+Classes that run without WordPress (`PathMapper`, `OriginSet`, the Git pack writer, the standalone receivers) can't call
+gettext, so their exception text stays English; it appears after a translated prefix ("Unsafe output path: …").
+
+Scripts on the static site have no gettext. Their labels are translated in PHP when the page is rendered. The search
+result count needs every plural form of the language: `Frontend::result_counts()` sends the distinct forms and one
+digit per count from 0 to 199 naming the form (cut after the last change, so English sends "010"); gettext plural rules
+depend only on n, n % 10 and n % 100, so the client maps larger counts to 100 + n % 100. `npm run i18n:check` (CI)
+fails on any `make-pot` warning.
+

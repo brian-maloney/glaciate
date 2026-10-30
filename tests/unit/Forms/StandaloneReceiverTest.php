@@ -1,6 +1,6 @@
 <?php
 /**
- * The standalone PHP receiver (receivers/stillpress-form.php): the shared rules, forwarding, email and the rate limit,
+ * The standalone PHP receiver (receivers/stillpress-form-php.txt): the shared rules, forwarding, email and the rate limit,
  * and one real request through PHP's built-in web server.
  *
  * @package Stillpress
@@ -17,7 +17,7 @@ use StillpressReceiver as R;
 if ( ! defined( 'STILLPRESS_RECEIVER_LIBRARY' ) ) {
 	define( 'STILLPRESS_RECEIVER_LIBRARY', true );
 }
-require_once dirname( __DIR__, 3 ) . '/receivers/stillpress-form.php';
+require_once dirname( __DIR__, 3 ) . '/receivers/stillpress-form-php.txt';
 
 final class StandaloneReceiverTest extends TestCase {
 
@@ -210,7 +210,7 @@ final class StandaloneReceiverTest extends TestCase {
 		}
 		$root = sys_get_temp_dir() . '/stillpress-receiver-root-' . bin2hex( random_bytes( 4 ) );
 		mkdir( $root );
-		copy( dirname( __DIR__, 3 ) . '/receivers/stillpress-form.php', $root . '/form.php' );
+		copy( dirname( __DIR__, 3 ) . '/receivers/stillpress-form-php.txt', $root . '/form.php' );
 		$port    = 20000 + random_int( 0, 20000 );
 		$mailbox = $root . '/mail.txt';
 		$server  = proc_open(

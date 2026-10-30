@@ -6,15 +6,19 @@
 	<file>./uninstall.php</file>
 	<file>./bin/hooks.php</file>
 	<file>./src</file>
-	<file>./receivers</file>
+	<!-- The standalone receiver template is PHP stored as .txt, so it can't run inside the plugin folder. -->
+	<file>./receivers/stillpress-form-php.txt</file>
 	<file>./tests</file>
 
 	<exclude-pattern>/vendor/*</exclude-pattern>
 	<exclude-pattern>/node_modules/*</exclude-pattern>
 	<exclude-pattern>/build/*</exclude-pattern>
 	<exclude-pattern>/tests/e2e/*</exclude-pattern>
+	<exclude-pattern>/tests/fixtures/*</exclude-pattern>
 
-	<arg name="extensions" value="php"/>
+	<!-- .txt only for the receiver template above; fixtures with that extension are excluded. -->
+	<arg name="extensions" value="php,txt/php"/>
+
 	<arg value="sp"/>
 	<arg name="parallel" value="8"/>
 

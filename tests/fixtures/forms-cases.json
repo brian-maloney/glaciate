@@ -1,5 +1,5 @@
 {
-	"_comment": "Shared by Forms\\Protocol and Forms\\Signature (PHP), receivers/stillpress-form.php and receivers/receiver-core.js. A case's \"extra\" appends count pairs named f0, f1, ... whose values are value_length letters a. \"expect\" is the refusal reason, or null when the submission passes.",
+	"_comment": "Shared by Forms\\Protocol and Forms\\Signature (PHP), receivers/stillpress-form-php.txt and receivers/receiver-core.js. A case's \"extra\" appends count pairs named f0, f1, ... whose values are value_length letters a. \"expect\" is the refusal reason, or null when the submission passes.",
 	"refusals": [
 		{ "name": "plain submission", "fields": [ [ "stillpress_form", "cf7:12" ], [ "stillpress_hp", "" ], [ "stillpress_t", "8.2" ], [ "your-name", "Ada" ] ], "expect": null },
 		{ "name": "no JavaScript: empty time", "fields": [ [ "stillpress_form", "form:contact" ], [ "stillpress_hp", "" ], [ "stillpress_t", "" ], [ "message", "hello" ] ], "expect": null },

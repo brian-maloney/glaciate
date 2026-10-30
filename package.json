@@ -28,6 +28,7 @@
     "forms:plugins": "wp-env run tests-cli wp plugin install https://downloads.wordpress.org/plugin/contact-form-7.6.2.4.zip https://downloads.wordpress.org/plugin/wpforms-lite.2.0.3.zip --force",
     "check:licenses": "wp-env run cli --env-cwd=wp-content/plugins/stillpress sh -c 'composer licenses --no-dev --format=json | php bin/check-licenses.php'",
     "i18n:check": "wp-env run cli --env-cwd=wp-content/plugins/stillpress sh -c \"wp i18n make-pot . /tmp/stillpress.pot --slug=stillpress --domain=stillpress --exclude=vendor,node_modules,tests,receivers,bin,build,playwright-report,test-results 2>&1 | tee /tmp/stillpress-pot.log; ! grep -q Warning /tmp/stillpress-pot.log\"",
+    "build:zip": "bin/build-zip.sh",
     "sftp:start": "bin/sftp-test-server.sh start",
     "sftp:stop": "bin/sftp-test-server.sh stop",
     "git:start": "bin/git-test-server.sh start",

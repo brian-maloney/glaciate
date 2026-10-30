@@ -384,3 +384,19 @@ digit per count from 0 to 199 naming the form (cut after the last change, so Eng
 depend only on n, n % 10 and n % 100, so the client maps larger counts to 100 + n % 100. `npm run i18n:check` (CI)
 fails on any `make-pot` warning.
 
+## D27. Release packaging and WordPress.org readiness
+
+`npm run build:zip` builds the release from a commit: `git archive` (honouring `export-ignore`), runtime Composer
+packages from `composer.lock`, minus libraries' own build scripts and signing keys. Plugin Check (2.1.0) runs on that
+ZIP's contents rather than the working tree.
+
+- The standalone PHP form receiver is a template that runs on another host. Stored as `receivers/stillpress-form.php`
+  it could be requested inside the plugin folder on the WordPress site and run there with empty settings, and Plugin
+  Check rightly flagged it. It is now `stillpress-form-php.txt` (no `.php` anywhere in the name, since some servers run
+  `x.php.txt`) and is still linted as PHP and tested; downloads keep the `.php` name.
+- The readme lists each outside service under "External services": when it is contacted, what is sent, and its terms
+  and privacy policy, as the plugin directory requires.
+- Plugin Check reports two kinds of finding that are expected: URLs of services the owner chooses (captcha scripts and
+  verification, AWS endpoints) as "offloading", and `proc_open()` for the optional Pagefind binary named in
+  wp-config.php (D21). The first is the documented use of those services. The second is a decision for submission:
+  explain it to the reviewers, or leave "Pagefind on this server" out of the WordPress.org build.

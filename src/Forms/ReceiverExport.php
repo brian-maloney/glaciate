@@ -58,7 +58,7 @@ final class ReceiverExport {
 				'data_dir'         => '',
 			);
 			$code   = 'const CONFIG = ' . var_export( $values, true ) . ';'; // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- Writes PHP source.
-			return self::replace_config( self::source( 'stillpress-form.php' ), $code );
+			return self::replace_config( self::source( 'stillpress-form-php.txt' ), $code );
 		}
 
 		$values = array(

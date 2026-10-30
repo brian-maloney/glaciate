@@ -2,7 +2,7 @@
  * Stillpress form receiver for serverless platforms (Cloudflare Workers, Netlify Functions), on the standard
  * Request/Response and Web Crypto APIs. No dependencies.
  *
- * Same behaviour as receivers/stillpress-form.php, minus email (serverless platforms have no mail()): each submission
+ * Same behaviour as receivers/stillpress-form-php.txt, minus email (serverless platforms have no mail()): each submission
  * is checked (size limits, honeypot, time the page was open, optional captcha, per-address rate limit) and forwarded,
  * signed, to Stillpress's relay route or any webhook. The rules match Stillpress\Forms\Protocol and are tested against
  * tests/fixtures/forms-cases.json.

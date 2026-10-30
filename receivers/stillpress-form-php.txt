@@ -13,7 +13,8 @@
  *    as in Stillpress) and, with a captcha, STILLPRESS_FORMS_CAPTCHA_SECRET.
  * 3. Never put this file on the static site itself: a static host would serve it as text.
  *
- * `wp stillpress forms receiver php` writes this file with the settings below filled in.
+ * `wp stillpress forms receiver php` writes this file with the settings below filled in. Inside the plugin it is
+ * stored as stillpress-form-php.txt, so that it can never run on the WordPress site itself.
  *
  * The rules match Stillpress\Forms\Protocol and are tested against the same table (tests/fixtures/forms-cases.json).
  *

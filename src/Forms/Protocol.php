@@ -10,7 +10,7 @@ namespace Stillpress\Forms;
 /**
  * Field names Stillpress adds to published forms, the limits on a submission and the spam checks, as pure functions.
  *
- * The standalone receivers (receivers/stillpress-form.php and receivers/receiver-core.js) can't load the plugin, so
+ * The standalone receivers (receivers/stillpress-form-php.txt and receivers/receiver-core.js) can't load the plugin, so
  * they implement the same rules again. All three are tested against tests/fixtures/forms-cases.json.
  *
  * A submission is a list of [name, value] pairs, in the order the browser sent them, so nested names such as

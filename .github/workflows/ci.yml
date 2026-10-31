@@ -45,7 +45,16 @@ jobs:
         # multisite wp-env breaks the WordPress test-suite install.
         run: node bin/wp-env-override.js "${{ matrix.php }}" "${{ matrix.wp }}"
       - run: npm run env:start
-      - run: npm run composer -- install --no-interaction --no-progress
+      - name: Install PHP dependencies
+        # Strauss (D29) needs PHP 8.1 wherever Composer runs, so the 7.4 cells install from a PHP 8 Composer image and
+        # still run every test on 7.4. The platform pin (D5) makes the result the same as installing on 7.4.
+        run: |
+          if [ "${{ matrix.php }}" = "7.4" ]; then
+            docker run --rm --user "$(id -u):$(id -g)" -e COMPOSER_HOME=/tmp/composer -v "$PWD":/app -w /app \
+              composer:2 install --no-interaction --no-progress
+          else
+            npm run composer -- install --no-interaction --no-progress
+          fi
       - if: ${{ matrix.lint }}
         run: npm run lint:php
       - if: ${{ matrix.lint }}

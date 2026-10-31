@@ -41,43 +41,43 @@ final class Settings {
 	 */
 	public static function defaults(): array {
 		return array(
-			'public_url'                      => '',
 			// Empty means "same as the site address".
-							'target'          => 'local',
+			'public_url'             => '',
 			// Deployer ID.
-							'local_path'      => '',
+			'target'                 => 'local',
 			// Empty means the default under the data directory.
-							'additional_urls' => array(),
-			'exclude'                         => array(),
-			'redirects'                       => array(),
+			'local_path'             => '',
+			'additional_urls'        => array(),
+			'exclude'                => array(),
+			'redirects'              => array(),
 			// immediate: a minute after changes; scheduled: at publish_times on publish_days; manual: only on request.
-			'publish_mode'                    => 'immediate',
-			'publish_times'                   => array( '06:00', '18:00' ),
-			'publish_days'                    => array( 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun' ),
-			'full_rebuild'                    => 'daily',
-			'full_rebuild_time'               => '03:00',
+			'publish_mode'           => 'immediate',
+			'publish_times'          => array( '06:00', '18:00' ),
+			'publish_days'           => array( 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun' ),
+			'full_rebuild'           => 'daily',
+			'full_rebuild_time'      => '03:00',
 			// Weekday for weekly full rebuilds.
-			'full_rebuild_day'                => 'sun',
-			'concurrency'                     => 4,
-			'connect_to'                      => '',
-			'feeds'                           => 'main',
-			'max_urls'                        => 100000,
+			'full_rebuild_day'       => 'sun',
+			'concurrency'            => 4,
+			'connect_to'             => '',
+			'feeds'                  => 'main',
+			'max_urls'               => 100000,
 			// builtin: an index built in PHP and searched by the bundled script; pagefind: run the binary named by
 			// STILLPRESS_PAGEFIND_BINARY; pagefind_host: the host's build step runs Pagefind; off.
-			'search'                          => 'builtin',
+			'search'                 => 'builtin',
 			// Where published forms send submissions (Forms\Config): off, site (this site's REST API) or
 			// receiver (forms_endpoint, a receiver run elsewhere).
-			'forms'                           => 'off',
-			'forms_endpoint'                  => '',
+			'forms'                  => 'off',
+			'forms_endpoint'         => '',
 			// Who gets submissions of forms marked data-stillpress-form; empty means the admin email.
-			'forms_email'                     => '',
+			'forms_email'            => '',
 			// Gets a signed copy of every accepted submission.
-			'forms_webhook'                   => '',
+			'forms_webhook'          => '',
 			// none, turnstile or hcaptcha. Outside services, so off unless chosen.
-			'forms_captcha'                   => 'none',
-			'forms_captcha_site_key'          => '',
+			'forms_captcha'          => 'none',
+			'forms_captcha_site_key' => '',
 			// Per-deployer fields, see Deploy\TargetConfig.
-			'targets'                         => array(),
+			'targets'                => array(),
 		);
 	}
 

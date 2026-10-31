@@ -11,7 +11,7 @@ namespace Stillpress\Tests\Support;
  * Every SFTP request waits for a reply, so the number of requests sent is the number of network round trips (writes
  * of one file are the exception: phpseclib sends them back to back and collects the replies once).
  */
-final class CountingSftp extends \phpseclib3\Net\SFTP {
+final class CountingSftp extends \Stillpress\Vendor\phpseclib3\Net\SFTP {
 
 	/** @var array<string,int> Request type => count. */
 	public static $counts = array();

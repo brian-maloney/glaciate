@@ -38,9 +38,34 @@
 		}
 	},
 	"scripts": {
+		"prefix-namespaces": [
+			"@composer --working-dir=tools/strauss install --no-interaction --no-progress --quiet",
+			"@php tools/strauss/strauss.php",
+			"@composer dump-autoload --no-scripts",
+			"@php -r \"is_file('vendor/composer/autoload_aliases.php') && unlink('vendor/composer/autoload_aliases.php');\""
+		],
+		"post-install-cmd": [
+			"@prefix-namespaces"
+		],
+		"post-update-cmd": [
+			"@prefix-namespaces"
+		],
 		"lint": "phpcs",
 		"lint:fix": "phpcbf",
 		"test:unit": "phpunit --testsuite unit",
 		"test:integration": "phpunit --testsuite integration"
+	},
+	"extra": {
+		"strauss": {
+			"target_directory": "vendor",
+			"namespace_prefix": "Stillpress\\Vendor\\",
+			"classmap_prefix": "Stillpress_Vendor_",
+			"constant_prefix": "",
+			"packages": [
+				"phpseclib/phpseclib"
+			],
+			"update_call_sites": false,
+			"parallel": false
+		}
 	}
 }

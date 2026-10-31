@@ -7,8 +7,8 @@
 
 namespace Stillpress\Deploy;
 
-use phpseclib3\Crypt\PublicKeyLoader;
-use phpseclib3\Net\SFTP as SftpConnection;
+use Stillpress\Vendor\phpseclib3\Crypt\PublicKeyLoader;
+use Stillpress\Vendor\phpseclib3\Net\SFTP as SftpConnection;
 use Stillpress\Output\PathMapper;
 use Stillpress\Output\UnsafePathException;
 use Stillpress\Security\TargetPolicy;
@@ -338,7 +338,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 			} else {
 				$ok = $sftp->login( $user, (string) TargetConfig::value( $this, 'password' ) );
 			}
-		} catch ( \phpseclib3\Exception\NoKeyLoadedException $e ) {
+		} catch ( \Stillpress\Vendor\phpseclib3\Exception\NoKeyLoadedException $e ) {
 			throw new \RuntimeException( __( 'The private key could not be read. Check its format and passphrase.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( ! $ok ) {

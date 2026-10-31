@@ -9,7 +9,7 @@
 
 namespace Stillpress\Tests\Integration\Deploy;
 
-use phpseclib3\Net\SFTP as SftpConnection;
+use Stillpress\Vendor\phpseclib3\Net\SFTP as SftpConnection;
 use Stillpress\Deploy\Sftp;
 use Stillpress\Deploy\TargetConfig;
 use Stillpress\Security\Redactor;

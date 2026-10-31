@@ -10,3 +10,4 @@
 .DS_Store
 /tests/sftp/.keys/
 /tests/git/.keys/
+/tools/strauss/vendor/

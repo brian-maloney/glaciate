@@ -457,3 +457,11 @@ ZIP's contents rather than the working tree.
   verification, AWS endpoints) as "offloading", and `proc_open()` for the optional Pagefind binary named in
   wp-config.php (D21). The first is the documented use of those services. The second is a decision for submission:
   explain it to the reviewers, or leave "Pagefind on this server" out of the WordPress.org build.
+
+## D28. readme.txt for WordPress.org, README.md for the repository
+
+The plugin directory reads `readme.txt` in its own format (`=== Name ===`, header fields such as `Stable tag`, `== Section ==`),
+which only looks like Markdown, so it can't be renamed. `README.md` is the repository's front page: what the plugin does,
+how to install it from a checkout, and how to develop it, with links into `docs/` and to `readme.txt` for the FAQ and
+changelog rather than a copy of them. `README.md` and `SECURITY.md` are `export-ignore`d, so the release ZIP carries only
+`readme.txt`. The readme links to `docs/HOOKS.md` on GitHub, since `docs/` isn't in the ZIP.

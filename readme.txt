@@ -27,7 +27,7 @@ Links, images, srcset, stylesheets, scripts, structured data, feeds and sitemaps
 
 = For developers =
 
-Every stage has actions and filters (see `docs/HOOKS.md`), and deploy targets are pluggable through a small interface. All features are available from WP-CLI: `wp stillpress build`, `status`, `why`, `deploy`, `zip`, `settings`, `target`, `secret`, `schedule`, `forms`, `doctor` and more.
+Every stage has actions and filters ([list of hooks](https://github.com/brian-maloney/stillpress/blob/main/docs/HOOKS.md)), and deploy targets are pluggable through a small interface. All features are available from WP-CLI: `wp stillpress build`, `status`, `why`, `deploy`, `zip`, `settings`, `target`, `secret`, `schedule`, `forms`, `doctor` and more.
 
 == Installation ==
 

@@ -84,7 +84,7 @@ Drafts, private posts and password-protected posts are never published. You can 
 
 == Changelog ==
 
-= 1.0.0 (not released yet) =
+= 1.0.0 =
 * Large sites: tested with 100,000 addresses. Paginated archives are listed from the database instead of found one link at a time, the build queue no longer slows down as it grows, and links are looked up a batch at a time.
 * Incremental builds rebuild far less: editing a post's text or title no longer rebuilds every archive page and every page that shows its categories.
 * The address limit now counts only pages found by following links, on top of everything listed from the database, and files such as images don't count (default 100,000).
@@ -92,16 +92,18 @@ Drafts, private posts and password-protected posts are never published. You can 
 * Accessibility: the search dialog and form answers announce reliably to screen readers, settings fields carry their help text, and publishing is announced when it starts and finishes.
 * The standalone form receiver is stored as a text template inside the plugin, so it can't run on the WordPress site.
 
-= 0.4.0 (in development) =
+Versions before 1.0.0 were development milestones and weren't published.
+
+= 0.4.0 =
 * Forms on the static site: Contact Form 7, WPForms, Gravity Forms, comments and forms marked with `data-stillpress-form` post to a receiver, and WordPress hands each submission to the form plugin. Answers and field errors appear in the form; without JavaScript a short page answers.
 * Receivers: this WordPress site, or a standalone PHP file, Cloudflare Worker or Netlify Function that forwards signed submissions to WordPress (or to a webhook, or by email).
 * Spam protection: honeypot, minimum time on the page, per-visitor rate limit, origin check, and optional Cloudflare Turnstile or hCaptcha. A signed webhook can get a copy of every submission.
 
-= 0.3.0 (in development) =
+= 0.3.0 =
 * Static search: an index of every published page is built with the site and searched in the browser. Search forms and `?s=` links open a results window; only the index files a query needs are downloaded, and only the parts of the index that changed are redeployed.
 * Optional Pagefind search: run a Pagefind program you install (named in wp-config.php), or let your host's build step run it.
 
-= 0.2.0 (in development) =
+= 0.2.0 =
 * Remote deploy targets: Amazon S3 and S3-compatible storage with CloudFront invalidation, SFTP, Git over HTTPS (GitHub Pages, GitLab Pages and others), Netlify, and Cloudflare (Workers static assets). Large deploys resume across background runs.
 * Encrypted storage for deploy credentials, with constant and environment-variable overrides, and settings panels for each target, including a connection test.
 * Publish at set times, right after changes, or only by hand; full rebuilds at a chosen time and weekday, kept on the local clock across daylight-saving changes.

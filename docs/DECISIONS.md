@@ -465,3 +465,43 @@ which only looks like Markdown, so it can't be renamed. `README.md` is the repos
 how to install it from a checkout, and how to develop it, with links into `docs/` and to `readme.txt` for the FAQ and
 changelog rather than a copy of them. `README.md` and `SECURITY.md` are `export-ignore`d, so the release ZIP carries only
 `readme.txt`. The readme links to `docs/HOOKS.md` on GitHub, since `docs/` isn't in the ZIP.
+
+## D29. Bundled phpseclib loads as `Stillpress\Vendor\`, prefixed by Strauss at build time
+
+This closes D14's "revisit when release packaging lands". phpseclib 3.0.x and its paragonie dependencies are rewritten
+in place in `vendor/` to `Stillpress\Vendor\phpseclib3\` and `Stillpress\Vendor\ParagonIE\ConstantTime\`
+(random_compat is empty on PHP 7 and has nothing to rename). Another plugin's older 3.0.x can no longer be the copy
+that loads. Action Scheduler isn't prefixed: it picks the newest bundled copy itself (D2), and renaming it would defeat
+that. Constants aren't prefixed either. phpseclib defines some from computed names, which no prefixer can follow, and
+every one is guarded by `defined()` with the same value in every copy.
+
+Strauss (MIT) over PHP-Scoper (MIT): Strauss is made for plugins that keep Composer's autoloader. It rewrites
+`vendor/composer/installed.json` too, so a later `composer dump-autoload` still maps the new names. PHP-Scoper writes
+a separate build tree and its current releases need PHP 8.2. Neither is shipped.
+
+Strauss can't be a root `require-dev`. Under the PHP 7.4 platform pin (D5) every version needs a flysystem that is
+either PHP 8-only or blocked by Composer's security-advisory policy. So it is its own Composer project in
+`tools/strauss` with its own lock, `export-ignore`d. That makes PHP 8.1 the minimum wherever Composer runs (the wp-env
+container has 8.3), including `composer install` in a Git checkout. The code it produces still runs on 7.4. Composer's
+`post-install-cmd` and `post-update-cmd` run it in a checkout. `bin/build-zip.sh` installs with `--no-scripts` and runs
+it explicitly, taking `tools/strauss` from the same commit with `git show`, since `git archive` leaves out
+export-ignored paths even when they're named.
+
+Strauss 0.31 needed working around in five places, all in `composer.json` scripts or `tools/strauss/strauss.php`:
+
+- Its bin script loads `./vendor/autoload.php` (the plugin's) before its own, so a launcher loads the tool's autoloader.
+  Parallel analysis is off because the workers go through that bin script.
+- Its regenerated autoloader drops the project's own `Stillpress\` map and moves Composer's loader classes into the
+  prefix, so `composer dump-autoload` runs again afterwards.
+- It writes `vendor/composer/autoload_aliases.php`, which registers the old names again in development. That would bring
+  the collision back and hide unprefixed references, so it is deleted in both a checkout and the build.
+- It forces a classmap-authoritative autoloader by default, which in a checkout wouldn't find new `src/` classes.
+  The dump above replaces that loader.
+- It doesn't rewrite class names inside strings of PHP code. phpseclib's Eval cipher engine (AES-CTR and others when
+  OpenSSL isn't available) builds its ciphers that way. The launcher prefixes leading-backslash names in string
+  literals after Strauss runs. Two exception messages that mention `phpseclib3\` by name stay as they are.
+
+`VendorPrefixTest` fails if a checkout skipped the prefixing, if `src/` names a library by its original namespace, or if
+the Eval engine's AES-CTR output differs from OpenSSL's. Revisit when Strauss fixes the points above, or when a PHP 8.1
+floor allows phpseclib 4. Its `phpseclib4` namespace would collide with other plugins' 4.x copies in the same way, so
+keep prefixing.

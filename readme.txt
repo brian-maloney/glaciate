@@ -160,4 +160,4 @@ services.
 == Third-party libraries ==
 
 * Action Scheduler by Automattic (GPL-3.0-or-later), used to run builds in the background.
-* phpseclib (MIT), with paragonie/constant_time_encoding and paragonie/random_compat (MIT), used for SFTP deploys.
+* phpseclib (MIT), with paragonie/constant_time_encoding and paragonie/random_compat (MIT), used for SFTP deploys. They are bundled under the Stillpress\Vendor namespace, so another plugin's copy of phpseclib can't replace them.

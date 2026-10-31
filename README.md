@@ -38,8 +38,9 @@ plugin needs.
 Use a release ZIP: it includes the plugin's PHP dependencies. Upload it under Plugins → Add New → Upload Plugin and
 activate it.
 
-A Git checkout has no dependencies installed. Run `composer install --no-dev` in the plugin folder, or build the
-release ZIP yourself with `npm run build:zip` (see [Development](#development)).
+A Git checkout has no dependencies installed. Run `composer install --no-dev` in the plugin folder (Composer needs PHP
+8.1 or newer for this step, which also prefixes the bundled libraries), or build the release ZIP yourself with
+`npm run build:zip` (see [Development](#development)).
 
 ## Quick start
 

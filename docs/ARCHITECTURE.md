@@ -157,8 +157,9 @@ server) serve these files as `text/html`, which feed readers handle (D19).
   a distribution ID, the public paths of changed and deleted files (plus the folder of each `index.html`) are invalidated once
   the deploy finishes; more than 300 paths become a single `/*`. Custom endpoints (R2, MinIO, B2) are HTTPS only, and buckets
   with dots use path-style addressing because their virtual-host names don't match S3's certificate.
-- **SFTP** (phpseclib 3, D14) mirrors the build into a remote folder over one SSH connection per slice. The host key is pinned
-  by its SHA-256 fingerprint and compared with `hash_equals` before login; there is no trust on first use, and
+- **SFTP** (phpseclib 3 under `Stillpress\Vendor\`, D14, D29) mirrors the build into a remote folder over one SSH
+  connection per slice. The host key is pinned by its SHA-256 fingerprint and compared with `hash_equals` before login;
+  there is no trust on first use, and
   `target check` shows the presented fingerprint while none is set. Login takes a private key (OpenSSH or PEM, optional
   passphrase) or a password. The remote folder follows the local folder's rules: never the server's root, empty or marked
   with `.stillpress-target`, and only recorded files are deleted (never recursively). Every SFTP request is a network round

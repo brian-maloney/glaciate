@@ -17,4 +17,4 @@ neighbours, and paginated home, term and author archives, 10 posts a page. Posts
 
 The report is JSON. For each build: wall time per phase, the build process's peak memory and query count, and the ten
 query shapes that took the most database time. Pages render in the web container, so their own queries aren't counted.
-Results from the M5 runs are in `docs/DECISIONS.md` (D23, D24).
+Results from the 1.0.0 benchmark runs are in `docs/DECISIONS.md` (D23, D24).

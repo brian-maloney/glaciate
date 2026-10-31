@@ -7,7 +7,7 @@
   two years of releases.
 - **DB:** MySQL 5.7/8.0, MariaDB 10.6+. **Multisite:** supported (subdomain + subdirectory).
 - **CI matrix (not a full cartesian product):** (7.4, 6.6), (7.4, 7.1), (8.1, 6.8), (8.3, 7.1), (8.4, 7.1), (8.5, 7.1), (8.5, trunk), plus one multisite
-  job and one MariaDB job. Playwright visual diffs run on (8.3, 7.1).
+  job, all on wp-env's database (MariaDB LTS); MySQL isn't run in CI. Playwright visual diffs run on (8.3, 7.1).
 - **Visual-diff themes:** Twenty Twenty-Five (block); **Astra** (classic; the first production sites use it, so it gets the most fixture content);
   Hello Elementor + Elementor (page builder). All three are GPL. Twenty Twenty-One is a cheap fourth job if a vanilla classic baseline proves useful.
 
@@ -22,7 +22,7 @@
 
 Every remote target talks HTTPS (or SSH for SFTP) from PHP, with no extra extensions beyond what WordPress already
 needs: curl or sockets for HTTP, OpenSSL, zlib for Git, sodium (or WordPress's sodium_compat) for stored credentials.
-"Tested live" means a real deploy, change, delete and refusal against the service during M2 (October 2026); the rest is
+"Tested live" means a real deploy, change, delete and refusal against the service in October 2026; the rest is
 covered by local servers and in-memory APIs in the test suite.
 
 | Target | Needs | Limits and behaviour | Tested live |

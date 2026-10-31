@@ -8,7 +8,7 @@ Key limits of the design, stated up front:
 
 - **Dependency tracking is a conservative over-approximation, not an exact map.** Direct `$wpdb` queries,
   transients, external APIs, time-based output and object-cached fragments can escape any recorder. The design
-  compensates with a "volatile" class of URLs, a scheduled full rebuild (default daily) and differential tests that
+  compensates by rebuilding URLs with unknown dependencies on every change, a scheduled full rebuild (default daily) and differential tests that
   require incremental output to equal full-rebuild output.
 - **Plain permalinks (`?p=123`) cannot be published statically.** Pretty permalinks are required.
 
@@ -16,7 +16,7 @@ Key limits of the design, stated up front:
 ## Layers
 ```
  UI (admin screen, editor, admin bar, Site Health) ─┐
- REST (stillpress/v1)                              ├─> Services (BuildService, PublishService, StatusService, SettingsService)
+ REST (stillpress/v1)                              ├─> Services (BuildService, StatusService, HealthChecks, Settings)
  WP-CLI (wp stillpress …)                          ─┘           │
                                                                 ▼
               Build pipeline:  Plan ─> Discover/Crawl ─> Render ─> Rewrite ─> Store(cache+manifest) ─> Deploy
@@ -50,7 +50,8 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   covers inline JS, JSON-LD, srcset, CSS `url()`, `@import`, OG/canonical meta, feeds, sitemaps and the sitemap XSL
   in one pass. Boundaries prevent `example.com` → `example.com.evil` or `example.community`.
 - Context-specific replacement keeps each escaping style intact (JSON-escaped slashes stay escaped).
-- Output modes: absolute public URL (default), or root-relative for HTML. Canonical, OG, feeds and sitemaps always stay absolute.
+- Output is absolute public URLs (D8). Root-relative output isn't offered: canonical, OG, feeds and sitemaps must stay absolute,
+  and the textual rewriter can't tell those contexts apart.
 - Clean-up passes (each filterable): remove EditURI/RSD, wlwmanifest, REST discovery `<link>`, oEmbed discovery,
   shortlink and pingback headers, and strip volatile nonces from known inline settings.
 
@@ -94,16 +95,17 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   that actually moved invalidates them. A simple query (no search, meta or custom ordering) doesn't match a post whose
   edit moved none of the fields it selects or sorts on: that post's pages are reached through `post:<id>` (D23).
 - Affected set = URLs from the object deps ∪ matching query signatures ∪ option deps ∪ the changed post's old and new permalinks
-  ∪ `deps=unknown` URLs ∪ URLs marked volatile (`stillpress_url_is_volatile` filter).
+  ∪ `deps=unknown` URLs, and the `stillpress_affected_url_ids` filter can add more.
 - **Orphans**: URLs that now return 404 or redirect get removed from the manifest, so deployers delete them.
 - **Safety nets**: a "Full rebuild" button and `--full` flag, a scheduled full rebuild (setting: off/daily/weekly at a chosen local time, **default daily at 03:00**), and a
   `stillpress_dependencies_for_url` filter for extensions that know their own deps.
-- **Output hashing**: `manifest(path, sha256, size, url_id, build_id)`. A build produces a changeset (added, modified,
-  deleted), and deployers receive that changeset.
+- **Output hashing**: each URL row keeps its output path, SHA-256 and size. Deployers receive the whole manifest
+  (path → SHA-256) and compare it with their own `target_files` records, so each target works out its own added,
+  modified and deleted files.
 
 ## Storage
-Custom tables per site (`$wpdb->prefix`), managed with `dbDelta` and a schema version option: `builds`, `urls`, `deps`,
-`query_sigs`, `changes`, `manifest`, `log`, and for search `search_terms`, `search_docs`, `search_dirty`. The build cache (rendered files) defaults to `wp-content/stillpress/cache/<site_id>/`
+Custom tables per site (`$wpdb->prefix`), managed with `dbDelta` and a schema version option: `builds`, `urls`, `build_urls`,
+`deps`, `query_sigs`, `changes`, `log`, `target_files`, and for search `search_terms`, `search_docs`, `search_dirty`. The build cache (rendered files) defaults to `wp-content/stillpress/cache/<site_id>/`
 (public content only; protected with index.php and .htaccess deny). Uninstall drops tables and options. It never deletes a deploy target.
 
 **URL to file.** A URL ending in `/` (or without an extension) is saved as `<path>/index.html`, whatever its response
@@ -114,8 +116,7 @@ server) serve these files as `text/html`, which feed readers handle (D19).
 
 ## Queue
 - Action Scheduler, bundled through Composer. It's GPL-3.0-or-later, and it resolves duplicate copies across plugins
-  by version on its own. The combined distribution is GPLv3-compatible; our own code stays GPL-2.0-or-later. This goes
-  in DECISIONS. `QueueInterface` keeps a WP-Cron fallback possible.
+  by version on its own. The combined distribution is GPLv3-compatible; our own code stays GPL-2.0-or-later (D2).
 - A build is a state machine (`queued → discovering → rendering → finalizing → deploying → done|failed|cancelled`).
   Each AS action handles a batch within a time budget (default 20 s, kept under `max_execution_time`) and then
   schedules the next one. Batches can resume after a crash, and a lock prevents two builds running at once.
@@ -134,7 +135,7 @@ server) serve these files as `text/html`, which feed readers handle (D19).
   next runs.
 
 ## Deployers
-`DeployerInterface { id(); label(); settings_schema(); validate(config); deploy(Changeset, Context): Result; }`, registered through
+`DeployerInterface { id(); label(); problem(); deploy(manifest, source_root, logger): DeployResult; }`, registered through
 `stillpress_register_deployers`. Built in: **Local directory**, **ZIP**, **Amazon S3** (with optional CloudFront invalidation), **SFTP**, **Git**, **Netlify** and **Cloudflare** (Workers static assets).
 - Local directory applies the changeset with an atomic write per file (temp file + rename). It only deletes files listed in its own
   manifest, and requires a marker file `.stillpress-target` in the target directory.
@@ -297,7 +298,7 @@ from every log line. `wp stillpress secret list|set|delete` manages stored value
 - WP-CLI: `wp stillpress build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--out]`,
   `urls list|add|remove`, `why <url>` (shows recorded deps), `changes list|flush`, `settings get|set|list`, `secret list|set|delete`,
   `forms status|receiver`, `doctor` (Site Health checks), `clean`.
-- Extension API: every pipeline stage has actions/filters (`stillpress_seed_urls`, `stillpress_pre_render`, `stillpress_rendered_response`,
-  `stillpress_rewrite_rules`, `stillpress_output_path`, `stillpress_changeset`, `stillpress_register_deployers`,
-  `stillpress_build_completed`, …). They're documented in `docs/HOOKS.md`, and a test fails if any `do_action`/`apply_filters` lacks a docblock.
+- Extension API: every pipeline stage has actions/filters (`stillpress_exclude_patterns`, `stillpress_exclude_render`,
+  `stillpress_output`, `stillpress_output_path`, `stillpress_affected_url_ids`, `stillpress_manifest`,
+  `stillpress_register_deployers`, `stillpress_build_finished`, …). They're documented in `docs/HOOKS.md`, and a test fails if any `do_action`/`apply_filters` lacks a docblock.
 

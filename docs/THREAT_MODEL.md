@@ -1,7 +1,7 @@
 # Threat model
 
-Stillpress is a high-risk surface. It makes HTTP requests from the server, writes files to disk, and (from
-Milestone 2) holds credentials for remote hosts. This document lists what we protect, where trust changes hands,
+Stillpress is a high-risk surface. It makes HTTP requests from the server, writes files to disk, and holds
+credentials for remote hosts. This document lists what we protect, where trust changes hands,
 and how each threat is handled. Every mitigation listed here should have a test; the "Tests" column names the suite.
 
 ## Assets
@@ -10,7 +10,7 @@ and how each threat is handled. Every mitigation listed here should have a test;
 |---|---|
 | Unpublished content (drafts, private, password-protected, scheduled posts) | Leaking it to a public static site is a privacy breach that can't be undone once deployed. |
 | The server filesystem | The plugin writes and deletes files. A bad path could overwrite WordPress or leak `wp-config.php`. |
-| Deploy credentials (M2+) | Keys to S3, SFTP, Git or hosting APIs give an attacker the public site. |
+| Deploy credentials | Keys to S3, SFTP, Git or hosting APIs give an attacker the public site. |
 | Form submissions (names, addresses, messages) | Personal data sent by visitors of the static site; also a channel for spam and abuse of the site's mail. |
 | Origin availability | A crawler that runs away can take down the WordPress origin. |
 | Admin sessions and capabilities | Publishing and settings must be limited to the right users. |

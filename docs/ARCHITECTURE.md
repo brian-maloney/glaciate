@@ -292,7 +292,8 @@ from every log line. `wp stillpress secret list|set|delete` manages stored value
 - Site Health tests: loopback reachable, recorder header present (page-cache bypass), pretty permalinks, cache and target writable,
   queue running, `zip`/`curl` extensions, origin/public URL sanity.
 - Capabilities: primitive caps `stillpress_manage` (settings, targets) and `stillpress_publish` (build/deploy). They're added to
-  administrator (both) and editor (publish) on activation, and removed on uninstall. Meta cap `stillpress_publish_post` is mapped in
+  administrator (both) and editor (publish) once per site: on activation, or on the first request if activation never
+  ran (the plugin was activated before `composer install`). They're removed on uninstall. Meta cap `stillpress_publish_post` is mapped in
   `map_meta_cap` to `stillpress_publish` + `edit_post`. In multisite, filesystem paths are set **only by a super admin or a constant**.
 - Activation defaults: target = Local directory at `wp-content/stillpress/public/<site>/`, public URL = current home URL. The one
   onboarding choice: *where to deploy*.

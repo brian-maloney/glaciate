@@ -15,14 +15,19 @@ namespace Stillpress\Security;
  * - `stillpress_publish_post` (meta, takes a post ID): publish one post's pages; requires `stillpress_publish`
  *   and the ability to edit that post.
  *
- * Primitive capabilities are granted to roles on activation (administrator: both; editor: publish), so role
- * editors can move them around.
+ * Primitive capabilities are granted to roles once per site (administrator: both; editor: publish), on activation
+ * or, if activation never ran, on the first request after it; role editors can move them around after that.
  */
 final class Capabilities {
 
 	const MANAGE       = 'stillpress_manage';
 	const PUBLISH      = 'stillpress_publish';
 	const PUBLISH_POST = 'stillpress_publish_post';
+
+	/**
+	 * Option set once the default capabilities have been granted on a site.
+	 */
+	const GRANTED = 'stillpress_capabilities_granted';
 
 	/**
 	 * Registers the meta capability mapping.
@@ -68,6 +73,23 @@ final class Capabilities {
 		if ( $editor ) {
 			$editor->add_cap( self::PUBLISH );
 		}
+		update_option( self::GRANTED, 1, true );
+	}
+
+	/**
+	 * Grants the default capabilities if this site has never had them.
+	 *
+	 * Activation doesn't run when the plugin was switched on before its dependencies were installed (stillpress.php
+	 * stops early without vendor/, so the hook isn't registered). The tables are then created on the next request, but
+	 * administrators would be left without the capabilities the admin screens need. Granting only once means ones an
+	 * administrator removed later stay removed.
+	 *
+	 * @return void
+	 */
+	public static function maybe_grant_defaults(): void {
+		if ( ! get_option( self::GRANTED ) ) {
+			self::grant_defaults();
+		}
 	}
 
 	/**
@@ -80,5 +102,6 @@ final class Capabilities {
 			$role->remove_cap( self::MANAGE );
 			$role->remove_cap( self::PUBLISH );
 		}
+		delete_option( self::GRANTED );
 	}
 }

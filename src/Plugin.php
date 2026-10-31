@@ -85,7 +85,7 @@ final class Plugin {
 			\WP_CLI::add_command( 'stillpress', Cli\Command::class );
 		}
 
-		add_action( 'init', array( Schema::class, 'maybe_upgrade' ), 1 );
+		add_action( 'init', array( self::class, 'maybe_set_up' ), 1 );
 		add_action( 'wp_initialize_site', array( self::class, 'initialize_site' ), 20 );
 	}
 
@@ -137,6 +137,16 @@ final class Plugin {
 		switch_to_blog( (int) $site->blog_id );
 		self::activate_site();
 		restore_current_blog();
+	}
+
+	/**
+	 * Upgrades the tables and grants the default capabilities where activation never did.
+	 *
+	 * @return void
+	 */
+	public static function maybe_set_up(): void {
+		Schema::maybe_upgrade();
+		Capabilities::maybe_grant_defaults();
 	}
 
 	/**

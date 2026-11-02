@@ -12,6 +12,7 @@ use Stillpress\Deps\OptionRules;
 use Stillpress\Deps\QuerySignature;
 use Stillpress\Storage\BuildRepository;
 use Stillpress\Storage\Schema;
+use Stillpress\Support\Settings;
 
 /**
  * Runs inside a loopback render request (identified by a valid render token) and records the posts, terms,
@@ -174,6 +175,7 @@ final class Recorder {
 		remove_action( 'wp_head', 'wp_generator' );
 		remove_action( 'template_redirect', 'rest_output_link_header', 11 );
 		remove_action( 'template_redirect', 'wp_shortlink_header', 11 );
+		$this->hide_unpublished_feeds( (string) Settings::get( 'feeds' ) );
 		add_filter(
 			'wp_headers',
 			static function ( $headers ) {
@@ -181,6 +183,28 @@ final class Recorder {
 				return $headers;
 			}
 		);
+	}
+
+	/**
+	 * Drops head links to feeds the "feeds" setting leaves out, so pages don't link to addresses that 404.
+	 *
+	 * "main" publishes only the site feed, so comment feeds and the extra feeds of single posts and archives go;
+	 * "none" also drops the site feed. Feed links a theme prints itself aren't affected.
+	 *
+	 * @param string $feeds none, main or all.
+	 * @return void
+	 */
+	private function hide_unpublished_feeds( string $feeds ): void {
+		if ( 'all' === $feeds ) {
+			return;
+		}
+		if ( 'none' === $feeds ) {
+			add_filter( 'feed_links_show_posts_feed', '__return_false', PHP_INT_MAX );
+		}
+		add_filter( 'feed_links_show_comments_feed', '__return_false', PHP_INT_MAX );
+		foreach ( array( 'post_comments', 'post_type_archive', 'category', 'tag', 'tax', 'author', 'search' ) as $kind ) {
+			add_filter( 'feed_links_extra_show_' . $kind . '_feed', '__return_false', PHP_INT_MAX );
+		}
 	}
 
 	/**

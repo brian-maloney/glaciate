@@ -610,6 +610,7 @@ final class SettingsPage {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'feeds' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		echo '</select>';
+		self::description( 'stillpress-feeds', array( __( 'Pages only link to the feeds that are published.', 'stillpress' ) ) );
 	}
 
 	/**

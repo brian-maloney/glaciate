@@ -540,3 +540,14 @@ the origin host.
 Rewriting the database instead (search-replace of the live host) fixes what exists on the day it runs, but editors keep
 pasting live URLs afterwards. The public address isn't an implicit alias: its paths can differ from the origin's when
 the public URL has a base path, and an explicit list keeps the behavior visible in Settings.
+
+## D32. Pages don't advertise feeds that aren't published
+
+With the default `feeds` setting (`main`), only the site feed is published, but WordPress still prints head links to
+the comments feed, each post's comments feed and the author, term, post type and search feeds. On the static site those
+links return 404. Feed readers and validators follow them, and link checkers report them on every page.
+
+During a render, the Recorder turns those links off with core's `feed_links_show_*` and `feed_links_extra_show_*`
+filters (WordPress 6.1+), as part of the head clean-up that `stillpress_clean_head` controls; `none` also drops the
+site feed. Links a theme prints itself aren't touched. The alternative, publishing every feed by default, adds a feed
+per post, term and author for something most sites don't use.

@@ -56,7 +56,8 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - Output is absolute public URLs (D8). Root-relative output isn't offered: canonical, OG, feeds and sitemaps must stay absolute,
   and the textual rewriter can't tell those contexts apart.
 - Clean-up passes (each filterable): remove EditURI/RSD, wlwmanifest, REST discovery `<link>`, oEmbed discovery,
-  shortlink and pingback headers, and strip volatile nonces from known inline settings.
+  shortlink and pingback headers, head links to feeds the `feeds` setting doesn't publish (D32), and strip volatile
+  nonces from known inline settings.
 
 ## Discovery / crawl
 - Seeds: home; core sitemaps (`wp-sitemap.xml` and any index listed in robots.txt); enumerated content (public posts of

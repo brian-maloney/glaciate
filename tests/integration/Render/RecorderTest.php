@@ -11,6 +11,7 @@ use Stillpress\Deps\DependencyStore;
 use Stillpress\Deps\QuerySignature;
 use Stillpress\Render\Recorder;
 use Stillpress\Storage\UrlRepository;
+use Stillpress\Support\Settings;
 
 final class RecorderTest extends \WP_UnitTestCase {
 
@@ -151,6 +152,74 @@ final class RecorderTest extends \WP_UnitTestCase {
 		Recorder::maybe_start();
 		unset( $_SERVER['HTTP_X_STILLPRESS_RENDER'] );
 		$this->assertNull( Recorder::active() );
+	}
+
+	/**
+	 * Head feed links printed during a render, with the clean-up a render applies.
+	 *
+	 * @param string $feeds Feeds setting.
+	 * @param string $url   Page to render.
+	 * @return string
+	 */
+	private function feed_links_for( string $feeds, string $url ): string {
+		Settings::update( array( 'feeds' => $feeds ) );
+		$clean = new \ReflectionMethod( Recorder::class, 'clean_output' );
+		$clean->setAccessible( true );
+		$clean->invoke( new Recorder( 1, 1 ) );
+		$this->go_to( $url );
+		$supported = current_theme_supports( 'automatic-feed-links' );
+		add_theme_support( 'automatic-feed-links' );
+		ob_start();
+		feed_links();
+		feed_links_extra();
+		$out = (string) ob_get_clean();
+		if ( ! $supported ) {
+			remove_theme_support( 'automatic-feed-links' );
+		}
+		return $out;
+	}
+
+	/**
+	 * Does the markup contain a link to the URL?
+	 *
+	 * @param string $html Markup.
+	 * @param string $url  URL.
+	 * @return bool
+	 */
+	private static function links_to( string $html, string $url ): bool {
+		return false !== strpos( $html, 'href="' . esc_url( $url ) . '"' );
+	}
+
+	/**
+	 * @dataProvider provide_feed_modes
+	 */
+	public function test_head_links_only_to_published_feeds( string $feeds, bool $posts, bool $others ): void {
+		$this->set_permalink_structure( '/%postname%/' );
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		$post   = self::factory()->post->create(
+			array(
+				'post_author'    => $author,
+				'comment_status' => 'open',
+			)
+		);
+
+		$single = $this->feed_links_for( $feeds, get_permalink( $post ) );
+		$this->assertSame( $posts, self::links_to( $single, home_url( '/feed/' ) ) );
+		$this->assertSame( $others, self::links_to( $single, home_url( '/comments/feed/' ) ) );
+		$this->assertSame( $others, self::links_to( $single, get_post_comments_feed_link( $post ) ) );
+
+		$this->go_to( get_author_posts_url( $author ) );
+		ob_start();
+		feed_links_extra();
+		$this->assertSame( $others, self::links_to( (string) ob_get_clean(), get_author_feed_link( $author ) ) );
+	}
+
+	public function provide_feed_modes(): array {
+		return array(
+			'all'  => array( 'all', true, true ),
+			'main' => array( 'main', true, false ),
+			'none' => array( 'none', false, false ),
+		);
 	}
 
 	public function test_signature_hash_matches_stored(): void {

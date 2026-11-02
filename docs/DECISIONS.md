@@ -505,3 +505,20 @@ Strauss 0.31 needed working around in five places, all in `composer.json` script
 the Eval engine's AES-CTR output differs from OpenSSL's. Revisit when Strauss fixes the points above, or when a PHP 8.1
 floor allows phpseclib 4. Its `phpseclib4` namespace would collide with other plugins' 4.x copies in the same way, so
 keep prefixing.
+
+## D30. Loopback renders don't check TLS certificates unless a filter asks
+
+Builds request every page from the site itself. Sites often reach themselves through an address whose certificate the
+server doesn't trust: a self-signed certificate on an internal host, a proxy that terminates TLS, or a
+`STILLPRESS_CONNECT_TO` pin. So `LoopbackClient` follows WordPress's own loopback requests (cron, Site Health): it
+doesn't check certificates, and the core `https_local_ssl_verify` filter can turn checks on. The filter gets each
+request's URL, as in core, because filters often decide by host.
+
+The choice is set on each curl handle by a `curl.before_request` hook, not only through the `verify` option. Requests'
+curl transport applies `verify` to single requests but not to `request_multiple()` handles, which then check against
+the system CA store. Up to 1.0.1 that made every render of a self-signed origin fail with cURL error 60 while `verify`
+was false. `RequestsTransport` works around the same gap for deploy targets (THREAT_MODEL.md T15), where certificates
+are always checked. Each request gets its own hooks object so the filter's answer can differ by URL.
+
+When checks are on and the certificate fails, the error says which filter turned them on, because the bare cURL message
+doesn't explain why a site's requests to itself check certificates at all.

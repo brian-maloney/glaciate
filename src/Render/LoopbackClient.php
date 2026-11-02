@@ -9,6 +9,7 @@ namespace Stillpress\Render;
 
 use Stillpress\Security\UrlPolicy;
 use WpOrg\Requests\Exception as RequestsException;
+use WpOrg\Requests\Exception\Transport\Curl as CurlException;
 use WpOrg\Requests\Hooks;
 use WpOrg\Requests\Requests;
 use WpOrg\Requests\Response;
@@ -20,6 +21,7 @@ use WpOrg\Requests\Transport\Curl;
  * - Every URL is checked by the UrlPolicy before it is requested (threat T1).
  * - No cookies are sent, so the page renders logged out (threat T4).
  * - Redirects are returned, not followed, so each Location can be checked and recorded.
+ * - TLS certificates aren't checked unless the core https_local_ssl_verify filter turns checks on (DECISIONS.md D30).
  * - An optional connect-to pin ("host:port") sends the request to another address while keeping the URL,
  *   Host header and TLS SNI. This is needed when the site can't reach its own public address (DECISIONS.md D7).
  */
@@ -120,7 +122,6 @@ final class LoopbackClient {
 		if ( null === $url ) {
 			return false;
 		}
-		$hooks   = new Hooks();
 		$pin     = $this->pin_option(
 			array(
 				array(
@@ -129,21 +130,15 @@ final class LoopbackClient {
 				),
 			)
 		);
+		$verify  = self::verify( $url );
 		$options = array(
 			'blocking'        => false,
 			'timeout'         => 1,
 			'connect_timeout' => 1,
-			'hooks'           => $hooks,
-			/** This filter is documented in wp-includes/class-wp-http-streams.php */
-			'verify'          => apply_filters( 'https_local_ssl_verify', false, '' ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core filter for loopback TLS verification.
+			'hooks'           => self::handle_hooks( $pin, $verify ),
+			'verify'          => $verify,
 		);
 		if ( null !== $pin ) {
-			$hooks->register(
-				'curl.before_request',
-				static function ( &$handle ) use ( $pin ) {
-					curl_setopt( $handle, CURLOPT_CONNECT_TO, $pin ); // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- See fetch_chunk().
-				}
-			);
 			$options['transport'] = Curl::class;
 		}
 		try {
@@ -161,38 +156,35 @@ final class LoopbackClient {
 	 * @return array<int|string,RenderResult>
 	 */
 	private function fetch_chunk( array $chunk ): array {
-		$hooks = new Hooks();
-		$pin   = $this->pin_option( $chunk );
-		if ( null !== $pin ) {
-			$hooks->register(
-				'curl.before_request',
-				static function ( &$handle ) use ( $pin ) {
-					curl_setopt( $handle, CURLOPT_CONNECT_TO, $pin ); // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- Requests hook hands us the raw handle; no WP API exists for CONNECT_TO.
-				}
-			);
-		}
+		$pin = $this->pin_option( $chunk );
 
 		$options = array(
 			'timeout'          => $this->timeout,
 			'connect_timeout'  => min( 10.0, $this->timeout ),
 			'follow_redirects' => false,
 			'max_bytes'        => $this->max_bytes,
-			'hooks'            => $hooks,
-			/** This filter is documented in wp-includes/class-wp-http-streams.php */
-			'verify'           => apply_filters( 'https_local_ssl_verify', false, '' ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core filter for loopback TLS verification.
+			'hooks'            => new Hooks(),
 			'useragent'        => 'Stillpress/' . ( defined( 'STILLPRESS_VERSION' ) ? STILLPRESS_VERSION : 'dev' ) . ' (static render)',
 		);
 		if ( null !== $pin ) {
 			$options['transport'] = Curl::class;
 		}
 
+		// Each request gets its own hooks object, so the certificate choice can differ by URL.
 		$requests = array();
 		foreach ( $chunk as $key => $request ) {
+			$verify           = self::verify( $request['url'] );
 			$requests[ $key ] = array(
 				'url'     => $request['url'],
 				'type'    => Requests::GET,
 				'headers' => array_merge( array( 'Accept' => '*/*' ), $request['headers'] ),
-				'options' => $options,
+				'options' => array_merge(
+					$options,
+					array(
+						'hooks'  => self::handle_hooks( $pin, $verify ),
+						'verify' => $verify,
+					)
+				),
 			);
 		}
 
@@ -218,13 +210,78 @@ final class LoopbackClient {
 				}
 				$result->body = (string) $response->body;
 			} elseif ( $response instanceof RequestsException ) {
-				$result->error = $response->getMessage();
+				$result->error = self::describe( $response, false !== $requests[ $key ]['options']['verify'] );
 			} else {
 				$result->error = 'No response.';
 			}
 			$results[ $key ] = $result;
 		}
 		return $results;
+	}
+
+	/**
+	 * Whether to check the TLS certificate of a request to the site itself.
+	 *
+	 * Off by default, as for WordPress's own loopback requests. The URL is passed so a filter can decide per host.
+	 *
+	 * @param string $url Request URL.
+	 * @return bool|string False, true, or a CA bundle path.
+	 */
+	private static function verify( string $url ) {
+		/** This filter is documented in wp-includes/class-wp-http-streams.php */
+		$verify = apply_filters( 'https_local_ssl_verify', false, $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core filter for loopback TLS verification.
+		return is_string( $verify ) && '' !== $verify ? $verify : (bool) $verify;
+	}
+
+	/**
+	 * Hooks that set up each curl handle: the connect-to pin and the certificate choice.
+	 *
+	 * The curl transport applies the `verify` option to single requests only. Handles made by request_multiple() skip
+	 * it and check certificates against the system's CA store, so a self-signed origin failed every render even though
+	 * `verify` was false. Setting it on the handle makes the choice hold for both.
+	 *
+	 * @param string[]|null $pin    CURLOPT_CONNECT_TO entries, or null.
+	 * @param bool|string   $verify False, true, or a CA bundle path.
+	 * @return Hooks
+	 */
+	private static function handle_hooks( ?array $pin, $verify ): Hooks {
+		$ca    = is_string( $verify ) ? $verify : ABSPATH . WPINC . '/certificates/ca-bundle.crt';
+		$hooks = new Hooks();
+		// phpcs:disable WordPress.WP.AlternativeFunctions.curl_curl_setopt -- Requests hook hands us the raw handle; no WP API exists for these options.
+		$hooks->register(
+			'curl.before_request',
+			static function ( &$handle ) use ( $pin, $verify, $ca ) {
+				if ( null !== $pin ) {
+					curl_setopt( $handle, CURLOPT_CONNECT_TO, $pin );
+				}
+				if ( false === $verify ) {
+					curl_setopt( $handle, CURLOPT_SSL_VERIFYPEER, false );
+					curl_setopt( $handle, CURLOPT_SSL_VERIFYHOST, 0 );
+				} else {
+					curl_setopt( $handle, CURLOPT_CAINFO, $ca );
+					curl_setopt( $handle, CURLOPT_SSL_VERIFYPEER, true );
+					curl_setopt( $handle, CURLOPT_SSL_VERIFYHOST, 2 );
+				}
+			}
+		);
+		// phpcs:enable
+		return $hooks;
+	}
+
+	/**
+	 * Turns a transport failure into a message, explaining the case where a filter turned certificate checks on.
+	 *
+	 * @param RequestsException $e      Failure.
+	 * @param bool              $verify Whether certificates were checked.
+	 * @return string
+	 */
+	private static function describe( RequestsException $e, bool $verify ): string {
+		$message = $e->getMessage();
+		// 60 is CURLE_PEER_FAILED_VERIFICATION: the certificate is self-signed, expired or from an unknown authority.
+		if ( $verify && $e instanceof CurlException && 60 === $e->getCode() ) {
+			$message .= '. ' . __( 'Certificate checks are on for this site\'s requests to itself because a plugin, theme or mu-plugin makes the https_local_ssl_verify filter return true. Remove that filter, or give this server a certificate it trusts', 'stillpress' );
+		}
+		return $message;
 	}
 
 	/**

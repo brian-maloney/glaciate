@@ -86,8 +86,6 @@
 }
 
 .stillpress .stillpress-changeset-urls {
-	max-height: 320px;
-	overflow: auto;
 	overflow-wrap: anywhere;
 }
 

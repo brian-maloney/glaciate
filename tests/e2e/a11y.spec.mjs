@@ -7,7 +7,7 @@
  */
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { ORIGIN, STATIC, prepare } from './site.mjs';
+import { ORIGIN, STATIC, prepare, wp } from './site.mjs';
 
 const themes = ( process.env.THEMES || 'block' ).split( ',' );
 
@@ -103,8 +103,12 @@ test.describe( 'accessibility', () => {
 		} );
 
 		test( 'the Static Site screen passes axe', async ( { page } ) => {
+			// A pending change, so the "Waiting to be published" preview is on the screen too.
+			wp( [ 'option', 'update', 'blogdescription', 'Changed for the accessibility check' ] );
 			await page.goto( ORIGIN + '/wp-admin/admin.php?page=stillpress' );
 			await expect( page.locator( '#stillpress-app' ) ).toBeVisible();
+			await expect( page.locator( '.stillpress-changeset' ) ).toBeVisible();
+			await page.locator( '.stillpress-changeset details summary' ).click();
 			await page.locator( 'details[data-stillpress-log] summary' ).first().click();
 			expect( await audit( page, '#wpbody-content' ) ).toBe( '' );
 		} );
@@ -118,7 +122,7 @@ test.describe( 'accessibility', () => {
 			await page.locator( '#stillpress-full-rebuild' ).selectOption( 'weekly' );
 			await expect( page.getByRole( 'combobox', { name: /^Weekly rebuild on\b/ } ) ).toBeVisible();
 			await expect( page.getByLabel( /^Full rebuild at\b/ ) ).toBeAttached();
-			for ( const id of [ 'stillpress-public-url', 'stillpress-search', 'stillpress-max-urls', 'stillpress-additional-urls' ] ) {
+			for ( const id of [ 'stillpress-public-url', 'stillpress-search', 'stillpress-max-urls', 'stillpress-max-depth', 'stillpress-additional-urls' ] ) {
 				const described = await page.locator( '#' + id ).getAttribute( 'aria-describedby' );
 				await expect( page.locator( '#' + described ), id ).not.toBeEmpty();
 			}

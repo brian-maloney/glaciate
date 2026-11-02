@@ -104,6 +104,7 @@ final class SettingsPage {
 		self::field( 'publish_mode', __( 'Publish changes', 'stillpress' ), 'stillpress_publishing', array( self::class, 'field_publish_mode' ), false );
 		self::field( 'full_rebuild', __( 'Full rebuild', 'stillpress' ), 'stillpress_publishing', array( self::class, 'field_full_rebuild' ) );
 		self::field( 'additional_urls', __( 'Extra addresses', 'stillpress' ), 'stillpress_content', array( self::class, 'field_additional_urls' ) );
+		self::field( 'origin_aliases', __( 'Other addresses of this site', 'stillpress' ), 'stillpress_content', array( self::class, 'field_origin_aliases' ) );
 		self::field( 'exclude', __( 'Leave out', 'stillpress' ), 'stillpress_content', array( self::class, 'field_exclude' ) );
 		self::field( 'redirects', __( 'Redirects', 'stillpress' ), 'stillpress_content', array( self::class, 'field_redirects' ) );
 		self::field( 'feeds', __( 'Feeds', 'stillpress' ), 'stillpress_content', array( self::class, 'field_feeds' ) );
@@ -564,6 +565,15 @@ final class SettingsPage {
 	 */
 	public static function field_additional_urls(): void {
 		self::lines( 'additional_urls', __( 'Addresses the crawler can\'t find through links, one per line.', 'stillpress' ), "/landing-page/\n/wp-content/uploads/press-kit.zip" );
+	}
+
+	/**
+	 * Origin aliases field.
+	 *
+	 * @return void
+	 */
+	public static function field_origin_aliases(): void {
+		self::lines( 'origin_aliases', __( 'Other hosts that serve this same site, one per line, such as its live address when you edit it somewhere else. Links to them count as links to this site: the files they point to are published, and the links point to the public address. Nothing is fetched from these hosts.', 'stillpress' ), 'www.example.org' );
 	}
 
 	/**

@@ -74,6 +74,12 @@ final class SettingsTest extends \WP_UnitTestCase {
 		);
 	}
 
+	public function test_origin_aliases_are_normalized_hosts(): void {
+		$clean = Settings::sanitize( array( 'origin_aliases' => "https://WWW.example.org/\nwww.example.org\nlive.example.org:8443\nnot a host\njavascript:alert(1)" ) );
+		$this->assertSame( array( 'www.example.org', 'live.example.org:8443' ), $clean['origin_aliases'] );
+		$this->assertSame( array(), Settings::sanitize( array() )['origin_aliases'] );
+	}
+
 	public function test_update_merges_and_persists(): void {
 		Settings::update( array( 'concurrency' => 2 ) );
 		Settings::update( array( 'feeds' => 'all' ) );

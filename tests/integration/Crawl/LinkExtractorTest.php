@@ -79,6 +79,13 @@ HTML;
 		$this->assertSame( array(), $found );
 	}
 
+	public function test_finds_alias_urls_textually(): void {
+		$extractor = new LinkExtractor( new OriginSet( 'https://origin.test', 'https://example.org', array( 'www.origin.test' ) ) );
+		$found     = $extractor->absolute_origin_urls( '<script>var s={"logo":"https:\\/\\/www.origin.test\\/logo.png","x":"https://www.origin.test.evil/y"};</script> //origin.test/a.js' );
+		sort( $found );
+		$this->assertSame( array( 'https://origin.test/a.js', 'https://www.origin.test/logo.png' ), $found );
+	}
+
 	public function test_xml_sitemap_locations(): void {
 		$xml = '<?xml version="1.0"?><?xml-stylesheet type="text/xsl" href="https://origin.test/wp-sitemap.xsl" ?><urlset><url><loc>https://origin.test/a/</loc></url><url><loc><![CDATA[https://origin.test/b/]]></loc></url></urlset>';
 		$this->assertSame(

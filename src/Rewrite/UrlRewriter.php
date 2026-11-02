@@ -8,7 +8,7 @@
 namespace Stillpress\Rewrite;
 
 /**
- * Replaces every encoded form of the origin address with the public address.
+ * Replaces every encoded form of the origin address, and of its aliases, with the public address.
  *
  * Rewriting is textual and boundary-aware, not DOM-based (see DECISIONS.md D3). This is what lets one pass cover
  * HTML attributes, srcset, inline JavaScript, JSON-LD, CSS url(), XML feeds and sitemaps.
@@ -61,8 +61,15 @@ final class UrlRewriter {
 		if ( '' === $content || $this->origins->is_identity() ) {
 			return $content;
 		}
-		// Cheap pre-check: if the host never appears (in any case), nothing can match.
-		if ( false === stripos( $content, $this->origins->origin_host() ) ) {
+		// Cheap pre-check: if no host appears (in any case), nothing can match.
+		$present = false;
+		foreach ( $this->origins->authorities() as $authority ) {
+			if ( false !== stripos( $content, $authority[0] ) ) {
+				$present = true;
+				break;
+			}
+		}
+		if ( ! $present ) {
 			return $content;
 		}
 		foreach ( $this->families() as $family ) {
@@ -134,14 +141,16 @@ final class UrlRewriter {
 			'entity'  => array( '(?::|&#0*58;|&#[xX]0*3[aA];|&colon;)', '(?:&#0*47;|&#[xX]0*2[fF];|&sol;)', '&#x3A;', '&#x2F;' ),
 		);
 
-		$host = preg_quote( $this->origins->origin_host(), '`' );
-		$port = $this->origins->origin_port();
-
 		$this->families = array();
 		foreach ( $definitions as $name => $def ) {
 			list( $colon_re, $slash_re, $colon, $slash ) = $def;
 
-			$port_re = null === $port ? '' : $colon_re . preg_quote( (string) $port, '`' );
+			// The origin host and its aliases, each with its own port.
+			$hosts = array();
+			foreach ( $this->origins->authorities() as $authority ) {
+				$hosts[] = preg_quote( $authority[0], '`' ) . ( null === $authority[1] ? '' : $colon_re . preg_quote( (string) $authority[1], '`' ) );
+			}
+			$host_re = '(?:' . implode( '|', $hosts ) . ')';
 
 			// After the authority: not more host characters, not a port (unless ours, consumed above), not userinfo.
 			$after_host = '(?![A-Za-z0-9\-_]|\.[A-Za-z0-9\-]|' . $colon_re . '[0-9]|@|' . ( 'urlenc' === $name ? '%40' : '@' ) . ')';
@@ -160,7 +169,7 @@ final class UrlRewriter {
 
 			// Protocol-relative matches must not be preceded by a scheme-ish character (that would be another URL's path).
 			$pattern = '`(?:(?<scheme>https?)' . $colon_re . '|(?<![A-Za-z0-9+.\-:/\\\\]))'
-				. $slash_re . $slash_re . $host . $port_re . $after_host . $home_re . '`i';
+				. $slash_re . $slash_re . $host_re . $after_host . $home_re . '`i';
 
 			$this->families[ $name ] = array(
 				'pattern' => $pattern,

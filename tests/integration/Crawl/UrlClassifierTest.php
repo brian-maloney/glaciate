@@ -107,6 +107,23 @@ final class UrlClassifierTest extends \WP_UnitTestCase {
 		$this->assertSame( 'outside-public-path', $c->reason() );
 	}
 
+	public function test_alias_urls_are_crawled_from_the_origin(): void {
+		$origins = new OriginSet( 'https://origin.test', 'https://example.org', array( 'www.origin.test' ) );
+		$c       = new UrlClassifier( new UrlPolicy( $origins->origins() ), $origins );
+		$this->assertSame(
+			array(
+				'url'  => 'https://origin.test/wp-content/uploads/logo.png',
+				'kind' => 'asset',
+			),
+			$c->classify( 'https://www.origin.test/wp-content/uploads/logo.png?ver=2' )
+		);
+		$this->assertSame( 'https://origin.test/about/', $c->classify( 'http://www.origin.test/about/' )['url'] );
+		$this->assertNull( $c->classify( 'https://www.origin.test.evil/about/' ) );
+		$this->assertSame( 'not-origin', $c->reason() );
+		$this->assertNull( $c->classify( 'https://www.origin.test/wp-admin/' ) );
+		$this->assertSame( 'excluded', $c->reason() );
+	}
+
 	public function test_invalid_user_regex_is_ignored(): void {
 		$c = $this->classifier( array( '~([unclosed' ) );
 		$this->assertNotNull( $c->classify( 'https://origin.test/x/' ) );

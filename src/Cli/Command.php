@@ -407,7 +407,7 @@ final class Command {
 	 * : Setting name.
 	 *
 	 * [<value>]
-	 * : New value. Lists (additional_urls, exclude, redirects) take one entry per line or a JSON array.
+	 * : New value. Lists (additional_urls, origin_aliases, exclude, redirects) take one entry per line or a JSON array.
 	 *
 	 * [--format=<format>]
 	 * : Output format for list.

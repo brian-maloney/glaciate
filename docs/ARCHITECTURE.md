@@ -46,6 +46,9 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - `OriginSet` holds every form of the origin: `home_url` and `site_url`, http and https, protocol-relative `//host`,
   JSON-escaped `https:\/\/host`, URL-encoded `https%3A%2F%2Fhost`, entity-encoded variants, and any extra aliases.
   Longest prefix wins, so a WP-in-subdirectory origin (`/wp/`) maps correctly onto a public root.
+- Aliases (setting `origin_aliases`) are other hosts that serve the same site with the same paths, typically the live
+  address while the site is edited on another host. The rewriter maps them to the public address like the origin, and
+  discovery moves their URLs onto the origin before the URL policy sees them, so they are never fetched (D31).
 - **Rewriting is a boundary-aware textual replacement over the whole document**, not a DOM rewrite. That's how it
   covers inline JS, JSON-LD, srcset, CSS `url()`, `@import`, OG/canonical meta, feeds, sitemaps and the sitemap XSL
   in one pass. Boundaries prevent `example.com` → `example.com.evil` or `example.community`.
@@ -61,7 +64,7 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   archives, from their post counts and `posts_per_page`, so they don't form a chain of links (D24)); feeds; robots.txt; favicon;
   additional URLs and paths from settings; a 404 rendered from a guaranteed-missing URL and saved as `404.html`.
 - Frontier: a deduplicated, normalized URL set held in a DB table. `WP_HTML_Tag_Processor` (core) extracts links from
-  href/src/srcset/poster/`link[rel]`/meta; a CSS tokenizer handles `url()` and `@import`. Only same-origin URLs are
+  href/src/srcset/poster/`link[rel]`/meta; a CSS tokenizer handles `url()` and `@import`. Only same-origin URLs (or alias URLs, moved onto the origin) are
   followed. Limits: depth, the address limit (pages found through links, beyond the seeds; files don't count), and a trap guard
   (calendar/infinite pagination). Query-string URLs are skipped
   and reported by default.

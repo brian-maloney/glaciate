@@ -522,3 +522,21 @@ are always checked. Each request gets its own hooks object so the filter's answe
 
 When checks are on and the certificate fails, the error says which filter turned them on, because the bare cURL message
 doesn't explain why a site's requests to itself check certificates at all.
+
+## D31. Origin aliases are rewritten and crawled, but fetched from the origin
+
+Sites are often edited on one host (`edit.example.org`) while the live site keeps its own address
+(`www.example.org`). Content and theme settings then contain URLs on the live host: pasted from the live site, or left
+over from before the move. Those URLs weren't the origin's, so the crawler skipped them and the rewriter left them
+alone. Pages looked right only while the old live site still answered; the files they pointed to were never published.
+
+The `origin_aliases` setting lists such hosts. An alias is a host (with an optional port) that serves the same site
+with the same paths; a path in the setting is ignored. Its URLs are handled as origin URLs everywhere except
+fetching: `UrlClassifier` moves them onto the origin host (`OriginSet::to_origin`) before `UrlPolicy` sees them, and
+`UrlPolicy` never learns the alias hosts. Builds still contact only the site itself, and an alias can't be used to
+reach another server (THREAT_MODEL.md T1). The rewriter matches alias hosts with the same boundaries and encodings as
+the origin host.
+
+Rewriting the database instead (search-replace of the live host) fixes what exists on the day it runs, but editors keep
+pasting live URLs afterwards. The public address isn't an implicit alias: its paths can differ from the origin's when
+the public URL has a base path, and an explicit list keeps the behavior visible in Settings.

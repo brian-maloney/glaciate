@@ -299,19 +299,24 @@ final class LinkExtractor {
 	}
 
 	/**
-	 * Every absolute or protocol-relative origin URL in a text, with JSON slash escapes undone.
+	 * Every absolute or protocol-relative URL on the origin or one of its aliases in a text, with JSON slash escapes
+	 * undone. Alias URLs are returned as found; the classifier moves them onto the origin.
 	 *
 	 * @param string $text Any text.
 	 * @return string[]
 	 */
 	public function absolute_origin_urls( string $text ): array {
-		$host = $this->origins->origin_host();
-		if ( false === stripos( $text, $host ) ) {
+		$hosts = array();
+		foreach ( $this->origins->authorities() as $authority ) {
+			if ( false !== stripos( $text, $authority[0] ) ) {
+				$hosts[] = preg_quote( $authority[0], '#' ) . ( null === $authority[1] ? '' : ':' . $authority[1] );
+			}
+		}
+		if ( ! $hosts ) {
 			return array();
 		}
 		$text    = str_replace( array( '\\/', '\\u002F', '\\u002f' ), '/', $text );
-		$port    = $this->origins->origin_port();
-		$pattern = '#(?:https?:)?//' . preg_quote( $host, '#' ) . ( null === $port ? '' : ':' . $port ) . '(?![A-Za-z0-9\-_]|\.[A-Za-z0-9\-]|:[0-9]|@)[^\s"\'<>`\\\\)\]]*#i';
+		$pattern = '#(?:https?:)?//(?:' . implode( '|', $hosts ) . ')(?![A-Za-z0-9\-_]|\.[A-Za-z0-9\-]|:[0-9]|@)[^\s"\'<>`\\\\)\]]*#i';
 		if ( ! preg_match_all( $pattern, $text, $m ) ) {
 			return array();
 		}

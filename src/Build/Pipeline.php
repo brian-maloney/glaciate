@@ -95,7 +95,7 @@ final class Pipeline {
 	public static function for_site(): Pipeline {
 		$p           = new self();
 		$p->settings = Settings::all();
-		$p->origins  = new OriginSet( home_url( '/' ), self::public_url( $p->settings ) );
+		$p->origins  = self::origin_set( $p->settings );
 		$p->policy   = new UrlPolicy( $p->origins->origins() );
 		$p->rewriter = new UrlRewriter( $p->origins );
 
@@ -107,6 +107,16 @@ final class Pipeline {
 		Paths::ensure_private_dir( Paths::cache_dir() );
 		$p->cache = new Cache( new PathMapper( Paths::cache_dir() ) );
 		return $p;
+	}
+
+	/**
+	 * The site's origin, public address and origin aliases.
+	 *
+	 * @param array<string,mixed> $settings Settings.
+	 * @return OriginSet
+	 */
+	public static function origin_set( array $settings ): OriginSet {
+		return new OriginSet( home_url( '/' ), self::public_url( $settings ), (array) ( $settings['origin_aliases'] ?? array() ) );
 	}
 
 	/**

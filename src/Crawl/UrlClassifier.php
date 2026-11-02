@@ -14,7 +14,8 @@ use Stillpress\Security\UrlPolicy;
  * Turns a candidate URL into a crawlable canonical URL, or explains why it is skipped.
  *
  * Rules, in order:
- * 1. The URL policy must accept it (same origin, http(s), no tricks).
+ * 1. A URL on an origin alias moves onto the origin. The URL policy must then accept it (same origin, http(s), no
+ *    tricks).
  * 2. Static files (paths with a file extension other than .php) lose their query string, because static hosts
  *    ignore it: "style.css?ver=6.1" becomes "style.css".
  * 3. Other URLs with a query string are skipped (a static host can't serve "?page=2" differently).
@@ -119,7 +120,7 @@ final class UrlClassifier {
 	 */
 	public function classify( string $url ): ?array {
 		$this->reason = '';
-		$canonical    = $this->policy->normalize( $url );
+		$canonical    = $this->policy->normalize( $this->origins->to_origin( $url ) );
 		if ( null === $canonical ) {
 			$this->reason = 'not-origin';
 			return null;

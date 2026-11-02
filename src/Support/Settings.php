@@ -48,6 +48,8 @@ final class Settings {
 			// Empty means the default under the data directory.
 			'local_path'             => '',
 			'additional_urls'        => array(),
+			// Other hosts that serve this site, such as the live address while the site is edited elsewhere.
+			'origin_aliases'         => array(),
 			'exclude'                => array(),
 			'redirects'              => array(),
 			// immediate: a minute after changes; scheduled: at publish_times on publish_days; manual: only on request.
@@ -172,6 +174,7 @@ final class Settings {
 		$out['local_path'] = isset( $input['local_path'] ) ? self::sanitize_path( (string) $input['local_path'] ) : '';
 
 		$out['additional_urls'] = self::sanitize_lines( $input['additional_urls'] ?? array(), 500 );
+		$out['origin_aliases']  = self::sanitize_aliases( $input['origin_aliases'] ?? array() );
 		$out['exclude']         = self::sanitize_lines( $input['exclude'] ?? array(), 500 );
 		$out['redirects']       = self::sanitize_redirects( $input['redirects'] ?? array() );
 
@@ -264,6 +267,23 @@ final class Settings {
 			}
 		}
 		return array_slice( array_values( array_unique( $lines ) ), 0, $limit );
+	}
+
+	/**
+	 * Normalizes origin aliases to host[:port] and drops entries that aren't hosts.
+	 *
+	 * @param mixed $value Lines.
+	 * @return string[]
+	 */
+	public static function sanitize_aliases( $value ): array {
+		$out = array();
+		foreach ( self::sanitize_lines( $value, 50 ) as $line ) {
+			$alias = \Stillpress\Rewrite\OriginSet::normalize_alias( $line );
+			if ( null !== $alias ) {
+				$out[] = $alias;
+			}
+		}
+		return array_values( array_unique( $out ) );
 	}
 
 	/**

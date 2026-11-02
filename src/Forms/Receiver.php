@@ -8,7 +8,6 @@
 namespace Stillpress\Forms;
 
 use Stillpress\Build\Pipeline;
-use Stillpress\Rewrite\OriginSet;
 use Stillpress\Rewrite\UrlRewriter;
 use Stillpress\Support\Logger;
 use Stillpress\Support\Settings;
@@ -279,7 +278,6 @@ final class Receiver {
 		if ( ! preg_match( '#^https?://#i', $url ) ) {
 			return '';
 		}
-		$origins = new OriginSet( home_url( '/' ), Pipeline::public_url( Settings::all() ) );
-		return ( new UrlRewriter( $origins ) )->rewrite_url( $url );
+		return ( new UrlRewriter( Pipeline::origin_set( Settings::all() ) ) )->rewrite_url( $url );
 	}
 }

@@ -2,7 +2,7 @@
 /**
  * Times full and incremental builds of the seeded benchmark site, and reports where the database time goes.
  *
- * Run with: npm run perf -- bench [full|incremental|all]
+ * Run with: npm run perf -- bench [full|incremental|rebuild|all]
  *
  * Prints one JSON report. Each build lists wall time per phase, the build process's peak memory, its query count
  * and the ten most expensive query shapes (numbers and strings replaced with ?). Render requests run in the web
@@ -161,7 +161,12 @@ function stillpress_perf_bench( array $args ): void {
 		'posts' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'post' AND post_status = 'publish'" ),
 	);
 
-	if ( 'incremental' !== $what ) {
+	if ( 'rebuild' === $what ) {
+		// A full build over a site that is already published: every published page is queued again first.
+		$report['rebuild'] = stillpress_perf_build( 'full' );
+	}
+
+	if ( ! in_array( $what, array( 'incremental', 'rebuild' ), true ) ) {
 		foreach ( Schema::TABLES as $table ) {
 			$wpdb->query( $wpdb->prepare( 'TRUNCATE TABLE %i', Schema::table( $table ) ) );
 		}
@@ -181,7 +186,7 @@ function stillpress_perf_bench( array $args ): void {
 		$report['full'] = stillpress_perf_build( 'full' );
 	}
 
-	if ( 'full' !== $what ) {
+	if ( ! in_array( $what, array( 'full', 'rebuild' ), true ) ) {
 		$report['incremental_nothing'] = stillpress_perf_build( 'incremental' );
 
 		$post_id = (int) $wpdb->get_var( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'post' AND post_status = 'publish' ORDER BY ID LIMIT 1 OFFSET 1000" );
@@ -225,6 +230,17 @@ function stillpress_perf_bench( array $args ): void {
 			}
 		),
 	);
+	if ( class_exists( \Stillpress\Service\ChangesetService::class ) ) {
+		// The Publish screen's "Waiting to be published", with one edited post pending.
+		$post_id = (int) $wpdb->get_var( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'post' AND post_status = 'publish' ORDER BY ID LIMIT 1 OFFSET 2000" );
+		( new \Stillpress\Storage\ChangeRepository() )->record( 'post', (string) $post_id, array( 'urls' => array( get_permalink( $post_id ) ) ) );
+		$report['screens']['changeset_preview'] = stillpress_perf_time(
+			static function () {
+				( new \Stillpress\Service\ChangesetService() )->preview();
+			}
+		);
+		( new \Stillpress\Storage\ChangeRepository() )->flush();
+	}
 
 	echo wp_json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ), "\n";
 }

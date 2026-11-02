@@ -7,6 +7,7 @@ content**, like the system tests.
 npm run perf -- seed 80000     # 80,000 posts, 50 categories, 500 tags, 5 authors: about 100,000 addresses
 npm run perf -- bench          # full build, then incremental builds after no change, a content edit, a title edit, a new post
 npm run perf -- bench incremental
+npm run perf -- bench rebuild  # a full build over the site as it is published now (run after bench)
 ```
 
 `STILLPRESS_PERF_CONCURRENCY` sets the render concurrency (default 8).

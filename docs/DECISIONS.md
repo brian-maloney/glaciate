@@ -551,3 +551,15 @@ During a render, the Recorder turns those links off with core's `feed_links_show
 filters (WordPress 6.1+), as part of the head clean-up that `stillpress_clean_head` controls; `none` also drops the
 site feed. Links a theme prints itself aren't touched. The alternative, publishing every feed by default, adds a feed
 per post, term and author for something most sites don't use.
+
+## D33. npm overrides for vulnerable dev-tool dependencies
+
+Security fixes for `qs` (6.16.1), `minimatch` (11.0.1) and `glob` (14.0.2) can't reach the lockfile through normal
+updates: `@wp-playground/cli` (under `@wordpress/env`) pins `express@4.22.2`, which allows only `qs@~6.15`, and
+`rimraf@5` allows only `glob@^10`, which allows only `minimatch@^9`. Dependabot's security updates fail for the same
+reason. `package.json` therefore overrides `qs` and `glob`; `glob@14` brings `minimatch@11`. Both packages are
+development tools only and never ship in the plugin ZIP.
+
+The overrides cross version ranges their parents declare. `rimraf@5` uses only `glob()` and `globSync()`, and only when
+called with its `glob` option, which `@wordpress/env` doesn't pass. `qs@6.16+` keeps the parse and stringify behavior
+that Express uses. Remove each override once `@wordpress/env` depends on fixed versions itself (`npm ls qs glob`).

@@ -298,8 +298,11 @@ from every log line. `wp stillpress secret list|set|delete` manages stored value
   `POST stillpress/v1/targets/<id>/check` (needs `stillpress_manage`), which runs `check_connection()` on the saved settings.
 - Admin bar node: static status (up to date / N pending / building x%), refreshed through the Heartbeat API.
 - Editor integration: a pinned `PluginSidebar` header icon (beside Publish), a `PluginPostStatusInfo` row with status and a "Publish to static" button, and a `PluginPostPublishPanel`. Classic editor: `post_submitbox_misc_actions`. (The block editor has no SlotFill directly next to the Publish button.) REST through `apiFetch` with the `wp_rest` nonce.
-- Site Health tests: loopback reachable, recorder header present (page-cache bypass), pretty permalinks, cache and target writable,
-  queue running, `zip`/`curl` extensions, origin/public URL sanity.
+- Site Health tests (the same list `wp stillpress doctor` runs, `HealthChecks::DIRECT` plus the loopback): loopback
+  reachable, recorder header present (page-cache bypass), pretty permalinks, cache and target writable, queue running,
+  stored secrets readable, search and forms set up, `zip`/`curl` extensions (curl is required when a connect-to
+  address is set), and origin/public URL sanity (a public address visitors can't reach, an https site published over
+  http, a WordPress address on another host that isn't an alias).
 - Capabilities: primitive caps `stillpress_manage` (settings, targets) and `stillpress_publish` (build/deploy). They're added to
   administrator (both) and editor (publish) once per site: on activation, or on the first request if activation never
   ran (the plugin was activated before `composer install`). They're removed on uninstall. Meta cap `stillpress_publish_post` is mapped in

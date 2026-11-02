@@ -65,4 +65,28 @@ final class UrlTest extends TestCase {
 	public function test_returns_null_for_unparseable_base(): void {
 		$this->assertNull( Url::resolve( 'not a url', 'x' ) );
 	}
+
+	/**
+	 * @dataProvider provide_hosts
+	 */
+	public function test_private_hosts( string $host, bool $expected ): void {
+		$this->assertSame( $expected, Url::is_private_host( $host ) );
+	}
+
+	public function provide_hosts(): array {
+		return array(
+			'localhost'          => array( 'localhost', true ),
+			'subdomain of it'    => array( 'site.localhost', true ),
+			'mDNS name'          => array( 'mysite.local', true ),
+			'test TLD'           => array( 'example.test', true ),
+			'loopback'           => array( '127.0.0.1', true ),
+			'private IPv4'       => array( '192.168.1.20', true ),
+			'IPv6 loopback'      => array( '[::1]', true ),
+			'unique local IPv6'  => array( 'fd00::1', true ),
+			'public name'        => array( 'www.example.org', false ),
+			'public IPv4'        => array( '93.184.216.34', false ),
+			'local in the label' => array( 'local.example.org', false ),
+			'dev TLD is public'  => array( 'mysite.dev', false ),
+		);
+	}
 }

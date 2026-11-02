@@ -197,6 +197,24 @@ final class Url {
 	}
 
 	/**
+	 * Is this a host the public can't reach: this computer, a private or reserved IP address, or a name reserved for
+	 * local networks and testing (.localhost, .local, .test, .internal, .invalid, .example)?
+	 *
+	 * @param string $host Host, optionally in brackets for IPv6.
+	 * @return bool
+	 */
+	public static function is_private_host( string $host ): bool {
+		$host = strtolower( trim( $host, '[]' ) );
+		if ( '' === $host || 'localhost' === $host ) {
+			return true;
+		}
+		if ( false !== filter_var( $host, FILTER_VALIDATE_IP ) ) {
+			return false === filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
+		}
+		return (bool) preg_match( '/\.(localhost|local|test|internal|invalid|example)\.?$/', $host );
+	}
+
+	/**
 	 * Returns the default port for a scheme.
 	 *
 	 * @param string $scheme Lowercase scheme.

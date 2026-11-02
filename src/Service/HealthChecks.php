@@ -25,22 +25,20 @@ use Stillpress\Support\Settings;
  */
 final class HealthChecks {
 
+	/** Checks that run without network requests, by method name. Site Health and `doctor` both use this list. */
+	const DIRECT = array( 'permalinks', 'addresses', 'target', 'cache', 'extensions', 'page_cache', 'queue', 'secrets', 'search', 'forms' );
+
 	/**
 	 * Checks that run without network requests.
 	 *
 	 * @return array<string,array<string,string>>
 	 */
 	public function direct(): array {
-		return array(
-			'permalinks' => $this->permalinks(),
-			'target'     => $this->target(),
-			'cache'      => $this->cache(),
-			'page_cache' => $this->page_cache(),
-			'queue'      => $this->queue(),
-			'secrets'    => $this->secrets(),
-			'search'     => $this->search(),
-			'forms'      => $this->forms(),
-		);
+		$out = array();
+		foreach ( self::DIRECT as $id ) {
+			$out[ $id ] = $this->$id();
+		}
+		return $out;
 	}
 
 	/**
@@ -70,6 +68,90 @@ final class HealthChecks {
 			'status'      => 'good',
 			'label'       => __( 'Permalinks work for static publishing', 'stillpress' ),
 			'description' => __( 'Every page has an address a static host can serve.', 'stillpress' ),
+		);
+	}
+
+	/**
+	 * The origin and the public address make sense together.
+	 *
+	 * @return array<string,string>
+	 */
+	public function addresses(): array {
+		$settings  = Settings::all();
+		$home      = (array) wp_parse_url( home_url( '/' ) );
+		$public    = (array) wp_parse_url( Pipeline::public_url( $settings ) );
+		$wp        = (array) wp_parse_url( site_url( '/' ) );
+		$authority = static function ( array $parts ): string {
+			return strtolower( (string) ( $parts['host'] ?? '' ) ) . ( isset( $parts['port'] ) ? ':' . (int) $parts['port'] : '' );
+		};
+		$aliases   = array_map( 'strtolower', (array) ( $settings['origin_aliases'] ?? array() ) );
+		$problems  = array();
+
+		if ( \Stillpress\Support\Url::is_private_host( (string) ( $public['host'] ?? '' ) ) ) {
+			$problems[] = '' === (string) $settings['public_url']
+				/* translators: %s: host name, such as "localhost:8888". */
+				? sprintf( __( 'No public address is set, so the static site links to this site\'s own address, %s, which visitors can\'t reach. Enter the address the static site will be served from.', 'stillpress' ), $authority( $public ) )
+				/* translators: %s: host name, such as "localhost:8888". */
+				: sprintf( __( 'The public address points at %s, which visitors can\'t reach. Links on the static site would lead there.', 'stillpress' ), $authority( $public ) );
+		}
+		if ( 'https' === ( $home['scheme'] ?? '' ) && 'http' === ( $public['scheme'] ?? '' ) ) {
+			$problems[] = __( 'The site uses https but the public address uses plain http, so the static site would load without encryption and browsers may block parts of it. Use an https public address.', 'stillpress' );
+		}
+		if ( $authority( $wp ) !== $authority( $home ) && ! in_array( $authority( $wp ), $aliases, true ) ) {
+			$problems[] = sprintf(
+				/* translators: 1: WordPress address host, 2: site address host. */
+				__( 'The WordPress address (%1$s) is on a different host than the site address (%2$s). Files under it aren\'t published or rewritten. If %1$s serves the same files, add it under "Other addresses of this site".', 'stillpress' ),
+				$authority( $wp ),
+				$authority( $home )
+			);
+		}
+
+		if ( $problems ) {
+			return array(
+				'status'      => 'recommended',
+				'label'       => __( 'Check the static site\'s public address', 'stillpress' ),
+				'description' => implode( ' ', $problems ),
+				'action'      => admin_url( 'admin.php?page=stillpress-settings' ),
+			);
+		}
+		return array(
+			'status'      => 'good',
+			'label'       => __( 'The static site\'s public address looks right', 'stillpress' ),
+			/* translators: %s: public address. */
+			'description' => sprintf( __( 'Links on the static site point to %s.', 'stillpress' ), Pipeline::public_url( $settings ) ),
+		);
+	}
+
+	/**
+	 * PHP extensions that publishing relies on.
+	 *
+	 * @return array<string,string>
+	 */
+	public function extensions(): array {
+		$missing  = array();
+		$critical = false;
+		if ( ! function_exists( 'curl_multi_init' ) ) {
+			if ( '' !== Pipeline::connect_to( Settings::all() ) ) {
+				$critical  = true;
+				$missing[] = __( 'The curl extension is missing, and builds need it to reach the site at the "connect to" address that is set, so they can\'t render any page.', 'stillpress' );
+			} else {
+				$missing[] = __( 'The curl extension is missing, so pages are rendered one at a time instead of several at once, and uploads to remote destinations are slower.', 'stillpress' );
+			}
+		}
+		if ( ! class_exists( \ZipArchive::class ) ) {
+			$missing[] = __( 'The zip extension is missing, so the static site can\'t be downloaded as a ZIP file.', 'stillpress' );
+		}
+		if ( $missing ) {
+			return array(
+				'status'      => $critical ? 'critical' : 'recommended',
+				'label'       => __( 'Static publishing is missing PHP extensions', 'stillpress' ),
+				'description' => implode( ' ', $missing ) . ' ' . __( 'Ask your host to enable them.', 'stillpress' ),
+			);
+		}
+		return array(
+			'status'      => 'good',
+			'label'       => __( 'PHP has the extensions static publishing uses', 'stillpress' ),
+			'description' => __( 'The curl and zip extensions are available.', 'stillpress' ),
 		);
 	}
 

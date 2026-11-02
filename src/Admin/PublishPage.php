@@ -10,12 +10,13 @@ namespace Stillpress\Admin;
 use Stillpress\Deploy\LocalDirectory;
 use Stillpress\Deploy\Registry;
 use Stillpress\Security\Capabilities;
+use Stillpress\Service\ChangesetService;
 use Stillpress\Service\StatusService;
 use Stillpress\Storage\BuildRepository;
 use Stillpress\Support\Settings;
 
 /**
- * Shows status, the publish buttons and build history. Before the first publish it shows the one question the
+ * Shows status, the publish buttons, what the next publish would change, and build history. Before the first publish it shows the one question the
  * plugin needs answered: where the static site should go.
  */
 final class PublishPage {
@@ -38,6 +39,9 @@ final class PublishPage {
 			self::onboarding();
 		} else {
 			self::status_card( $status );
+			if ( $status['pending_changes'] > 0 && null === $status['active'] ) {
+				self::changeset();
+			}
 		}
 		self::history();
 		echo '</div>';
@@ -215,6 +219,70 @@ final class PublishPage {
 					<dd><?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $schedule['next_full_rebuild'] ) ); ?></dd>
 				<?php endif; ?>
 			</dl>
+		</div>
+		<?php
+	}
+
+	/**
+	 * What "Publish changes" would do: the changed content and the addresses it rebuilds.
+	 *
+	 * @return void
+	 */
+	private static function changeset(): void {
+		$preview = ( new ChangesetService() )->preview();
+		$more    = $preview['item_count'] - count( $preview['items'] );
+		?>
+		<h2><?php esc_html_e( 'Waiting to be published', 'stillpress' ); ?></h2>
+		<div class="stillpress-card stillpress-changeset">
+			<ul class="stillpress-changes">
+				<?php foreach ( $preview['items'] as $item ) : ?>
+					<li>
+						<?php if ( '' !== $item['link'] ) : ?>
+							<a href="<?php echo esc_url( $item['link'] ); ?>"><?php echo esc_html( $item['label'] ); ?></a>
+						<?php else : ?>
+							<?php echo esc_html( $item['label'] ); ?>
+						<?php endif; ?>
+					</li>
+				<?php endforeach; ?>
+				<?php if ( $more > 0 ) : ?>
+					<li>
+					<?php
+					/* translators: %s: formatted number. */
+					echo esc_html( sprintf( _n( 'and %s more change', 'and %s more changes', $more, 'stillpress' ), number_format_i18n( $more ) ) );
+					?>
+					</li>
+				<?php endif; ?>
+			</ul>
+			<?php if ( $preview['full'] ) : ?>
+				<p><?php esc_html_e( 'Publishing these changes rebuilds every page.', 'stillpress' ); ?></p>
+			<?php elseif ( $preview['pages'] > 0 ) : ?>
+				<details>
+					<summary>
+						<?php
+						/* translators: %s: formatted number of addresses. */
+						echo esc_html( sprintf( _n( 'Publishing these changes rebuilds %s address', 'Publishing these changes rebuilds %s addresses', $preview['pages'], 'stillpress' ), number_format_i18n( $preview['pages'] ) ) );
+						?>
+					</summary>
+					<ul class="stillpress-changeset-urls">
+						<?php foreach ( $preview['urls'] as $url ) : ?>
+							<li><code><?php echo esc_html( $url ); ?></code></li>
+						<?php endforeach; ?>
+						<?php if ( $preview['pages'] > count( $preview['urls'] ) ) : ?>
+							<li>
+							<?php
+							/* translators: %s: formatted number of addresses. */
+							echo esc_html( sprintf( _n( 'and %s more', 'and %s more', $preview['pages'] - count( $preview['urls'] ), 'stillpress' ), number_format_i18n( $preview['pages'] - count( $preview['urls'] ) ) ) );
+							?>
+							</li>
+						<?php endif; ?>
+					</ul>
+				</details>
+			<?php else : ?>
+				<p><?php esc_html_e( 'No published page uses what changed, so publishing them rebuilds nothing.', 'stillpress' ); ?></p>
+			<?php endif; ?>
+			<?php if ( ! $preview['complete'] ) : ?>
+				<p class="description"><?php esc_html_e( 'There are too many changes to show them all; the list is incomplete.', 'stillpress' ); ?></p>
+			<?php endif; ?>
 		</div>
 		<?php
 	}

@@ -10,6 +10,7 @@ namespace Stillpress\Rest;
 use Stillpress\Build\BuildService;
 use Stillpress\Plugin;
 use Stillpress\Security\Capabilities;
+use Stillpress\Service\ChangesetService;
 use Stillpress\Service\HealthChecks;
 use Stillpress\Service\StatusService;
 use Stillpress\Storage\BuildRepository;
@@ -20,6 +21,7 @@ use Stillpress\Support\Logger;
  * authentication supplies the nonce check for browser requests.
  *
  *     GET  /status                 Site status.
+ *     GET  /changes                What the next "Publish changes" would rebuild.
  *     POST /builds                 Start a build: kind = incremental (default) | full.
  *     POST /builds/cancel          Cancel the active build.
  *     GET  /builds                 Recent builds.
@@ -57,6 +59,15 @@ final class Controller {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'status' ),
+				'permission_callback' => $publish,
+			)
+		);
+		register_rest_route(
+			self::NAMESPACE,
+			'/changes',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'changes' ),
 				'permission_callback' => $publish,
 			)
 		);
@@ -175,6 +186,15 @@ final class Controller {
 	 */
 	public function status(): \WP_REST_Response {
 		return rest_ensure_response( ( new StatusService() )->site() );
+	}
+
+	/**
+	 * GET /changes.
+	 *
+	 * @return \WP_REST_Response
+	 */
+	public function changes(): \WP_REST_Response {
+		return rest_ensure_response( ( new ChangesetService() )->preview() );
 	}
 
 	/**

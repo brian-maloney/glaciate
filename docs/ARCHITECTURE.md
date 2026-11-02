@@ -285,7 +285,9 @@ appear in REST/CLI output, logs or exports. Every value `Secrets` returns is reg
 from every log line. `wp stillpress secret list|set|delete` manages stored values; `set` reads from standard input or a hidden prompt.
 
 ## WordPress-native UX
-- A top-level menu **Static Site**, with a *Publish* page (status, Publish / Full rebuild, history, log, changeset preview) and a
+- A top-level menu **Static Site**, with a *Publish* page (status, Publish / Full rebuild, history, log, and a changeset
+  preview: the pending changes and the addresses the next publish rebuilds, from `Service\ChangesetService`, also at
+  `GET stillpress/v1/changes` and `wp stillpress changes preview`) and a
   *Settings* page (Settings API; `option_page_capability_stillpress` lets `stillpress_manage` save it, not only `manage_options`).
   Every configurable deploy target gets a panel generated from its `fields()`; a script shows only the selected destination's
   panel (without JavaScript all panels show and the form still works). Fields merge one by one over the stored values, so
@@ -305,7 +307,7 @@ from every log line. `wp stillpress secret list|set|delete` manages stored value
 - Activation defaults: target = Local directory at `wp-content/stillpress/public/<site>/`, public URL = current home URL. The one
   onboarding choice: *where to deploy*.
 - WP-CLI: `wp stillpress build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--out]`,
-  `urls list|add|remove`, `why <url>` (shows recorded deps), `changes list|flush`, `settings get|set|list`, `secret list|set|delete`,
+  `urls list|add|remove`, `why <url>` (shows recorded deps), `changes list|preview|flush`, `settings get|set|list`, `secret list|set|delete`,
   `forms status|receiver`, `doctor` (Site Health checks), `clean`.
 - Extension API: every pipeline stage has actions/filters (`stillpress_exclude_patterns`, `stillpress_exclude_render`,
   `stillpress_output`, `stillpress_output_path`, `stillpress_affected_url_ids`, `stillpress_manifest`,

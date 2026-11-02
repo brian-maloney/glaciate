@@ -97,6 +97,14 @@ final class CliTest extends SystemTestCase {
 		list( , $out ) = $this->wp( 'changes list --format=json' );
 		$this->assertNotEmpty( json_decode( $out, true ) );
 
+		list( , $out ) = $this->wp( 'changes preview' );
+		$this->assertStringContainsString( 'Post: After the edit', $out );
+		$this->assertStringContainsString( self::PUBLIC_URL . '/edited/', $out );
+		list( , $out ) = $this->wp( 'changes preview --format=json' );
+		$preview       = json_decode( $out, true );
+		$this->assertFalse( $preview['full'] );
+		$this->assertContains( self::PUBLIC_URL . '/edited/', $preview['urls'] );
+
 		list( $code, $out ) = $this->wp( 'build --sync' );
 		$this->assertSame( 0, $code, $out );
 		$this->assertStringContainsString( 'After the edit', (string) $this->page( '/edited/' ) );

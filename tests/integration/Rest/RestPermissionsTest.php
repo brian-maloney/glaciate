@@ -47,6 +47,7 @@ final class RestPermissionsTest extends \WP_UnitTestCase {
 	public function provide_routes(): array {
 		return array(
 			array( 'GET', '/status' ),
+			array( 'GET', '/changes' ),
 			array( 'GET', '/builds' ),
 			array( 'POST', '/builds' ),
 			array( 'POST', '/builds/cancel' ),

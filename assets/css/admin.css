@@ -79,6 +79,18 @@
 	max-width: 1100px;
 }
 
+.stillpress .stillpress-changes,
+.stillpress .stillpress-changeset-urls {
+	list-style: disc;
+	margin: 0 0 1em 1.5em;
+}
+
+.stillpress .stillpress-changeset-urls {
+	max-height: 320px;
+	overflow: auto;
+	overflow-wrap: anywhere;
+}
+
 .stillpress .stillpress-log {
 	max-height: 320px;
 	max-width: 640px;

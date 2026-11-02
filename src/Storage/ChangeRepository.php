@@ -70,6 +70,26 @@ final class ChangeRepository {
 	}
 
 	/**
+	 * Pending changes with their payloads, oldest first, without claiming them: what the next incremental build
+	 * would plan from.
+	 *
+	 * @param int $limit Maximum rows.
+	 * @return array<int,array{object_type:string,object_key:string,payload:array<string,mixed>}>
+	 */
+	public function peek( int $limit = 5000 ): array {
+		global $wpdb;
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare( 'SELECT object_type, object_key, payload FROM %i WHERE build_id = 0 ORDER BY id LIMIT %d', Schema::table( 'changes' ), $limit ),
+			ARRAY_A
+		);
+		foreach ( $rows as &$row ) {
+			$payload        = json_decode( (string) $row['payload'], true );
+			$row['payload'] = is_array( $payload ) ? $payload : array();
+		}
+		return $rows;
+	}
+
+	/**
 	 * Lists pending changes (newest first) for display.
 	 *
 	 * @param int $limit Maximum rows.

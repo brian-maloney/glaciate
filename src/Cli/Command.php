@@ -363,15 +363,16 @@ final class Command {
 	 * ## OPTIONS
 	 *
 	 * <action>
-	 * : list or flush.
+	 * : list (raw change records), preview (what the next publish rebuilds) or flush.
 	 * ---
 	 * options:
 	 *   - list
+	 *   - preview
 	 *   - flush
 	 * ---
 	 *
 	 * [--format=<format>]
-	 * : Output format for list.
+	 * : Output format for list and preview (table, json, csv, yaml).
 	 * ---
 	 * default: table
 	 * ---
@@ -386,6 +387,30 @@ final class Command {
 			WP_CLI::success( sprintf( 'Discarded %d pending changes.', $repo->flush() ) );
 			return;
 		}
+		if ( 'preview' === ( $args[0] ?? '' ) ) {
+			$preview = ( new \Stillpress\Service\ChangesetService() )->preview( 1000 );
+			if ( 'json' === ( $assoc['format'] ?? 'table' ) ) {
+				WP_CLI::line( (string) wp_json_encode( $preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) );
+				return;
+			}
+			if ( 0 === $preview['pending'] ) {
+				WP_CLI::success( 'Nothing to publish.' );
+				return;
+			}
+			WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $preview['items'], array( 'type', 'key', 'label' ) );
+			if ( $preview['full'] ) {
+				WP_CLI::line( 'The next publish rebuilds every page.' );
+				return;
+			}
+			WP_CLI::line( sprintf( 'The next publish renders %d addresses:', $preview['pages'] ) );
+			foreach ( $preview['urls'] as $url ) {
+				WP_CLI::line( '  ' . $url );
+			}
+			if ( $preview['pages'] > count( $preview['urls'] ) ) {
+				WP_CLI::line( sprintf( '  … and %d more.', $preview['pages'] - count( $preview['urls'] ) ) );
+			}
+			return;
+		}//end if
 		WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $repo->pending( 1000 ), array( 'id', 'object_type', 'object_key', 'created_at' ) );
 	}
 

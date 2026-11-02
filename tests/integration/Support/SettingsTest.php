@@ -87,6 +87,16 @@ final class SettingsTest extends \WP_UnitTestCase {
 		$this->assertSame( 'all', Settings::get( 'feeds' ) );
 	}
 
+	public function test_depth_limit_defaults_to_100_and_allows_off(): void {
+		$this->assertSame( 100, Settings::get( 'max_depth' ) );
+		Settings::update( array( 'max_depth' => 0 ) );
+		$this->assertSame( 0, Settings::get( 'max_depth' ) );
+		Settings::update( array( 'max_depth' => -5 ) );
+		$this->assertSame( 0, Settings::get( 'max_depth' ) );
+		Settings::update( array( 'max_depth' => '12' ) );
+		$this->assertSame( 12, Settings::get( 'max_depth' ) );
+	}
+
 	public function test_filter_can_override(): void {
 		add_filter(
 			'stillpress_settings',

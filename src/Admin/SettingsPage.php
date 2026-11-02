@@ -118,6 +118,7 @@ final class SettingsPage {
 		self::field( 'concurrency', __( 'Parallel requests', 'stillpress' ), 'stillpress_advanced', array( self::class, 'field_concurrency' ) );
 		self::field( 'connect_to', __( 'Loopback address', 'stillpress' ), 'stillpress_advanced', array( self::class, 'field_connect_to' ) );
 		self::field( 'max_urls', __( 'Address limit', 'stillpress' ), 'stillpress_advanced', array( self::class, 'field_max_urls' ) );
+		self::field( 'max_depth', __( 'Link depth limit', 'stillpress' ), 'stillpress_advanced', array( self::class, 'field_max_depth' ) );
 	}
 
 	/**
@@ -847,6 +848,20 @@ final class SettingsPage {
 			(int) Settings::get( 'max_urls' )
 		);
 		self::description( 'stillpress-max-urls', array( __( 'How many pages the crawler may find by following links, beyond the posts, pages, terms, authors and archive pages it lists from the database. Files such as images don\'t count. Stops it from following links forever, for example on infinite calendars.', 'stillpress' ) ) );
+	}
+
+	/**
+	 * Link depth field.
+	 *
+	 * @return void
+	 */
+	public static function field_max_depth(): void {
+		printf(
+			'<input type="number" min="0" class="small-text" id="stillpress-max-depth" name="%s" value="%d" aria-describedby="stillpress-max-depth-description">',
+			esc_attr( self::name( 'max_depth' ) ),
+			(int) Settings::get( 'max_depth' )
+		);
+		self::description( 'stillpress-max-depth', array( __( 'How many links in a row the crawler follows from the pages it lists from the database before it stops. A crawler trap such as a calendar with a "next month" link on every page ends here, long before the address limit. 0 means no limit.', 'stillpress' ) ) );
 	}
 
 	/**

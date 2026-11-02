@@ -64,6 +64,8 @@ final class Settings {
 			'connect_to'             => '',
 			'feeds'                  => 'main',
 			'max_urls'               => 100000,
+			// Most links between a listed page and a page found by crawling; 0 means no limit.
+			'max_depth'              => 100,
 			// builtin: an index built in PHP and searched by the bundled script; pagefind: run the binary named by
 			// STILLPRESS_PAGEFIND_BINARY; pagefind_host: the host's build step runs Pagefind; off.
 			'search'                 => 'builtin',
@@ -201,7 +203,8 @@ final class Settings {
 		$feeds        = isset( $input['feeds'] ) ? (string) $input['feeds'] : $defaults['feeds'];
 		$out['feeds'] = in_array( $feeds, array( 'none', 'main', 'all' ), true ) ? $feeds : $defaults['feeds'];
 
-		$out['max_urls'] = isset( $input['max_urls'] ) ? max( 1, min( 1000000, (int) $input['max_urls'] ) ) : $defaults['max_urls'];
+		$out['max_urls']  = isset( $input['max_urls'] ) ? max( 1, min( 1000000, (int) $input['max_urls'] ) ) : $defaults['max_urls'];
+		$out['max_depth'] = isset( $input['max_depth'] ) ? max( 0, min( 10000, (int) $input['max_depth'] ) ) : $defaults['max_depth'];
 
 		$search        = isset( $input['search'] ) ? (string) $input['search'] : $defaults['search'];
 		$out['search'] = in_array( $search, array( 'off', 'builtin', 'pagefind', 'pagefind_host' ), true ) ? $search : $defaults['search'];

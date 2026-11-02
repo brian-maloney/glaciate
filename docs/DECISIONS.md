@@ -593,3 +593,18 @@ At finalizing, `Generated` copies the published file the redirect points to into
 file's content type (browsers read PNG data in a `.ico` file). Hosts that ignore `_redirects`, such as GitHub Pages
 or a plain web server, then serve the icon too. The copy gives way when a real `favicon.ico` appears, and is removed
 when the address stops redirecting. A redirect to another host is left to `_redirects`.
+
+## D36. A link depth limit, counted by the shortest path, that published pages can't reset
+
+The address limit alone let a crawler trap (an events calendar with a "next month" link on every page) fill up to
+100,000 addresses before stopping. `max_depth` (default 100, 0 for none) stops following links on pages that many
+links from a seed. Seeds include every post, term, author and listed archive page (D24), so real sites rarely need
+more than a few steps; the long chains are date-archive pagination and traps. Files are never limited, so a page at
+the limit still gets its images and stylesheets.
+
+Depth had to mean the shortest path. The frontier kept whichever depth inserted a URL first, so `Frontier::add()` and
+`lower()` now move a waiting URL to the lower depth when a shorter path reaches it; claiming in depth order keeps the
+crawl breadth-first, so a page is lowered before it is rendered. Full builds re-queue every published page so pages
+nothing links to any more get re-checked. They used to go in at depth 0, which would have let a trap grow by the limit
+on every build. They now go in at the limit: re-checked, but their links aren't followed unless this build reaches
+them by a shorter path.

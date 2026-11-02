@@ -268,7 +268,10 @@ final class Runner {
 
 		// Full build: every published URL first (so pages that are no longer linked are re-checked), then seeds.
 		if ( empty( $stats['seed_cursor'] ) ) {
-			$frontier->add( $this->urls->published_ids() );
+			// At the depth limit, so a page that was published only because links led to it is re-checked without
+			// following its links further, unless a shorter path reaches it in this build and lowers its depth.
+			// Otherwise a crawler trap would grow by the limit on every full build.
+			$frontier->add( $this->urls->published_ids(), max( 0, (int) $pipeline->settings['max_depth'] ) );
 			$stats['seed_cursor'] = array( 'stage' => 'core' );
 			( new Invalidator() )->consume_all( (int) $build['id'] );
 		}
@@ -367,7 +370,7 @@ final class Runner {
 		}
 		$followed = (int) ( $build['stats']['followed'] ?? 0 );
 		if ( $found ) {
-			$followed = $this->queue_discovered( $build, $results, $claimed, $found, $frontier, $logger, (int) $pipeline->settings['max_urls'], $followed );
+			$followed = $this->queue_discovered( $build, $results, $claimed, $found, $frontier, $logger, (int) $pipeline->settings['max_urls'], (int) $pipeline->settings['max_depth'], $followed );
 		}
 		$stats = array(
 			'urls'     => $frontier->counts(),
@@ -391,9 +394,10 @@ final class Runner {
 	/**
 	 * Queues the links found in a batch of pages, one lookup for the whole batch.
 	 *
-	 * The address limit stops crawler traps (calendars, endless archives), which only links to pages can make. It counts
-	 * pages a build queued by following links, so the posts, terms and archives listed from the database, and the
-	 * files pages use, never use it up.
+	 * Two limits stop crawler traps (calendars, endless archives), which only links to pages can make. The depth limit
+	 * stops following links on pages that many links away from the listed ones; the address limit counts pages a build
+	 * queued by following links, so the posts, terms and archives listed from the database, and the files pages use,
+	 * never use it up. Neither applies to files.
 	 *
 	 * @param array<string,mixed>                                                                     $build     Build row.
 	 * @param array<int,array{outcome:string,discovered:array<int,array{url:string,kind:string}>}> $results   Outcomes by URL ID.
@@ -402,10 +406,11 @@ final class Runner {
 	 * @param Frontier                                                                                $frontier  Queue.
 	 * @param Logger                                                                                  $logger    Build log.
 	 * @param int                                                                                     $max_pages The address limit.
+	 * @param int                                                                                     $max_depth The link depth limit (0 = none).
 	 * @param int                                                                                     $followed  Pages queued through links so far.
 	 * @return int Pages queued through links, including this batch's.
 	 */
-	private function queue_discovered( array $build, array $results, array $claimed, array $found, Frontier $frontier, Logger $logger, int $max_pages, int $followed ): int {
+	private function queue_discovered( array $build, array $results, array $claimed, array $found, Frontier $frontier, Logger $logger, int $max_pages, int $max_depth, int $followed ): int {
 		$known = $this->urls->lookup( array_keys( $found ) );
 		// Incremental builds only follow links to URLs that aren't published right now: new URLs, and URLs that were
 		// gone (404) or redirecting before, which the change may have brought back.
@@ -431,7 +436,19 @@ final class Runner {
 			if ( ! empty( $sets['files'] ) ) {
 				$frontier->add( array_keys( $sets['files'] ), $depth );
 			}
-			$pages = empty( $sets['pages'] ) ? array() : $frontier->missing( array_keys( $sets['pages'] ) );
+			$linked = empty( $sets['pages'] ) ? array() : array_keys( $sets['pages'] );
+			$pages  = $frontier->missing( $linked );
+			if ( $max_depth > 0 && $depth > $max_depth ) {
+				if ( $pages && empty( $build['stats']['depth_limited'] ) ) {
+					/* translators: %d: the link depth limit. */
+					$logger->warning( sprintf( __( 'Reached the link depth limit of %d (Settings → Advanced); links on pages that deep were not followed.', 'stillpress' ), $max_depth ) );
+					$this->builds->merge_stats( (int) $build['id'], array( 'depth_limited' => true ) );
+					$build['stats']['depth_limited'] = true;
+				}
+				continue;
+			}
+			// Pages already waiting in the queue may have been reached by a longer path first.
+			$frontier->lower( array_diff( $linked, $pages ), $depth );
 			if ( count( $pages ) > $max_pages - $followed ) {
 				$logger->warning( __( 'Reached the address limit (Settings → Advanced); some links were not followed.', 'stillpress' ) );
 				$pages = array_slice( $pages, 0, max( 0, $max_pages - $followed ) );

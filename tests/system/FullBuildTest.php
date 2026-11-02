@@ -146,6 +146,43 @@ final class FullBuildTest extends SystemTestCase {
 		$this->assertStringContainsString( 'Reached the address limit', $this->log( (int) $build['id'] ) );
 	}
 
+	public function test_depth_limit_stops_link_chains_and_they_do_not_grow_between_builds(): void {
+		for ( $n = 1; $n <= 10; $n++ ) {
+			wp_insert_post(
+				array(
+					'post_title'  => "Old story {$n}",
+					'post_status' => 'publish',
+					'post_date'   => sprintf( '2024-03-%02d 10:00:00', $n ),
+				)
+			);
+		}
+		// Only links lead to the year archive (depth 1) and its later pages (depth 2).
+		wp_insert_post(
+			array(
+				'post_title'   => 'Years',
+				'post_name'    => 'years',
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_content' => '<!-- wp:paragraph --><p><a href="' . home_url( '/2024/' ) . '">2024</a></p><!-- /wp:paragraph -->',
+			)
+		);
+		\Stillpress\Support\Settings::update( array( 'max_depth' => 1 ) );
+
+		$build = $this->build();
+		$files = $this->snapshot();
+		$this->assertArrayHasKey( '2024/index.html', $files, $this->log( (int) $build['id'] ) );
+		$this->assertEmpty( preg_grep( '#^2024/page/#', array_keys( $files ) ) );
+		$this->assertStringContainsString( 'Reached the link depth limit of 1', $this->log( (int) $build['id'] ) );
+
+		$again = $this->build();
+		$this->assertEmpty( preg_grep( '#^2024/page/#', array_keys( $this->snapshot() ) ), 'A page published through links is re-checked at the limit, so the chain does not grow by one step per build.' );
+		$this->assertSame( 0, $again['stats']['deploy']['added'] );
+
+		\Stillpress\Support\Settings::update( array( 'max_depth' => 0 ) );
+		$build = $this->build();
+		$this->assertArrayHasKey( '2024/page/2/index.html', $this->snapshot(), 'Without a limit the later pages are followed. Log: ' . $this->log( (int) $build['id'] ) );
+	}
+
 	public function test_paginated_archives_are_listed_not_crawled(): void {
 		$cat = wp_insert_term( 'Busy', 'category', array( 'slug' => 'busy' ) )['term_id'];
 		for ( $n = 1; $n <= 10; $n++ ) {

@@ -66,8 +66,10 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   additional URLs and paths from settings; a 404 rendered from a guaranteed-missing URL and saved as `404.html`.
 - Frontier: a deduplicated, normalized URL set held in a DB table. `WP_HTML_Tag_Processor` (core) extracts links from
   href/src/srcset/poster/`link[rel]`/meta; a CSS tokenizer handles `url()` and `@import`. Only same-origin URLs (or alias URLs, moved onto the origin) are
-  followed. Limits: depth, the address limit (pages found through links, beyond the seeds; files don't count), and a trap guard
-  (calendar/infinite pagination). Query-string URLs are skipped
+  followed. Limits stop crawler traps (calendars, endless pagination): the link depth limit (`max_depth`, default 100 links from
+  a seed; 0 turns it off) and the address limit (pages found through links, beyond the seeds; files don't count under
+  either). A queued page takes the shortest depth that reaches it, and published pages are re-queued at the depth limit
+  on full builds, so a trap can't grow by the limit on every build. Query-string URLs are skipped
   by default and reported: the build log lists up to 20 of the linked ones (also kept in the build's stats as
   `query_skipped`), and each one listed under additional URLs gets a warning of its own.
 - Assets under uploads, themes, plugins or wp-includes are **copied from the filesystem**, which is faster than HTTP.

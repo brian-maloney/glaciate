@@ -44,7 +44,27 @@ final class Frontier {
 	}
 
 	/**
-	 * Adds URLs to the queue. URLs already queued in this build are ignored.
+	 * Lowers the depth of URLs that are queued and still waiting.
+	 *
+	 * @param int[] $url_ids URL IDs.
+	 * @param int   $depth   Link depth from the seeds.
+	 * @return void
+	 */
+	public function lower( array $url_ids, int $depth ): void {
+		global $wpdb;
+		$url_ids = array_values( array_unique( array_filter( array_map( 'intval', $url_ids ) ) ) );
+		foreach ( array_chunk( $url_ids, 500 ) as $chunk ) {
+			$in = implode( ', ', array_fill( 0, count( $chunk ), '%d' ) );
+			$wpdb->query(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $in holds placeholders only.
+				$wpdb->prepare( "UPDATE %i SET depth = %d WHERE build_id = %d AND state = 'pending' AND depth > %d AND url_id IN ($in)", array_merge( array( Schema::table( 'build_urls' ), $depth, $this->build_id, $depth ), $chunk ) )
+			);
+		}
+	}
+
+	/**
+	 * Adds URLs to the queue. A URL already queued in this build keeps its place, but takes the lower depth while it
+	 * waits, so the depth limit counts the shortest path to it.
 	 *
 	 * @param int[] $url_ids URL IDs.
 	 * @param int   $depth   Link depth from the seeds.
@@ -64,7 +84,11 @@ final class Frontier {
 				$values[]       = $depth;
 			}
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Placeholders built above.
-			$added += (int) $wpdb->query( $wpdb->prepare( 'INSERT IGNORE INTO %i (build_id, url_id, depth) VALUES ' . implode( ', ', $placeholders ), $values ) );
+			$inserted = (int) $wpdb->query( $wpdb->prepare( 'INSERT IGNORE INTO %i (build_id, url_id, depth) VALUES ' . implode( ', ', $placeholders ), $values ) );
+			$added   += $inserted;
+			if ( $inserted < count( $chunk ) ) {
+				$this->lower( $chunk, $depth );
+			}
 		}
 		if ( null !== $this->counts ) {
 			$this->counts['pending'] += $added;

@@ -73,7 +73,9 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   This only happens after the path is proven inside an allowed root and its extension is on the allowlist (see the
   threat model). Anything else is fetched over HTTP.
 - Redirects: origin 301/302s plus user-defined redirects become a `_redirects` file (a de facto standard) and a
-  meta-refresh HTML fallback.
+  meta-refresh HTML fallback, written only where the address maps to an HTML file (a static host serves `/old.pdf`
+  as a PDF whatever it contains). `/favicon.ico`, which WordPress answers with a redirect to the site icon, is
+  published as a copy of the file it points to; a real `favicon.ico` on the server takes precedence (D35).
 
 ## Dependency-tracked incremental builds
 **Recorded per URL during render** (stored in table `deps(url_id, type, key)`, indexed on `(type, key)`; this is the inverted map):

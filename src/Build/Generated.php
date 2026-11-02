@@ -16,7 +16,8 @@ use Stillpress\Support\Logger;
 
 /**
  * Writes the `_redirects` file (understood by several static hosts) from origin redirects and user-defined
- * redirects, plus a meta-refresh page for each user-defined redirect whose path is free.
+ * redirects, plus a meta-refresh page for each user-defined redirect whose path is free, `_headers`, and
+ * favicon.ico when WordPress answers it with a redirect.
  *
  * Generated files are stored as URL rows with a "stillpress:" pseudo-URL, so they flow through the same
  * manifest and deploy logic as everything else.
@@ -25,6 +26,9 @@ final class Generated {
 
 	/** Most rules Cloudflare reads from `_headers`. */
 	const MAX_HEADER_RULES = 100;
+
+	/** Pseudo-URL of favicon.ico when it is copied from the file WordPress redirects it to. */
+	const FAVICON = 'stillpress:generated/favicon.ico';
 
 	/**
 	 * Components.
@@ -66,6 +70,8 @@ final class Generated {
 	 * @return void
 	 */
 	public function write(): void {
+		$this->write_favicon();
+
 		$rules = array();
 		$pages = array();
 
@@ -146,6 +152,58 @@ final class Generated {
 	}
 
 	/**
+	 * Publishes favicon.ico when WordPress answers it with a redirect (to the site icon, or core's logo when none is
+	 * set). Browsers request /favicon.ico whatever a page links to, and a redirect from a file address only works on
+	 * hosts that read `_redirects`, so the file the redirect points to is copied there. A real favicon.ico, served by
+	 * the web server, is published like any other file and this copy steps aside.
+	 *
+	 * @return void
+	 */
+	private function write_favicon(): void {
+		$path     = (string) wp_parse_url( home_url( '/favicon.ico' ), PHP_URL_PATH );
+		$output   = $this->pipeline->origins->output_path_for( $path );
+		$relative = null;
+		$source   = null;
+		try {
+			$relative = null === $output ? null : $this->pipeline->cache->mapper()->relative_path( $output );
+		} catch ( UnsafePathException $e ) {
+			$relative = null;
+		}
+		$classified = $this->pipeline->classifier->classify( home_url( '/favicon.ico' ) );
+		$row        = null === $classified ? null : $this->urls->find( $classified['url'] );
+		if ( null !== $relative && null !== $row && 'redirect' === $row['kind'] && null !== $row['redirect_to'] ) {
+			$base = $this->pipeline->origins->public_base();
+			$to   = (string) $row['redirect_to'];
+			if ( 0 === strpos( $to, $base . '/' ) ) {
+				try {
+					$source = $this->urls->find_by_path( $this->pipeline->cache->mapper()->relative_path( substr( $to, strlen( $base ) ) ) );
+				} catch ( UnsafePathException $e ) {
+					$source = null;
+				}
+			}
+		}
+
+		$owner = null === $relative ? null : $this->urls->find_by_path( $relative );
+		if ( null !== $source && 'asset' === $source['kind'] && ( null === $owner || self::FAVICON === $owner['url'] ) ) {
+			$contents = file_get_contents( $this->pipeline->cache->path( (string) $source['path'] ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Our own build cache.
+			if ( false !== $contents && '' !== $contents ) {
+				$this->write_file( self::FAVICON, (string) $relative, $contents, (string) $source['content_type'] );
+				return;
+			}
+		}
+
+		// No redirect to copy any more. Remove our copy, unless a real favicon.ico has taken its path.
+		$copy = $this->urls->find( self::FAVICON );
+		if ( null !== $copy && null !== $copy['path'] ) {
+			$taken = $this->urls->find_by_path( (string) $copy['path'] );
+			if ( null === $taken || (int) $taken['id'] === (int) $copy['id'] ) {
+				$this->pipeline->cache->delete( (string) $copy['path'] );
+			}
+			$this->urls->unpublish( (int) $copy['id'] );
+		}
+	}
+
+	/**
 	 * Recorded origin redirects that have a public target and still redirect (a URL that has since started to answer
 	 * 404 keeps its row, but not its rule).
 	 *
@@ -190,6 +248,9 @@ final class Generated {
 		} catch ( UnsafePathException $e ) {
 			/* translators: 1: address, 2: error message. */
 			( new Logger( $this->build_id ) )->warning( sprintf( __( 'Skipped the redirect from %1$s: %2$s', 'stillpress' ), $from, $e->getMessage() ) );
+			return null;
+		}
+		if ( ! Processor::can_hold_redirect_page( $relative ) ) {
 			return null;
 		}
 		$target = '/' === $to[0] ? $this->pipeline->origins->public_authority() . $to : $to;

@@ -68,7 +68,7 @@ final class Seeds {
 	}
 
 	/**
-	 * Home, feeds, robots.txt, sitemaps, post type archives, the 404 page and user-listed URLs.
+	 * Home, feeds, robots.txt, favicon.ico, sitemaps, post type archives, the 404 page and user-listed URLs.
 	 *
 	 * @return array<int,array{url:string,source:string}>
 	 */
@@ -85,6 +85,12 @@ final class Seeds {
 			array(
 				'url'    => home_url( '/robots.txt' ),
 				'source' => 'robots',
+			),
+			// Browsers ask for it whatever the page links to. WordPress answers with a redirect to the site icon,
+			// which Generated publishes as the file itself.
+			array(
+				'url'    => home_url( '/favicon.ico' ),
+				'source' => 'favicon',
 			),
 		);
 		if ( 'none' !== Settings::get( 'feeds' ) ) {

@@ -579,3 +579,17 @@ left alone: forms go through their adapters (D22), and a broader pattern would s
 
 Stabilizing the value instead (a `nonce_life` filter on render requests that pins the tick) would publish a nonce that
 never expires and hides the problem from anything that reads it. `stillpress_strip_nonces` turns the pass off per URL.
+
+## D35. favicon.ico is published as a copy of the icon WordPress redirects to
+
+Browsers request `/favicon.ico` whatever a page links to. Unless the server has a real file there, WordPress answers
+with a redirect to the 32-pixel site icon, or to core's logo when none is set (`do_favicon()`). Static sites answered
+404, and the default build log filled with nothing about it.
+
+`/favicon.ico` is a seed. A real file is published like any other. A redirect is recorded for `_redirects` as usual,
+but no meta-refresh page is written there: a static host serves `favicon.ico` by its extension, so an HTML page would
+be a broken icon. The same now holds for every redirect from an address that doesn't map to an HTML file (`/old.pdf`).
+At finalizing, `Generated` copies the published file the redirect points to into `favicon.ico`, recorded with that
+file's content type (browsers read PNG data in a `.ico` file). Hosts that ignore `_redirects`, such as GitHub Pages
+or a plain web server, then serve the icon too. The copy gives way when a real `favicon.ico` appears, and is removed
+when the address stops redirecting. A redirect to another host is left to `_redirects`.

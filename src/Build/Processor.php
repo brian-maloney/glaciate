@@ -362,7 +362,7 @@ final class Processor {
 		}
 
 		$owner = null === $relative ? null : $this->urls->find_by_path( $relative );
-		if ( null !== $relative && $relative !== $target_relative && ( null === $owner || $owner['id'] === $row['id'] ) ) {
+		if ( null !== $relative && self::can_hold_redirect_page( $relative ) && $relative !== $target_relative && ( null === $owner || $owner['id'] === $row['id'] ) ) {
 			$html = self::redirect_page( $public_target );
 			try {
 				$fields['content_hash'] = $this->cache->write( $relative, $html );
@@ -373,7 +373,8 @@ final class Processor {
 				$fields['content_hash'] = null;
 			}
 		} else {
-			// Same file as the target (e.g. a trailing-slash redirect) or owned by a real page: record only.
+			// Same file as the target (e.g. a trailing-slash redirect), owned by a real page, or a file such as
+			// favicon.ico that a static host would serve with its own type: record only.
 			$this->delete_old_file( $row, null );
 			$fields['path']         = null;
 			$fields['content_hash'] = null;
@@ -387,7 +388,8 @@ final class Processor {
 	}
 
 	/**
-	 * Ensures no other published URL owns the path. Redirect files give way to real pages.
+	 * Ensures no other published URL owns the path. Redirect files, and a favicon.ico copied from the site icon,
+	 * give way to real pages and files.
 	 *
 	 * @param array<string,mixed> $row      URL row.
 	 * @param string              $relative Output path.
@@ -398,7 +400,7 @@ final class Processor {
 		if ( null === $owner || $owner['id'] === $row['id'] ) {
 			return true;
 		}
-		if ( 'redirect' === $owner['kind'] ) {
+		if ( 'redirect' === $owner['kind'] || Generated::FAVICON === $owner['url'] ) {
 			$this->urls->unpublish( (int) $owner['id'] );
 			return true;
 		}
@@ -548,6 +550,17 @@ final class Processor {
 			. '<meta name="robots" content="noindex"><link rel="canonical" href="' . $url . '">'
 			. '<meta http-equiv="refresh" content="0; url=' . $url . '"></head>'
 			. '<body data-pagefind-ignore="all"><p><a href="' . $url . '">' . esc_html( $target ) . '</a></p></body></html>' . "\n";
+	}
+
+	/**
+	 * Can a meta-refresh page be written at this output path? Only an HTML file: a static host serves any other
+	 * extension (/old.pdf, /favicon.ico) with that extension's type, so the page would only break the address.
+	 *
+	 * @param string $relative Output path.
+	 * @return bool
+	 */
+	public static function can_hold_redirect_page( string $relative ): bool {
+		return (bool) preg_match( '#\.html?$#i', $relative );
 	}
 
 	/**

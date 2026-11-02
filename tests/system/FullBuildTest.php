@@ -180,6 +180,63 @@ final class FullBuildTest extends SystemTestCase {
 		$this->assertArrayHasKey( '404.html', $files );
 	}
 
+	public function test_redirects_from_file_addresses_get_no_html_page(): void {
+		\Stillpress\Support\Settings::update( array( 'redirects' => "/old-brochure.pdf /about/ 301\n/old-page/ /about/ 301" ) );
+		$this->build();
+		$files = $this->snapshot();
+		$this->assertStringContainsString( '/old-brochure.pdf /about/ 301', $files['_redirects'] );
+		$this->assertArrayNotHasKey( 'old-brochure.pdf', $files, 'A static host would serve an HTML page there as a PDF.' );
+		$this->assertArrayHasKey( 'old-page/index.html', $files );
+	}
+
+	public function test_favicon_is_the_file_wordpress_redirects_to(): void {
+		// Without a site icon, WordPress redirects /favicon.ico to core's logo.
+		$this->build();
+		$files = $this->snapshot();
+		$this->assertArrayHasKey( 'favicon.ico', $files );
+		$this->assertSame( file_get_contents( ABSPATH . WPINC . '/images/w-logo-gray-white-bg.png' ), $files['favicon.ico'] );
+
+		// With one, to the 32-pixel site icon.
+		$png    = base64_decode( 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- 1x1 PNG fixture.
+		$upload = wp_upload_bits( 'site-icon.png', null, $png );
+		$this->assertEmpty( $upload['error'] );
+		$icon = wp_insert_attachment(
+			array(
+				'post_mime_type' => 'image/png',
+				'post_title'     => 'Site icon',
+				'post_status'    => 'inherit',
+			),
+			$upload['file']
+		);
+		update_option( 'site_icon', $icon );
+		$build = $this->build();
+		$files = $this->snapshot();
+		$this->assertSame( $png, $files['favicon.ico'] ?? null, "Log:\n" . $this->log( (int) $build['id'] ) );
+		$this->assertArrayHasKey( ltrim( (string) wp_parse_url( $upload['url'], PHP_URL_PATH ), '/' ), $files );
+
+		$again = $this->build();
+		$this->assertSame( 0, $again['stats']['deploy']['added'] + $again['stats']['deploy']['modified'] + $again['stats']['deploy']['deleted'] );
+		delete_option( 'site_icon' );
+		wp_delete_file( $upload['file'] );
+	}
+
+	public function test_a_real_favicon_file_wins(): void {
+		$this->build();
+		$this->assertArrayHasKey( 'favicon.ico', $this->snapshot(), 'Starts as the copy of the redirect target.' );
+
+		$file = ABSPATH . 'favicon.ico';
+		if ( file_exists( $file ) || ! is_writable( ABSPATH ) ) {
+			$this->markTestSkipped( 'Needs a writable WordPress root without a favicon.ico.' );
+		}
+		file_put_contents( $file, 'real icon bytes' );
+		try {
+			$build = $this->build();
+			$this->assertSame( 'real icon bytes', $this->snapshot()['favicon.ico'] ?? null, "Log:\n" . $this->log( (int) $build['id'] ) );
+		} finally {
+			wp_delete_file( $file );
+		}
+	}
+
 	public function test_feed_is_saved_as_index_html_with_its_type_in_headers(): void {
 		// Static hosts map "/feed/" only to feed/index.html; the real type goes in _headers and in each upload.
 		$this->build();

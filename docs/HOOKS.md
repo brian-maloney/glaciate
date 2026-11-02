@@ -85,6 +85,16 @@ Filters the URL path prefixes whose files may be copied straight from disk.
 
 Since 0.1.0. Fired in `src/Crawl/AssetCopier.php`.
 
+### `stillpress_backoff_seconds`
+
+Filters how long a build waits after the site answers 429 or 5xx.
+
+- `int $seconds` Seconds: Retry-After (at most 300), else 5, 10, 20 … up to 120.
+- `int $count` Back-offs in a row, including this one.
+- `int|null $retry_after` The Retry-After the site sent, in seconds, or null.
+
+Since 1.1.0. Fired in `src/Build/Runner.php`.
+
 ### `stillpress_clean_head`
 
 Filters whether render requests drop head links that only work on a live WordPress site.

@@ -47,6 +47,9 @@ final class Runner {
 	/** Another slice holds the lock; try again shortly. */
 	const BUSY = 'busy';
 
+	/** The build is backing off; run the next slice after wait_seconds(). */
+	const WAIT = 'wait';
+
 	/**
 	 * Builds.
 	 *
@@ -74,7 +77,7 @@ final class Runner {
 	 *
 	 * @param int   $build_id Build ID.
 	 * @param float $budget   Seconds to work before yielding (0 = until done).
-	 * @return string self::DONE, self::MORE or self::BUSY.
+	 * @return string self::DONE, self::MORE, self::BUSY or self::WAIT.
 	 */
 	public function run_slice( int $build_id, float $budget ): string {
 		$lock = new Lock();
@@ -82,7 +85,7 @@ final class Runner {
 			return self::BUSY;
 		}
 		try {
-			return $this->work( $build_id, $budget ) ? self::MORE : self::DONE;
+			return $this->work( $build_id, $budget );
 		} catch ( \Throwable $e ) {
 			$logger = new Logger( $build_id );
 			/* translators: %s: error message. */
@@ -101,17 +104,17 @@ final class Runner {
 	 *
 	 * @param int   $build_id Build ID.
 	 * @param float $budget   Seconds.
-	 * @return bool
+	 * @return string self::MORE, self::DONE or self::WAIT.
 	 */
-	private function work( int $build_id, float $budget ): bool {
+	private function work( int $build_id, float $budget ): string {
 		$start = microtime( true );
 		$build = $this->builds->get( $build_id );
 		if ( null === $build ) {
-			return false;
+			return self::DONE;
 		}
 		if ( 'queued' === $build['status'] ) {
 			if ( ! $this->builds->transition( $build_id, 'queued', 'running' ) ) {
-				return false;
+				return self::DONE;
 			}
 			$this->builds->update( $build_id, array( 'phase' => 'planning' ) );
 			$names = array(
@@ -123,7 +126,7 @@ final class Runner {
 			$build = $this->builds->get( $build_id );
 		}
 		if ( 'running' !== $build['status'] ) {
-			return false;
+			return self::DONE;
 		}
 
 		$pipeline = Pipeline::for_site();
@@ -139,10 +142,10 @@ final class Runner {
 			$build = $this->builds->get( $build_id );
 			if ( null === $build || 'running' !== $build['status'] ) {
 				$this->finished( $build_id );
-				return false; // Cancelled or finished elsewhere.
+				return self::DONE; // Cancelled or finished elsewhere.
 			}
 			if ( $out_of_time() ) {
-				return true;
+				return self::MORE;
 			}
 
 			switch ( $build['phase'] ) {
@@ -153,6 +156,9 @@ final class Runner {
 					break;
 
 				case 'rendering':
+					if ( self::wait_seconds( $build ) > 0 ) {
+						return self::WAIT; // Backing off: the site said it was overloaded.
+					}
 					if ( ! $this->render_batch( $build, $pipeline, $frontier, $logger ) ) {
 						$this->builds->update( $build_id, array( 'phase' => 'finalizing' ) );
 					}
@@ -183,7 +189,7 @@ final class Runner {
 					/* translators: 1: number of addresses processed, 2: number that failed. */
 					$logger->info( sprintf( __( 'Build finished. Addresses processed: %1$d, failed: %2$d.', 'stillpress' ), $counts['done'] + $counts['failed'], $counts['failed'] ) );
 					$this->finished( $build_id );
-					return false;
+					return self::DONE;
 			}
 		}
 	}
@@ -316,11 +322,14 @@ final class Runner {
 	 * @return bool
 	 */
 	private function render_batch( array $build, Pipeline $pipeline, Frontier $frontier, Logger $logger ): bool {
-		$build_id = (int) $build['id'];
-		$claimed  = $frontier->claim( max( 1, (int) $pipeline->settings['concurrency'] ) * 2 );
+		$build_id    = (int) $build['id'];
+		$configured  = max( 1, (int) $pipeline->settings['concurrency'] );
+		$concurrency = max( 1, min( $configured, (int) ( $build['stats']['concurrency'] ?? $configured ) ) );
+		$claimed     = $frontier->claim( $concurrency * 2 );
 		if ( ! $claimed ) {
 			return false;
 		}
+		$client = $concurrency < $configured ? new \Stillpress\Render\LoopbackClient( $pipeline->policy, Pipeline::connect_to( $pipeline->settings ), $concurrency ) : $pipeline->client;
 		$rows      = $this->urls->get_many( array_keys( $claimed ) );
 		$search    = 'builtin' === $pipeline->settings['search'] ? new PageIndexer( new TextExtractor(), new Tokenizer(), new Index() ) : null;
 		$forms     = new \Stillpress\Forms\Config( $pipeline->settings );
@@ -346,21 +355,33 @@ final class Runner {
 			);
 		}
 
-		foreach ( $pipeline->client->fetch( $requests ) as $id => $result ) {
+		$attempts   = $requests ? $frontier->attempts( array_keys( $requests ) ) : array();
+		$overloaded = array();
+		$retry      = null;
+		foreach ( $client->fetch( $requests ) as $id => $result ) {
 			$recorded = $result->headers[ strtolower( RenderToken::RECORDED_HEADER ) ] ?? '';
 			$result->recorded = ( $build_id . '.' . $id ) === $recorded;
+			if ( Backoff::is_overloaded( $result->status ) ) {
+				$overloaded[ $result->status ] = ( $overloaded[ $result->status ] ?? 0 ) + 1;
+				$after                         = Backoff::retry_after( $result->headers['retry-after'] ?? '', time() );
+				$retry                         = null === $after ? $retry : max( (int) $retry, $after );
+			}
 			// The recorder may have changed the row (dependency state); reload before processing.
 			$row            = $this->urls->get( (int) $id );
 			$results[ $id ] = null === $row ? array(
 				'outcome'    => 'failed',
 				'discovered' => array(),
-			) : $processor->process( $row, $result );
+			) : $processor->process( $row, $result, null, ( $attempts[ $id ] ?? Backoff::MAX_ATTEMPTS ) < Backoff::MAX_ATTEMPTS );
 		}
 
 		$states = array();
 		$found  = array();
 		foreach ( $results as $id => $outcome ) {
-			$states[ 'failed' === $outcome['outcome'] ? 'failed' : 'done' ][] = (int) $id;
+			$state                = array(
+				'failed' => 'failed',
+				'retry'  => 'pending',
+			);
+			$states[ $state[ $outcome['outcome'] ] ?? 'done' ][] = (int) $id;
 			foreach ( $outcome['discovered'] as $link ) {
 				$found[ $link['url'] ] = $link['kind'];
 			}
@@ -376,6 +397,11 @@ final class Runner {
 			'urls'     => $frontier->counts(),
 			'followed' => $followed,
 		);
+		if ( $overloaded ) {
+			$stats += $this->back_off( $build, $overloaded, $retry, $concurrency, $logger );
+		} elseif ( ! empty( $build['stats']['backoff_count'] ) ) {
+			$stats['backoff_count'] = 0;
+		}
 		$queries = $processor->skipped_queries();
 		if ( $queries ) {
 			$known                    = (array) ( $build['stats']['query_skipped'] ?? array() );
@@ -389,6 +415,65 @@ final class Runner {
 		// collects cycles when its root buffer fills, which a long build can outrun, so collect after each batch.
 		gc_collect_cycles();
 		return true;
+	}
+
+	/**
+	 * Pauses the build after the site answered 429 or 5xx, and halves the requests sent at once for the rest of it.
+	 * The addresses that got those answers go back in the queue (up to Backoff::MAX_ATTEMPTS tries each).
+	 *
+	 * @param array<string,mixed> $build       Build.
+	 * @param array<int,int>      $overloaded  HTTP status => number of answers in this batch.
+	 * @param int|null            $retry_after Longest Retry-After, in seconds, or null.
+	 * @param int                 $concurrency Requests at once in this batch.
+	 * @param Logger              $logger      Log.
+	 * @return array<string,int> Stats to merge.
+	 */
+	private function back_off( array $build, array $overloaded, ?int $retry_after, int $concurrency, Logger $logger ): array {
+		$count = (int) ( $build['stats']['backoff_count'] ?? 0 ) + 1;
+
+		/**
+		 * Filters how long a build waits after the site answers 429 or 5xx.
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param int      $seconds     Seconds: Retry-After (at most 300), else 5, 10, 20 … up to 120.
+		 * @param int      $count       Back-offs in a row, including this one.
+		 * @param int|null $retry_after The Retry-After the site sent, in seconds, or null.
+		 */
+		$delay = max( 0, (int) apply_filters( 'stillpress_backoff_seconds', Backoff::delay( $count, $retry_after ), $count, $retry_after ) );
+		$next  = Backoff::concurrency( $concurrency );
+
+		$codes = array();
+		foreach ( $overloaded as $status => $n ) {
+			$codes[] = sprintf( '%d × HTTP %d', $n, $status );
+		}
+		$logger->warning(
+			/* translators: %s: answers such as "3 × HTTP 503". */
+			sprintf( __( 'The site is overloaded (%s).', 'stillpress' ), implode( ', ', $codes ) )
+			/* translators: %d: seconds. */
+			. ' ' . sprintf( _n( 'Waiting %d second before continuing,', 'Waiting %d seconds before continuing,', $delay, 'stillpress' ), $delay )
+			/* translators: %d: number of requests. */
+			. ' ' . sprintf( _n( 'then sending %d request at a time.', 'then sending %d requests at a time.', $next, 'stillpress' ), $next )
+		);
+
+		return array(
+			'backoff_count' => $count,
+			'backoff_until' => time() + $delay,
+			'concurrency'   => $next,
+		);
+	}
+
+	/**
+	 * Seconds until a backing-off build may continue (0 when it may continue now).
+	 *
+	 * @param array<string,mixed>|int $build Build row or ID.
+	 * @return int
+	 */
+	public static function wait_seconds( $build ): int {
+		if ( ! is_array( $build ) ) {
+			$build = ( new BuildRepository() )->get( (int) $build );
+		}
+		return null === $build ? 0 : max( 0, (int) ( $build['stats']['backoff_until'] ?? 0 ) - time() );
 	}
 
 	/**

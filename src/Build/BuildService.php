@@ -102,6 +102,8 @@ final class BuildService {
 			}
 			if ( Runner::BUSY === $result ) {
 				usleep( 500000 ); // A background slice is working on it; wait for it.
+			} elseif ( Runner::WAIT === $result ) {
+				sleep( Runner::wait_seconds( $build_id ) ); // The site said it was overloaded.
 			}
 			if ( null !== $progress ) {
 				$progress( $this->builds->get( $build_id ) );

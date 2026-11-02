@@ -608,3 +608,20 @@ crawl breadth-first, so a page is lowered before it is rendered. Full builds re-
 nothing links to any more get re-checked. They used to go in at depth 0, which would have let a trap grow by the limit
 on every build. They now go in at the limit: re-checked, but their links aren't followed unless this build reaches
 them by a shorter path.
+
+## D37. Back off when the origin says it is overloaded, inside the build rather than per request
+
+A full build sends four requests at once for as long as it runs. When the origin answered 503 (overloaded, or in
+maintenance mode during an update), every address in the batch failed, and the build carried on at the same pace
+against a server that had just asked it to stop. The threat model (T9) promised a back-off; there was none.
+
+A 429/500/502/503/504 answer now sends the address back to the queue, until its third try, which fails as before. The
+build then stops rendering until the wait is over: `Retry-After` when the site sends one (maintenance mode sends 600;
+we cap it at 300 s so an update doesn't hold a build for ten minutes at a time), otherwise 5 s doubling with each
+back-off in a row up to 120 s. Concurrency halves at each back-off and doesn't come back up during that build: a site
+that struggled at four requests at once gains little from trying four again. The wait is a scheduled Action Scheduler
+action, not `sleep()`, so no PHP worker is held while waiting; only `--sync` sleeps, in its own process.
+
+Waiting per request (retrying inside `LoopbackClient`) would hold a worker and the build lock through every wait, and
+would keep the other requests of the batch going at full speed. Transport errors aren't retried: a refused connection
+or a bad certificate doesn't get better in a few seconds, and the loopback Site Health check explains those.

@@ -217,6 +217,69 @@ final class FullBuildTest extends SystemTestCase {
 		$this->assertArrayHasKey( '404.html', $files );
 	}
 
+	public function test_backs_off_when_the_site_is_overloaded_and_retries(): void {
+		wp_insert_post(
+			array(
+				'post_title'  => 'Patient',
+				'post_name'   => 'patient',
+				'post_status' => 'publish',
+			)
+		);
+		$file = ABSPATH . '.maintenance';
+		if ( file_exists( $file ) || ! is_writable( ABSPATH ) ) {
+			$this->markTestSkipped( 'Needs a writable WordPress root.' );
+		}
+		// Maintenance mode answers every request with 503 and "Retry-After: 600".
+		file_put_contents( $file, '<?php $upgrading = ' . time() . ';' );
+		$asked = array();
+		$wait  = static function ( $seconds, $count, $retry_after ) use ( $file, &$asked ) {
+			$asked[] = array( $seconds, $count, $retry_after );
+			wp_delete_file( $file ); // The site recovers while the build waits.
+			return 0;
+		};
+		add_filter( 'stillpress_backoff_seconds', $wait, 10, 3 );
+		try {
+			$build = $this->build();
+		} finally {
+			remove_filter( 'stillpress_backoff_seconds', $wait, 10 );
+			wp_delete_file( $file );
+		}
+		$log = $this->log( (int) $build['id'] );
+
+		$this->assertSame( array( 300, 1, 600 ), $asked[0] ?? null, 'Retry-After is honored, capped at five minutes.' );
+		$this->assertStringContainsString( 'The site is overloaded (', $log );
+		$this->assertStringContainsString( '× HTTP 503', $log );
+		$this->assertSame( 2, $build['stats']['concurrency'], 'Half as many requests at once after backing off.' );
+		$this->assertSame( 0, $build['stats']['urls']['failed'], "Every address succeeded on a later try.\n" . $log );
+		$this->assertArrayHasKey( 'patient/index.html', $this->snapshot() );
+	}
+
+	public function test_an_address_that_stays_overloaded_fails_after_three_tries(): void {
+		$post = wp_insert_post(
+			array(
+				'post_title'  => 'Unlucky',
+				'post_name'   => 'unlucky',
+				'post_status' => 'publish',
+			)
+		);
+		$file = ABSPATH . '.maintenance';
+		if ( file_exists( $file ) || ! is_writable( ABSPATH ) ) {
+			$this->markTestSkipped( 'Needs a writable WordPress root.' );
+		}
+		file_put_contents( $file, '<?php $upgrading = ' . time() . ';' );
+		add_filter( 'stillpress_backoff_seconds', '__return_zero' );
+		try {
+			$build = $this->build();
+		} finally {
+			remove_filter( 'stillpress_backoff_seconds', '__return_zero' );
+			wp_delete_file( $file );
+		}
+		$this->assertSame( 1, $build['stats']['concurrency'] );
+		$this->assertGreaterThan( 0, $build['stats']['urls']['failed'] );
+		$row = ( new \Stillpress\Storage\UrlRepository() )->find( get_permalink( $post ) );
+		$this->assertSame( 'HTTP 503', $row['error'] ?? null, 'After its last try the address fails instead of waiting forever.' );
+	}
+
 	public function test_skipped_query_string_addresses_are_reported(): void {
 		wp_insert_post(
 			array(

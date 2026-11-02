@@ -131,7 +131,7 @@ final class Frontier {
 	 * Sets the state of claimed (running) URLs.
 	 *
 	 * @param int[]  $url_ids URL IDs.
-	 * @param string $state   done, failed or skipped.
+	 * @param string $state   done, failed, skipped, or pending to try again later.
 	 * @return void
 	 */
 	public function mark( array $url_ids, string $state ): void {
@@ -148,6 +148,30 @@ final class Frontier {
 				$this->counts[ $state ]  += $changed;
 			}
 		}
+	}
+
+	/**
+	 * How many times each URL has been claimed in this build.
+	 *
+	 * @param int[] $url_ids URL IDs.
+	 * @return array<int,int> URL ID => attempts.
+	 */
+	public function attempts( array $url_ids ): array {
+		global $wpdb;
+		$url_ids = array_values( array_unique( array_map( 'intval', $url_ids ) ) );
+		$out     = array();
+		foreach ( array_chunk( $url_ids, 500 ) as $chunk ) {
+			$in   = implode( ', ', array_fill( 0, count( $chunk ), '%d' ) );
+			$rows = (array) $wpdb->get_results(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $in holds placeholders only.
+				$wpdb->prepare( "SELECT url_id, attempts FROM %i WHERE build_id = %d AND url_id IN ($in)", array_merge( array( Schema::table( 'build_urls' ), $this->build_id ), $chunk ) ),
+				ARRAY_A
+			);
+			foreach ( $rows as $row ) {
+				$out[ (int) $row['url_id'] ] = (int) $row['attempts'];
+			}
+		}
+		return $out;
 	}
 
 	/**

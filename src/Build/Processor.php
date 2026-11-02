@@ -32,6 +32,7 @@ use Stillpress\Support\Logger;
  * - redirect:  recorded as a redirect (a meta-refresh file unless it would collide with a page).
  * - gone:      the origin says 404/410; any old file is removed.
  * - failed:    transport or server error; the previously published file (if any) is kept.
+ * - retry:     the site answered 429 or 5xx and the address gets another try after the build backs off.
  * - refused:   the response is unsafe to publish (rendered logged-in, path conflict, unsafe path).
  */
 final class Processor {
@@ -190,15 +191,20 @@ final class Processor {
 	 * @param array<string,mixed> $row        URL row.
 	 * @param RenderResult        $result     Response.
 	 * @param string|null         $deps_state Force a dependency state (for files read from disk).
+	 * @param bool                $may_retry  Whether an overloaded answer (429, 5xx) may be tried again later.
 	 * @return array{outcome:string,discovered:array<int,array{url:string,kind:string}>}
 	 */
-	public function process( array $row, RenderResult $result, ?string $deps_state = null ): array {
+	public function process( array $row, RenderResult $result, ?string $deps_state = null, bool $may_retry = false ): array {
 		$is_probe = '404' === $row['source'];
 
 		if ( null !== $result->error ) {
 			/* translators: %s: error message. */
 			$this->fail( $row, sprintf( __( 'Request failed: %s', 'stillpress' ), $result->error ) );
 			return self::outcome( 'failed' );
+		}
+
+		if ( $may_retry && Backoff::is_overloaded( $result->status ) ) {
+			return self::outcome( 'retry' ); // The previously published file stays; the runner backs off.
 		}
 
 		if ( null === $deps_state && ! $result->recorded ) {

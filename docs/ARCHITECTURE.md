@@ -39,6 +39,10 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   If that header is missing, a page cache answered the request instead of WordPress. The URL is then marked `deps=unknown`
   (always rebuilt on any change) and Site Health warns.
 - Response checks: status, content-type, size cap (default 20 MB), `logged-in` body class (must not appear), redirect target.
+- Back-off (`Build\Backoff`): a 429, 500, 502, 503 or 504 answer puts the address back in the queue (three tries in all,
+  then it fails and its published file stays), pauses the build for `Retry-After` (at most 300 s) or 5, 10, 20 … up to
+  120 s (`stillpress_backoff_seconds`), and halves the requests sent at once for the rest of the build. The slice ends
+  with `Runner::WAIT`; the queue schedules the next one for when the wait is over, and `--sync` sleeps.
 - The recorder can also mark a page as excluded with `X-Stillpress-Exclude` (password-protected posts by default, or
   anything the `stillpress_exclude_render` filter decides); excluded pages are removed like 404s.
 

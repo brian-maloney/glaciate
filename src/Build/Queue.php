@@ -91,7 +91,7 @@ final class Queue {
 	 * Schedules what comes after a slice.
 	 *
 	 * @param int    $build_id Build ID.
-	 * @param string $result   Runner::DONE, MORE or BUSY.
+	 * @param string $result   Runner::DONE, MORE, BUSY or WAIT.
 	 * @return void
 	 */
 	private static function after_slice( int $build_id, string $result ): void {
@@ -102,6 +102,9 @@ final class Queue {
 			// The action running right now still counts as pending, so bypass the uniqueness check.
 			as_enqueue_async_action( self::SLICE_HOOK, array( $build_id ), self::GROUP, false );
 			self::kick( $build_id );
+		} elseif ( Runner::WAIT === $result ) {
+			// Backing off after the site said it was overloaded. Not unique: the action running now counts as pending.
+			as_schedule_single_action( time() + max( 1, Runner::wait_seconds( $build_id ) ), self::SLICE_HOOK, array( $build_id ), self::GROUP, false );
 		} elseif ( Runner::BUSY === $result && ! as_has_scheduled_action( self::SLICE_HOOK, array( $build_id ), self::GROUP ) ) {
 			// Another process holds the build; check back later instead of spinning.
 			as_schedule_single_action( time() + 30, self::SLICE_HOOK, array( $build_id ), self::GROUP, true );

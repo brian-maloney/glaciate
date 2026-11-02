@@ -3,7 +3,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -83,6 +83,10 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 1.0.3 =
+* New: Settings → "Other addresses of this site". If your site is edited at one address while the live site keeps another (for example edit.example.org and www.example.org), list the live address there. Links and images that point at it are then published and rewritten to your public address, instead of being skipped and left pointing at the old server. Nothing is downloaded from those addresses.
+* Fix: pages linked to the comments feed and to post, author and category feeds even when the Feeds setting didn't publish them, so those links returned 404 on the static site. Pages now link only to the feeds that are published.
 
 = 1.0.2 =
 * Fix: when the site's own address used a self-signed or otherwise untrusted HTTPS certificate, every page failed to build with "SSL certificate problem". Requests to the site itself now skip certificate checks, as WordPress's own loopback requests do. If a plugin turns those checks on with the https_local_ssl_verify filter, the error now says so.

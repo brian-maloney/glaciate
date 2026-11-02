@@ -89,8 +89,11 @@ final class PublishPage {
 	 * @return void
 	 */
 	private static function onboarding(): void {
-		$local = Registry::instance()->get( 'local' );
-		$dir   = $local instanceof LocalDirectory ? $local->directory() : '';
+		$local  = Registry::instance()->get( 'local' );
+		$dir    = $local instanceof LocalDirectory ? $local->directory() : '';
+		$target = (string) Settings::get( 'target' );
+		// A target set up in Settings before the first publish is offered first, so submitting doesn't replace it.
+		$other = in_array( $target, array( 'local', 'zip' ), true ) ? null : Registry::instance()->get( $target );
 		?>
 		<div class="stillpress-card stillpress-onboarding">
 			<h2><?php esc_html_e( 'Where should your static site go?', 'stillpress' ); ?></h2>
@@ -100,8 +103,15 @@ final class PublishPage {
 				<?php wp_nonce_field( 'stillpress_onboard' ); ?>
 				<fieldset>
 					<legend class="screen-reader-text"><?php esc_html_e( 'Destination', 'stillpress' ); ?></legend>
+					<?php if ( null !== $other ) : ?>
+						<label class="stillpress-choice">
+							<input type="radio" name="target" value="<?php echo esc_attr( $other->id() ); ?>" checked>
+							<strong><?php echo esc_html( $other->label() ); ?></strong>
+							<span><?php esc_html_e( 'As set up in Settings.', 'stillpress' ); ?></span>
+						</label>
+					<?php endif; ?>
 					<label class="stillpress-choice">
-						<input type="radio" name="target" value="local" checked>
+						<input type="radio" name="target" value="local" <?php checked( null === $other && 'zip' !== $target ); ?>>
 						<strong><?php esc_html_e( 'A folder on this server', 'stillpress' ); ?></strong>
 						<span><?php esc_html_e( 'Point a web server or a sync tool at it.', 'stillpress' ); ?></span>
 					</label>
@@ -114,7 +124,7 @@ final class PublishPage {
 						<p class="stillpress-indent"><code><?php echo esc_html( $dir ); ?></code></p>
 					<?php endif; ?>
 					<label class="stillpress-choice">
-						<input type="radio" name="target" value="zip">
+						<input type="radio" name="target" value="zip" <?php checked( 'zip', $target ); ?>>
 						<strong><?php esc_html_e( 'A ZIP file to download', 'stillpress' ); ?></strong>
 						<span><?php esc_html_e( 'Upload it to any static host yourself.', 'stillpress' ); ?></span>
 					</label>

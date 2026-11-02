@@ -3,7 +3,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -83,6 +83,9 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 1.0.1 =
+* Fix: before the first publish, the Publish screen offered only a folder or a ZIP file, even when another destination was set up in Settings, and publishing from it switched the site to the folder. It now offers the destination from Settings, already selected.
 
 = 1.0.0 =
 * Large sites: tested with 100,000 addresses. Paginated archives are listed from the database instead of found one link at a time, the build queue no longer slows down as it grows, and links are looked up a batch at a time.

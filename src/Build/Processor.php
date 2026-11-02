@@ -36,6 +36,9 @@ use Stillpress\Support\Logger;
  */
 final class Processor {
 
+	/** Most skipped query-string addresses kept as examples for the build log. */
+	const QUERY_EXAMPLES = 20;
+
 	/**
 	 * Origin addresses.
 	 *
@@ -107,6 +110,13 @@ final class Processor {
 	private $forms;
 
 	/**
+	 * Linked addresses skipped because of their query string, as keys (at most QUERY_EXAMPLES).
+	 *
+	 * @var array<string,true>
+	 */
+	private $skipped_queries = array();
+
+	/**
 	 * Constructor.
 	 *
 	 * @param OriginSet     $origins    Origin addresses.
@@ -163,6 +173,15 @@ final class Processor {
 		}
 		$this->publish( $row, 'asset', 200, $mime, $relative, $hash, (int) filesize( $source ), 'static' );
 		return self::outcome( 'published' );
+	}
+
+	/**
+	 * Linked addresses this processor skipped because of their query string (a few, as examples).
+	 *
+	 * @return string[]
+	 */
+	public function skipped_queries(): array {
+		return array_keys( $this->skipped_queries );
 	}
 
 	/**
@@ -256,6 +275,8 @@ final class Processor {
 				$classified = $this->classifier->classify( $link );
 				if ( null !== $classified && $classified['url'] !== $row['url'] ) {
 					$discovered[ $classified['url'] ] = $classified;
+				} elseif ( null === $classified && 'query-string' === $this->classifier->reason() && count( $this->skipped_queries ) < self::QUERY_EXAMPLES ) {
+					$this->skipped_queries[ $link ] = true;
 				}
 			}
 			$body = $this->rewriter->rewrite( $body );

@@ -68,7 +68,8 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   href/src/srcset/poster/`link[rel]`/meta; a CSS tokenizer handles `url()` and `@import`. Only same-origin URLs (or alias URLs, moved onto the origin) are
   followed. Limits: depth, the address limit (pages found through links, beyond the seeds; files don't count), and a trap guard
   (calendar/infinite pagination). Query-string URLs are skipped
-  and reported by default.
+  by default and reported: the build log lists up to 20 of the linked ones (also kept in the build's stats as
+  `query_skipped`), and each one listed under additional URLs gets a warning of its own.
 - Assets under uploads, themes, plugins or wp-includes are **copied from the filesystem**, which is faster than HTTP.
   This only happens after the path is proven inside an allowed root and its extension is on the allowlist (see the
   threat model). Anything else is fetched over HTTP.

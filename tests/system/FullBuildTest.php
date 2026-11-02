@@ -180,6 +180,27 @@ final class FullBuildTest extends SystemTestCase {
 		$this->assertArrayHasKey( '404.html', $files );
 	}
 
+	public function test_skipped_query_string_addresses_are_reported(): void {
+		wp_insert_post(
+			array(
+				'post_title'   => 'Filters',
+				'post_name'    => 'filters',
+				'post_status'  => 'publish',
+				'post_content' => '<a href="' . home_url( '/filters/?colour=red' ) . '">Red</a> <a href="' . home_url( '/filters/?colour=blue' ) . '">Blue</a>',
+			)
+		);
+		\Stillpress\Support\Settings::update( array( 'additional_urls' => '/shop/?sort=price' ) );
+		$build = $this->build();
+		$log   = $this->log( (int) $build['id'] );
+
+		$this->assertStringContainsString( 'query string were skipped', $log );
+		$this->assertStringContainsString( home_url( '/filters/?colour=red' ), $log );
+		$this->assertStringContainsString( home_url( '/filters/?colour=blue' ), $log );
+		$this->assertStringContainsString( 'Skipped ' . home_url( '/shop/?sort=price' ) . ' (query-string).', $log, 'A listed address is a warning of its own.' );
+		$this->assertContains( home_url( '/filters/?colour=red' ), $build['stats']['query_skipped'] );
+		$this->assertArrayHasKey( 'filters/index.html', $this->snapshot() );
+	}
+
 	public function test_redirects_from_file_addresses_get_no_html_page(): void {
 		\Stillpress\Support\Settings::update( array( 'redirects' => "/old-brochure.pdf /about/ 301\n/old-page/ /about/ 301" ) );
 		$this->build();

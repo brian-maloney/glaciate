@@ -164,6 +164,7 @@ final class Runner {
 					}
 					( new PagefindWriter( $pipeline, $this->urls, $logger, $build_id, Pagefind::configured() ) )->write();
 					( new Generated( $pipeline, $this->urls, $build_id ) )->write();
+					self::report_skipped_queries( $build, $logger );
 					( new DependencyStore() )->prune_signatures();
 					$this->builds->merge_stats( $build_id, array( 'published' => $this->urls->published_counts() ) );
 					$this->builds->update( $build_id, array( 'phase' => $build['deploy'] ? 'deploying' : 'done' ) );
@@ -185,6 +186,24 @@ final class Runner {
 					return false;
 			}
 		}
+	}
+
+	/**
+	 * Logs the linked addresses that were left out because of their query string. A static host serves one file per
+	 * path, so "?replytocom=5" or "?filter=red" can't be published; the log says so instead of dropping them quietly.
+	 *
+	 * @param array<string,mixed> $build  Build.
+	 * @param Logger              $logger Log.
+	 * @return void
+	 */
+	private static function report_skipped_queries( array $build, Logger $logger ): void {
+		$examples = (array) ( $build['stats']['query_skipped'] ?? array() );
+		if ( ! $examples ) {
+			return;
+		}
+		$list = implode( ', ', $examples ) . ( empty( $build['stats']['query_skipped_more'] ) ? '' : ', …' );
+		/* translators: %s: comma-separated list of addresses. */
+		$logger->info( sprintf( __( 'Links to addresses with a query string were skipped, because a static host can\'t serve them: %s', 'stillpress' ), $list ) );
 	}
 
 	/**
@@ -264,6 +283,10 @@ final class Runner {
 						'kind' => '404',
 					);
 				} else {
+					if ( 'additional' === $seed['source'] ) {
+						/* translators: 1: address, 2: reason. */
+						$logger->warning( sprintf( __( 'Skipped %1$s (%2$s).', 'stillpress' ), $seed['url'], $pipeline->classifier->reason() ) );
+					}
 					continue;
 				}
 			}
@@ -346,13 +369,18 @@ final class Runner {
 		if ( $found ) {
 			$followed = $this->queue_discovered( $build, $results, $claimed, $found, $frontier, $logger, (int) $pipeline->settings['max_urls'], $followed );
 		}
-		$this->builds->merge_stats(
-			$build_id,
-			array(
-				'urls'     => $frontier->counts(),
-				'followed' => $followed,
-			)
+		$stats = array(
+			'urls'     => $frontier->counts(),
+			'followed' => $followed,
 		);
+		$queries = $processor->skipped_queries();
+		if ( $queries ) {
+			$known                    = (array) ( $build['stats']['query_skipped'] ?? array() );
+			$all                      = array_values( array_unique( array_merge( $known, $queries ) ) );
+			$stats['query_skipped']   = array_slice( $all, 0, Processor::QUERY_EXAMPLES );
+			$stats['query_skipped_more'] = ! empty( $build['stats']['query_skipped_more'] ) || count( $all ) > Processor::QUERY_EXAMPLES || count( $queries ) >= Processor::QUERY_EXAMPLES;
+		}
+		$this->builds->merge_stats( $build_id, $stats );
 
 		// The HTTP library leaves reference cycles (transport <-> hooks) holding whole response bodies. PHP only
 		// collects cycles when its root buffer fills, which a long build can outrun, so collect after each batch.

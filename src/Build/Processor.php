@@ -16,6 +16,7 @@ use Stillpress\Output\Cache;
 use Stillpress\Output\UnsafePathException;
 use Stillpress\Render\RenderResult;
 use Stillpress\Render\RenderToken;
+use Stillpress\Rewrite\NonceStripper;
 use Stillpress\Rewrite\OriginSet;
 use Stillpress\Rewrite\UrlRewriter;
 use Stillpress\Search\PageIndexer;
@@ -261,6 +262,21 @@ final class Processor {
 			if ( null !== $this->forms && 'text/html' === $mime && 'asset' !== $kind ) {
 				// After rewriting, so a receiver on the origin keeps its address (D22).
 				$body = $this->forms->transform( $body, $this->rewriter->rewrite_url( (string) $row['url'] ) )['html'];
+			}
+
+			/**
+			 * Filters whether nonces in a page's inline scripts are emptied.
+			 *
+			 * They change every twelve hours, so a page that prints one would be deployed again after every full
+			 * rebuild although nothing changed, and a static site has nowhere to send them.
+			 *
+			 * @since 1.1.0
+			 *
+			 * @param bool   $strip Default true.
+			 * @param string $url   Origin URL.
+			 */
+			if ( 'text/html' === $mime && apply_filters( 'stillpress_strip_nonces', true, $row['url'] ) ) {
+				$body = NonceStripper::strip( $body );
 			}
 
 			/**

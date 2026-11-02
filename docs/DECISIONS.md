@@ -563,3 +563,19 @@ development tools only and never ship in the plugin ZIP.
 The overrides cross version ranges their parents declare. `rimraf@5` uses only `glob()` and `globSync()`, and only when
 called with its `glob` option, which `@wordpress/env` doesn't pass. `qs@6.16+` keeps the parse and stringify behavior
 that Express uses. Remove each override once `@wordpress/env` depends on fixed versions itself (`npm ls qs glob`).
+
+## D34. Nonces in inline scripts are emptied, not kept or stabilized
+
+Anonymous renders still print nonces: core's `wp.apiFetch.createNonceMiddleware( "…" )` wherever `wp-api-fetch` loads,
+`wpApiSettings.nonce`, and the `*_nonce` keys plugins pass through `wp_localize_script()`. `wp_create_nonce()` changes
+every twelve hours, so a page carrying one hashes differently on every full rebuild, and every deployer sends it again
+although nothing on it changed.
+
+`Rewrite\NonceStripper` empties them in the processor (HTML only, before `stillpress_output`). It touches only
+`<script>` contents, and only a value of exactly ten lowercase hex characters, the shape `wp_create_nonce()` returns,
+under a key or variable whose name contains "nonce". On a static site those values are useless (there is no REST API
+or `admin-ajax.php` to send them to) and core's middleware skips an empty nonce. Form fields and `data-` attributes are
+left alone: forms go through their adapters (D22), and a broader pattern would start matching content.
+
+Stabilizing the value instead (a `nonce_life` filter on render requests that pins the tick) would publish a nonce that
+never expires and hides the problem from anything that reads it. `stillpress_strip_nonces` turns the pass off per URL.

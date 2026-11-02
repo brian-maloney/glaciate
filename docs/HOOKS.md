@@ -298,6 +298,18 @@ Filters the time budget, in seconds, of one background build slice.
 
 Since 0.1.0. Fired in `src/Build/Queue.php`.
 
+### `stillpress_strip_nonces`
+
+Filters whether nonces in a page's inline scripts are emptied.
+
+They change every twelve hours, so a page that prints one would be deployed again after every full
+rebuild although nothing changed, and a static site has nowhere to send them.
+
+- `bool $strip` Default true.
+- `string $url` Origin URL.
+
+Since 1.1.0. Fired in `src/Build/Processor.php`.
+
 ### `stillpress_term_change_moves_posts`
 
 Filters whether a change to a term's address also changes post addresses (forcing a full build).

@@ -15,8 +15,7 @@ final class TargetPolicyTest extends \WP_UnitTestCase {
 	 * @dataProvider provide_refused
 	 */
 	public function test_refuses_dangerous_targets( string $relative_to_abspath ): void {
-		$dir = str_replace( '{ABSPATH}', untrailingslashit( ABSPATH ), $relative_to_abspath );
-		$dir = str_replace( '{CONTENT}', WP_CONTENT_DIR, $dir );
+		$dir = self::expand( $relative_to_abspath );
 		$this->assertNotNull( TargetPolicy::for_wordpress()->problem( $dir ), "Accepted {$dir}" );
 	}
 
@@ -27,7 +26,7 @@ final class TargetPolicyTest extends \WP_UnitTestCase {
 			'abspath slash'   => array( '{ABSPATH}/' ),
 			'parent of wp'    => array( '{ABSPATH}/..' ),
 			'wp-content'      => array( '{CONTENT}' ),
-			'uploads'         => array( '{CONTENT}/uploads' ),
+			'uploads'         => array( '{UPLOADS}' ),
 			'plugins'         => array( '{CONTENT}/plugins' ),
 			'inside a plugin' => array( '{CONTENT}/plugins/stillpress/out' ),
 			'themes'          => array( '{CONTENT}/themes' ),
@@ -46,15 +45,14 @@ final class TargetPolicyTest extends \WP_UnitTestCase {
 	 * @dataProvider provide_allowed
 	 */
 	public function test_allows_safe_targets( string $dir ): void {
-		$dir = str_replace( '{ABSPATH}', untrailingslashit( ABSPATH ), $dir );
-		$dir = str_replace( '{CONTENT}', WP_CONTENT_DIR, $dir );
+		$dir = self::expand( $dir );
 		$this->assertNull( TargetPolicy::for_wordpress()->problem( $dir ) );
 	}
 
 	public function provide_allowed(): array {
 		return array(
 			'default under data dir' => array( '{CONTENT}/stillpress/public/1' ),
-			'inside uploads'         => array( '{CONTENT}/uploads/static' ),
+			'inside uploads'         => array( '{UPLOADS}/static' ),
 			'docroot subfolder'      => array( '{ABSPATH}/static' ),
 			'outside wordpress'      => array( '/tmp/stillpress-site' ),
 		);
@@ -68,5 +66,26 @@ final class TargetPolicyTest extends \WP_UnitTestCase {
 		} finally {
 			unlink( $link );
 		}
+	}
+
+	/**
+	 * Replaces {ABSPATH}, {CONTENT} and {UPLOADS} with this install's directories.
+	 *
+	 * The uploads folder comes from wp_upload_dir(): it isn't always wp-content/uploads (WordPress's own test suite
+	 * moved it to wp-content/test-suite-uploads in 7.2).
+	 *
+	 * @param string $dir Path with placeholders.
+	 * @return string
+	 */
+	private static function expand( string $dir ): string {
+		$uploads = wp_upload_dir( null, false );
+		return strtr(
+			$dir,
+			array(
+				'{ABSPATH}' => untrailingslashit( ABSPATH ),
+				'{CONTENT}' => WP_CONTENT_DIR,
+				'{UPLOADS}' => untrailingslashit( $uploads['basedir'] ),
+			)
+		);
 	}
 }

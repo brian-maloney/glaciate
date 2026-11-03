@@ -123,7 +123,7 @@ Since 0.1.0. Fired in `src/Support/Paths.php`.
 
 Filters the dependencies recorded for a URL before they are stored.
 
-- `array<string,string[]> $deps` Keys by type (post, term, user, option, query, tq, uq, cq).
+- `array<string,string[]> $deps` Keys by type (post, term, user, option, query, tq, uq, cq, lastmod).
 - `int $url_id` URL ID.
 
 Since 0.1.0. Fired in `src/Render/Recorder.php`.

@@ -125,6 +125,9 @@ final class Invalidator {
 		if ( $any_comm ) {
 			$ids = array_merge( $ids, $store->urls_for( 'cq', array( '*' ) ) );
 		}
+		if ( $snapshots ) {
+			$ids = array_merge( $ids, $store->urls_for( 'lastmod', array( '*' ) ) );
+		}
 
 		if ( $snapshots ) {
 			$matching = array();

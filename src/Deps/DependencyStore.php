@@ -23,13 +23,14 @@ use Stillpress\Storage\Schema;
  * - tq     key = taxonomy name (a term query ran on this taxonomy)
  * - uq     key = "*" (a user query ran)
  * - cq     key = "*" (a comment query ran)
+ * - lastmod key = "*" (the time of the newest change to any post was read: a feed with no posts)
  */
 final class DependencyStore {
 
 	/** Hard cap on dependency rows per URL; beyond it the URL is treated as depending on everything. */
 	const MAX_PER_URL = 20000;
 
-	const TYPES = array( 'post', 'term', 'user', 'option', 'query', 'tq', 'uq', 'cq' );
+	const TYPES = array( 'post', 'term', 'user', 'option', 'query', 'tq', 'uq', 'cq', 'lastmod' );
 
 	/**
 	 * Replaces the dependencies recorded for a URL.

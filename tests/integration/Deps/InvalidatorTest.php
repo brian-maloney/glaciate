@@ -174,6 +174,36 @@ final class InvalidatorTest extends \WP_UnitTestCase {
 		$this->assertTrue( $result['full'] );
 	}
 
+	public function test_any_post_change_hits_pages_that_read_the_newest_change(): void {
+		$feed = ( new UrlRepository() )->ensure( 'https://example.test/feed/' );
+		( new UrlRepository() )->update(
+			$feed,
+			array(
+				'path'         => 'feed/index.html',
+				'content_hash' => str_repeat( 'a', 64 ),
+				'deps_state'   => 'recorded',
+			)
+		);
+		( new DependencyStore() )->replace( $feed, array( 'lastmod' => array( '*' ) ) );
+		$this->ids['feed'] = $feed;
+
+		list( $names ) = $this->affected(
+			array(
+				$this->post_change(
+					array(
+						'ids'   => array( 99 ),
+						'types' => array( 'page' ),
+						'tt'    => array(),
+					)
+				),
+			)
+		);
+		$this->assertSame( array( 'feed' ), $names );
+
+		list( $names ) = $this->affected( array( $this->change( 'option', 'blogname' ) ) );
+		$this->assertSame( array( 'home' ), $names );
+	}
+
 	public function test_unknown_dependency_pages_always_rebuild(): void {
 		( new UrlRepository() )->update( $this->ids['other'], array( 'deps_state' => 'unknown' ) );
 		list( $names ) = $this->affected( array( $this->change( 'option', 'blogname' ) ) );

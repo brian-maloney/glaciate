@@ -625,3 +625,15 @@ action, not `sleep()`, so no PHP worker is held while waiting; only `--sync` sle
 Waiting per request (retrying inside `LoopbackClient`) would hold a worker and the build lock through every wait, and
 would keep the other requests of the batch going at full speed. Transport errors aren't retried: a refused connection
 or a bad certificate doesn't get better in a few seconds, and the loopback Site Health check explains those.
+
+## D38. An empty feed depends on every post, through the build date only
+
+`get_feed_build_date()` returns the newest `post_modified` among the feed's posts. A feed with no posts falls back to
+`get_lastpostmodified()`, the newest change to any public post type, pages included, which reads the database
+directly and never reaches a recorded query. Editing a page then changed the date in an empty feed that no dependency
+pointed to, and the incremental build left it stale (found by the 500-iteration differential run).
+
+The recorder watches `get_feed_build_date` and records `lastmod` `*` when the main query has no posts left to loop
+over, the same condition core uses; any post change then rebuilds those addresses. Recording on
+`get_lastpostmodified` itself would be simpler but too broad: core also calls it for every feed's `Last-Modified`
+header, which never reaches the published file, so every feed would rebuild on every edit.

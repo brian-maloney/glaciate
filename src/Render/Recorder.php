@@ -349,6 +349,19 @@ final class Recorder {
 			},
 			$pass
 		);
+		// A feed with no posts takes its build date from get_lastpostmodified(), the newest change to any post type,
+		// which reads the database directly. The condition is have_posts() without its end-of-loop side effects.
+		add_filter(
+			'get_feed_build_date',
+			function ( $date ) {
+				global $wp_query;
+				if ( ! $wp_query instanceof \WP_Query || $wp_query->current_post + 1 >= $wp_query->post_count ) {
+					$this->add( 'lastmod', '*' );
+				}
+				return $date;
+			},
+			$pass
+		);
 	}
 
 	/**
@@ -397,7 +410,7 @@ final class Recorder {
 		 *
 		 * @since 0.1.0
 		 *
-		 * @param array<string,string[]> $deps   Keys by type (post, term, user, option, query, tq, uq, cq).
+		 * @param array<string,string[]> $deps   Keys by type (post, term, user, option, query, tq, uq, cq, lastmod).
 		 * @param int                    $url_id URL ID.
 		 */
 		$deps = (array) apply_filters( 'stillpress_dependencies_for_url', $deps, $this->url_id );

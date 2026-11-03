@@ -122,6 +122,41 @@ final class RecorderTest extends \WP_UnitTestCase {
 		$this->assertSame( array( '*' ), $deps['cq'] );
 	}
 
+	public function test_a_feed_without_posts_depends_on_the_newest_change_to_any_post(): void {
+		self::factory()->post->create( array( 'post_type' => 'page' ) );
+		$empty = $this->record(
+			static function () {
+				self::feed_build_date( array( 'p' => PHP_INT_MAX ) );
+			}
+		);
+		$this->assertSame( array( '*' ), $empty['lastmod'], 'The date comes from get_lastpostmodified(), which pages change too.' );
+
+		self::factory()->post->create();
+		$with_posts = $this->record(
+			static function () {
+				self::feed_build_date( array( 'post_type' => 'post' ) );
+			}
+		);
+		$this->assertArrayNotHasKey( 'lastmod', $with_posts, 'With posts, the date is the newest of those posts.' );
+	}
+
+	/**
+	 * Calls get_feed_build_date() the way a feed template does, before its loop.
+	 *
+	 * @param array<string,mixed> $query_vars Main query.
+	 * @return void
+	 */
+	private static function feed_build_date( array $query_vars ): void {
+		global $wp_query;
+		$saved    = $wp_query;
+		$wp_query = new \WP_Query( $query_vars ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Feed templates read the main query.
+		try {
+			get_feed_build_date( 'r' );
+		} finally {
+			$wp_query = $saved; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+		}
+	}
+
 	public function test_extensions_can_add_dependencies(): void {
 		$deps = $this->record(
 			static function () {

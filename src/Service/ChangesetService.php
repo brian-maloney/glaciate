@@ -90,7 +90,7 @@ final class ChangesetService {
 					$object = get_post_type_object( $post->post_type );
 					$title  = '' === $post->post_title ? __( '(no title)', 'stillpress' ) : $post->post_title;
 					/* translators: 1: post type name, such as "Page", 2: post title. */
-					$label = sprintf( __( '%1$s: %2$s', 'stillpress' ), $object ? $object->labels->singular_name : $post->post_type, $title );
+					$label = sprintf( _x( '%1$s: %2$s', 'changed post', 'stillpress' ), $object ? $object->labels->singular_name : $post->post_type, $title );
 					$link  = (string) get_edit_post_link( $post->ID, 'raw' );
 				} else {
 					/* translators: %s: post ID. */
@@ -102,7 +102,7 @@ final class ChangesetService {
 				if ( $term instanceof \WP_Term ) {
 					$taxonomy = get_taxonomy( $term->taxonomy );
 					/* translators: 1: taxonomy name, such as "Category", 2: term name. */
-					$label = sprintf( __( '%1$s: %2$s', 'stillpress' ), $taxonomy ? $taxonomy->labels->singular_name : $term->taxonomy, $term->name );
+					$label = sprintf( _x( '%1$s: %2$s', 'changed term', 'stillpress' ), $taxonomy ? $taxonomy->labels->singular_name : $term->taxonomy, $term->name );
 					$link  = (string) get_edit_term_link( $term );
 				} else {
 					/* translators: %s: term ID. */

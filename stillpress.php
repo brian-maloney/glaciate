@@ -3,7 +3,7 @@
  * Plugin Name:       Stillpress
  * Plugin URI:        https://github.com/brian-maloney/stillpress
  * Description:       Publish your WordPress site as fast, secure static files. Every feature is free.
- * Version:           1.0.3
+ * Version:           1.1.0
  * Requires at least: 6.6
  * Requires PHP:      7.4
  * Author:            Stillpress contributors
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'STILLPRESS_VERSION', '1.0.3' );
+define( 'STILLPRESS_VERSION', '1.1.0' );
 define( 'STILLPRESS_FILE', __FILE__ );
 define( 'STILLPRESS_DIR', __DIR__ );
 

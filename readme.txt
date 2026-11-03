@@ -3,7 +3,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.3
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -83,6 +83,17 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 1.1.0 =
+* New: the Publish page shows what's waiting to be published: the edits made since the last publish and the pages they will rebuild. Also `wp stillpress changes preview` and the REST route `stillpress/v1/changes`.
+* New: Settings → Advanced → "Link depth limit" (100 by default). A crawler trap such as a calendar with a "next month" link on every page now stops there, instead of filling the build with addresses until the address limit. The build log says when the limit is reached.
+* New: when the site answers that it is overloaded or in maintenance (HTTP 429, 500, 502, 503 or 504), the build waits, as long as the site's Retry-After asks (up to 5 minutes), tries the page again, and continues with half as many requests at once. A page fails only on its third try.
+* New: favicon.ico is published. WordPress redirects it to your site icon (or its own logo), which a static host can't do, so browsers got a 404. It is now a copy of that icon.
+* New: Site Health checks the PHP extensions Stillpress needs (cURL, ZIP) and your public address (a private address, http on an https site, or a separate WordPress address). The stored credentials check now shows in Site Health too, not only in `wp stillpress doctor`.
+* New: the build log lists links that were skipped because they have a query string, which a static host can't serve.
+* Fix: pages whose inline scripts carry security tokens (nonces), which WordPress and many plugins add, were redeployed after every full rebuild even when nothing on them had changed, because those tokens change every twelve hours. They are now left empty in the static copy, where there is nothing to send them to. The stillpress_strip_nonces filter turns this off.
+* Fix: a redirect from an address that isn't an HTML page (such as /old.pdf) no longer publishes an HTML page at that address; it is listed in `_redirects` only.
+* Fix: a feed with no posts left (all unpublished or deleted) takes its "last updated" date from the newest change to any post or page, but editing a page didn't update that date in the published feed until the next full rebuild.
 
 = 1.0.3 =
 * New: Settings → "Other addresses of this site". If your site is edited at one address while the live site keeps another (for example edit.example.org and www.example.org), list the live address there. Links and images that point at it are then published and rewritten to your public address, instead of being skipped and left pointing at the old server. Nothing is downloaded from those addresses.

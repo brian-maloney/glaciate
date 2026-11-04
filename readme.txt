@@ -63,7 +63,7 @@ Yes. Stillpress publishes a search index with your site, and your theme's search
 
 = Can I use Pagefind instead? =
 
-Yes, if you have it. Stillpress doesn't include Pagefind, because it is a separate program. To run it on your server, set `STILLPRESS_PAGEFIND_BINARY` in wp-config.php to the full path of the `pagefind` program and choose "Pagefind, run on this server" under Settings → Search. If your host builds the site (a GitHub Actions workflow on the Git target, Netlify or Cloudflare Pages), choose "Pagefind, run by your host's build step" and add `npx pagefind --site .` to that build. Either way your search forms keep the same results window. Themes can choose what is searchable by marking elements with `data-stillpress-search`, or leave parts out with `data-stillpress-search-ignore`.
+Yes, if your host builds the site: a GitHub Actions workflow on the Git target, Netlify or Cloudflare Pages. Add `npx pagefind --site .` to that build and choose "Pagefind, run by your host's build step" under Settings → Search. Stillpress doesn't include or run Pagefind, because it is a separate program. Your search forms keep the same results window. Themes can choose what is searchable by marking elements with `data-stillpress-search`, or leave parts out with `data-stillpress-search-ignore`.
 
 = Do forms and comments work on the static site? =
 

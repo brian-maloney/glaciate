@@ -47,12 +47,11 @@ comes from; all modes use the same dialog, opened by any form with a field named
 | Mode | Needs | Limits and behaviour | Tested |
 |---|---|---|---|
 | Built in (`builtin`, default) | Nothing beyond Stillpress | Indexes published HTML only; up to 500 distinct terms per page (the highest-scoring); every word must match, the word being typed matches longer words; no stemming or typo tolerance; Chinese and Japanese are matched by character pairs | system tests, Playwright (Chromium) |
-| Pagefind on this server (`pagefind`) | A `pagefind` binary for the server's platform, its absolute path in `STILLPRESS_PAGEFIND_BINARY`, and `proc_open()` enabled | Runs over the whole site at the end of every build (not in slices), limit 300 s; a failed run keeps the published index | stand-in binary in the test suite; Site Health runs `--version` |
 | Pagefind by the host (`pagefind_host`) | A build step on the host that runs `npx pagefind --site .` on the deployed files | Stillpress publishes no index; search shows "isn't available" until the host has built `/pagefind/` | Playwright with Pagefind 1.5.2 run as the host would |
 | Off | — | Search forms on the static site do nothing | system tests |
 
 Browsers: the client uses `<dialog>`, `replaceChildren()` and Unicode property escapes in regular expressions, so
-Chrome and Edge 86+, Firefox 98+ and Safari 15.4+. The Pagefind modes also need WebAssembly and dynamic `import()`, which those versions
+Chrome and Edge 86+, Firefox 98+ and Safari 15.4+. The Pagefind mode also needs WebAssembly and dynamic `import()`, which those versions
 have. The end-to-end tests run in Chromium only.
 
 The 404 page and redirect pages carry `data-pagefind-ignore="all"`, and elements marked

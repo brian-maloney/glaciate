@@ -12,6 +12,7 @@ use Stillpress\Deps\ChangeListener;
 use Stillpress\Render\Recorder;
 use Stillpress\Security\Capabilities;
 use Stillpress\Storage\Schema;
+use Stillpress\Support\Settings;
 
 /**
  * Creates the plugin's services and attaches them to WordPress.
@@ -147,6 +148,7 @@ final class Plugin {
 	public static function maybe_set_up(): void {
 		Schema::maybe_upgrade();
 		Capabilities::maybe_grant_defaults();
+		Settings::migrate();
 	}
 
 	/**

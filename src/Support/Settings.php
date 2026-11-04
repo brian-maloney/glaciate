@@ -66,8 +66,8 @@ final class Settings {
 			'max_urls'               => 100000,
 			// Most links between a listed page and a page found by crawling; 0 means no limit.
 			'max_depth'              => 100,
-			// builtin: an index built in PHP and searched by the bundled script; pagefind: run the binary named by
-			// STILLPRESS_PAGEFIND_BINARY; pagefind_host: the host's build step runs Pagefind; off.
+			// builtin: an index built in PHP and searched by the bundled script; pagefind_host: the host's build step
+			// runs Pagefind; off.
 			'search'                 => 'builtin',
 			// Where published forms send submissions (Forms\Config): off, site (this site's REST API) or
 			// receiver (forms_endpoint, a receiver run elsewhere).
@@ -152,6 +152,19 @@ final class Settings {
 	}
 
 	/**
+	 * Saves stored settings that an older version wrote in a form this one reads differently, so the change is
+	 * tracked like any settings change (a full rebuild follows). Cheap when there is nothing to do.
+	 *
+	 * @return void
+	 */
+	public static function migrate(): void {
+		$stored = get_option( self::OPTION, array() );
+		if ( is_array( $stored ) && self::upgrade( $stored ) !== $stored ) {
+			self::update( array() );
+		}
+	}
+
+	/**
 	 * Sanitizes a settings array. Also the Settings API sanitize callback.
 	 *
 	 * @param mixed $input Raw input.
@@ -207,7 +220,7 @@ final class Settings {
 		$out['max_depth'] = isset( $input['max_depth'] ) ? max( 0, min( 10000, (int) $input['max_depth'] ) ) : $defaults['max_depth'];
 
 		$search        = isset( $input['search'] ) ? (string) $input['search'] : $defaults['search'];
-		$out['search'] = in_array( $search, array( 'off', 'builtin', 'pagefind', 'pagefind_host' ), true ) ? $search : $defaults['search'];
+		$out['search'] = in_array( $search, array( 'off', 'builtin', 'pagefind_host' ), true ) ? $search : $defaults['search'];
 
 		$forms        = isset( $input['forms'] ) ? (string) $input['forms'] : $defaults['forms'];
 		$out['forms'] = in_array( $forms, array( 'off', 'site', 'receiver' ), true ) ? $forms : $defaults['forms'];
@@ -242,6 +255,11 @@ final class Settings {
 			$values['publish_mode'] = $on ? 'immediate' : 'manual';
 		}
 		unset( $values['auto_publish'] );
+		// Up to 1.1.0, "pagefind" ran a Pagefind binary on this server. That mode is gone (D39); the built-in index
+		// is the search that keeps working without anything else to set up.
+		if ( isset( $values['search'] ) && 'pagefind' === $values['search'] ) {
+			$values['search'] = 'builtin';
+		}
 		return $values;
 	}
 

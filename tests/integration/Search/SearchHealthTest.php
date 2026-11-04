@@ -19,17 +19,12 @@ final class SearchHealthTest extends \WP_UnitTestCase {
 		}
 	}
 
-	public function test_pagefind_without_the_constant_is_critical_and_names_it(): void {
-		Settings::update( array( 'search' => 'pagefind' ) );
-		$check = ( new HealthChecks() )->search();
-		$this->assertSame( 'critical', $check['status'] );
-		$this->assertStringContainsString( 'STILLPRESS_PAGEFIND_BINARY', $check['description'] );
-	}
-
 	public function test_the_setting_accepts_only_known_modes(): void {
 		Settings::update( array( 'search' => 'pagefind_host' ) );
 		$this->assertSame( 'pagefind_host', Settings::get( 'search' ) );
 		Settings::update( array( 'search' => '/usr/bin/pagefind' ) );
 		$this->assertSame( 'builtin', Settings::get( 'search' ) );
+		Settings::update( array( 'search' => 'pagefind' ) );
+		$this->assertSame( 'builtin', Settings::get( 'search' ), 'The server-run mode is gone.' );
 	}
 }

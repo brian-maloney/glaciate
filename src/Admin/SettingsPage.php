@@ -622,7 +622,6 @@ final class SettingsPage {
 	public static function field_search(): void {
 		$options = array(
 			'builtin'       => __( 'Search the static site in the browser', 'stillpress' ),
-			'pagefind'      => __( 'Pagefind, run on this server', 'stillpress' ),
 			'pagefind_host' => __( 'Pagefind, run by your host\'s build step', 'stillpress' ),
 			'off'           => __( 'Off', 'stillpress' ),
 		);
@@ -636,9 +635,8 @@ final class SettingsPage {
 			array(
 				__( 'Publishes an index of your pages with the site, so search forms work without a server. Changing this rebuilds the whole site.', 'stillpress' ),
 				sprintf(
-					/* translators: 1: constant name, 2: command. */
-					__( 'Pagefind is a separate program that Stillpress doesn\'t include. To run it here, put its full path in %1$s in wp-config.php. If your host builds the site (a GitHub Actions workflow, Netlify or Cloudflare Pages), add "%2$s" to that build instead.', 'stillpress' ),
-					\Stillpress\Search\Pagefind::CONSTANT,
+					/* translators: %s: command. */
+					__( 'Pagefind is a separate program that Stillpress doesn\'t include. If your host builds the site (a GitHub Actions workflow, Netlify or Cloudflare Pages), add "%s" to that build and choose the Pagefind option.', 'stillpress' ),
 					'npx pagefind --site .'
 				),
 			)

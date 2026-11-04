@@ -132,4 +132,22 @@ final class SettingsTest extends \WP_UnitTestCase {
 		$this->assertSame( 'immediate', Settings::get( 'publish_mode' ), 'Set by old scripts.' );
 		$this->assertArrayNotHasKey( 'auto_publish', get_option( Settings::OPTION ) );
 	}
+
+	public function test_the_removed_server_run_pagefind_mode_becomes_the_builtin_search_and_is_saved(): void {
+		update_option( Settings::OPTION, array( 'search' => 'pagefind' ) );
+		$this->assertSame( 'builtin', Settings::get( 'search' ), 'Read as the built-in search at once.' );
+
+		Settings::migrate();
+		$this->assertSame( 'builtin', get_option( Settings::OPTION )['search'], 'Saved, so it is tracked as a settings change and the site is rebuilt with the index.' );
+
+		Settings::migrate();
+		$this->assertSame( 'builtin', get_option( Settings::OPTION )['search'] );
+	}
+
+	public function test_migrate_leaves_current_settings_alone(): void {
+		Settings::update( array( 'search' => 'pagefind_host' ) );
+		$stored = get_option( Settings::OPTION );
+		Settings::migrate();
+		$this->assertSame( $stored, get_option( Settings::OPTION ) );
+	}
 }

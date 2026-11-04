@@ -280,6 +280,8 @@ where it is available. Revisit if real sites show the table growing past what th
 
 ## D21. Pagefind is optional, never shipped, and named only in wp-config.php
 
+*The server-run `pagefind` mode below was removed in 1.1.1; see D39.*
+
 Pagefind indexes faster than PHP, handles stemming and very large sites, and some people already use it. It is a
 compiled program, so Stillpress can't ship or download it (D20), and most shared hosts can't run programs at all. Two
 modes use it, and both keep the same search dialog, which talks to Pagefind's own API instead of our index:
@@ -455,8 +457,8 @@ ZIP's contents rather than the working tree.
   and privacy policy, as the plugin directory requires.
 - Plugin Check reports two kinds of finding that are expected: URLs of services the owner chooses (captcha scripts and
   verification, AWS endpoints) as "offloading", and `proc_open()` for the optional Pagefind binary named in
-  wp-config.php (D21). The first is the documented use of those services. The second is a decision for submission:
-  explain it to the reviewers, or leave "Pagefind on this server" out of the WordPress.org build.
+  wp-config.php (D21). The first is the documented use of those services. The second was settled by removing that mode
+  (D39).
 
 ## D28. readme.txt for WordPress.org, README.md for the repository
 
@@ -637,3 +639,18 @@ The recorder watches `get_feed_build_date` and records `lastmod` `*` when the ma
 over, the same condition core uses; any post change then rebuilds those addresses. Recording on
 `get_lastpostmodified` itself would be simpler but too broad: core also calls it for every feed's `Last-Modified`
 header, which never reaches the published file, so every feed would rebuild on every edit.
+
+
+## D39. No server-run Pagefind; the plugin starts no programs
+
+The `pagefind` search mode (D21) ran a binary named in wp-config.php through `proc_open()`. Plugin Check reports
+`proc_open()` as a forbidden function, and the plugin directory doesn't accept plugins that run programs on the server,
+however the path is chosen. Few sites could use it anyway: most hosts can't run programs, and a site that can usually
+also has a build step. Keeping it in a separate GitHub-only build would mean two products to test and support.
+
+So the mode is removed from every build, and `pagefind_host` (the host's build step runs Pagefind) is the one Pagefind
+option. A site that had `pagefind` stored reads it as `builtin`, the search that works with nothing else to set up,
+rather than `pagefind_host`, which would show "search isn't available" until a build step existed. `Settings::migrate()`
+(on `init`) saves the new value once, so it is tracked as a settings change and the next build is a full one, which
+builds the built-in index. Each build's finalizing step removes any `pagefind/` files the old mode published, so the next
+deploy deletes them from the target.

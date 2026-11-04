@@ -90,11 +90,11 @@ final class Frontend {
 	 */
 	public static function settings(): array {
 		$mode     = (string) Settings::get( 'search' );
-		$pagefind = in_array( $mode, array( 'pagefind', 'pagefind_host' ), true );
+		$pagefind = 'pagefind_host' === $mode;
 		$public   = (string) wp_parse_url( \Stillpress\Build\Pipeline::public_url( Settings::all() ), PHP_URL_PATH );
 		$settings = array(
 			'backend' => $pagefind ? 'pagefind' : 'builtin',
-			'base'    => home_url( '/' . ( $pagefind ? PagefindWriter::DIR : IndexWriter::DIR ) . '/' ),
+			'base'    => home_url( '/' . ( $pagefind ? PagefindBundle::DIR : IndexWriter::DIR ) . '/' ),
 			// Pagefind's result addresses are paths from the site root; this puts the public site's folder in front.
 			'root'    => trailingslashit( '/' . ltrim( $public, '/' ) ),
 			'style'   => add_query_arg( 'ver', Assets::version( 'assets/css/search.css' ), Assets::url( 'assets/css/search.css' ) ),

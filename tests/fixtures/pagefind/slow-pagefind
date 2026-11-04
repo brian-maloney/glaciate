@@ -1,3 +1,0 @@
-#!/bin/sh
-# Never finishes in time: for the time-limit test.
-sleep 30

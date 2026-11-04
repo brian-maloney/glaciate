@@ -18,7 +18,7 @@ concurrency:
 jobs:
   php:
     name: PHP ${{ matrix.php }} / WP ${{ matrix.wp }}${{ matrix.multisite && ' / multisite' || '' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: ${{ matrix.wp == 'trunk' }}
     strategy:
       fail-fast: false
@@ -34,8 +34,8 @@ jobs:
           - { php: '8.5', wp: 'latest', forms: true }
           - { php: '8.5', wp: 'trunk' }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -81,10 +81,10 @@ jobs:
 
   system:
     name: System tests (real builds over HTTP)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -96,14 +96,14 @@ jobs:
 
   e2e:
     name: Visual diff (${{ matrix.theme }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         theme: [ block, classic, pagebuilder ]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -115,7 +115,7 @@ jobs:
         env:
           THEMES: ${{ matrix.theme }}
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: visual-diff-${{ matrix.theme }}
           path: |

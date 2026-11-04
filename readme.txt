@@ -1,4 +1,5 @@
 === Stillpress ===
+Contributors: brianmaloney
 Tags: static site, static html, performance, security, export
 Requires at least: 6.6
 Tested up to: 7.1

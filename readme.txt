@@ -4,7 +4,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,9 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 1.1.1 =
+* Changed: the search option "Pagefind, run on this server" is removed, so the plugin never starts a program on your server. Sites that used it switch to the built-in search, the whole site is rebuilt once to build its index, and the old Pagefind files are removed from the static site. "Pagefind, run by your host's build step" is unchanged.
 
 = 1.1.0 =
 * New: the Publish page shows what's waiting to be published: the edits made since the last publish and the pages they will rebuild. Also `wp stillpress changes preview` and the REST route `stillpress/v1/changes`.

@@ -27,7 +27,7 @@
     "test:php": "npm run test:unit && npm run test:integration",
     "test:system": "wp-env run tests-cli --env-cwd=wp-content/plugins/stillpress -- env STILLPRESS_SYSTEM_TESTS=1 vendor/bin/phpunit -c phpunit-system.xml.dist",
     "test:e2e": "playwright test",
-    "test:js": "node --test tests/js/search.test.mjs tests/js/forms.test.mjs tests/js/receiver.test.mjs",
+    "test:js": "node --test tests/js/search.test.mjs tests/js/forms.test.mjs tests/js/receiver.test.mjs tests/js/release.test.mjs",
     "test:integration:multisite": "wp-env run tests-cli --env-cwd=wp-content/plugins/stillpress vendor/bin/phpunit -c phpunit-integration-multisite.xml.dist",
     "test:integration:forms": "wp-env run tests-cli --env-cwd=wp-content/plugins/stillpress -- env STILLPRESS_FORM_PLUGINS=1 vendor/bin/phpunit -c phpunit-integration.xml.dist --group form-plugins",
     "forms:plugins": "wp-env run tests-cli wp plugin install https://downloads.wordpress.org/plugin/contact-form-7.6.2.4.zip https://downloads.wordpress.org/plugin/wpforms-lite.2.0.3.zip --force",

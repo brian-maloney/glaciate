@@ -1,0 +1,8 @@
+{
+	"about": "Plugin Check errors the release workflow accepts (DECISIONS.md D27, D40). Each entry allows up to count errors with that code in that file. All four are URLs of services the site owner chooses, documented under External services in readme.txt, not assets loaded from elsewhere.",
+	"allowed": [
+		{ "file": "src/Forms/Captcha.php", "code": "PluginCheck.CodeAnalysis.Offloading.OffloadedContent", "count": 1, "why": "Turnstile and hCaptcha verification endpoints." },
+		{ "file": "src/Deploy/S3.php", "code": "PluginCheck.CodeAnalysis.Offloading.OffloadedContent", "count": 1, "why": "Default S3 API host for the chosen region." },
+		{ "file": "src/Deploy/Aws/CloudFrontClient.php", "code": "PluginCheck.CodeAnalysis.Offloading.OffloadedContent", "count": 2, "why": "CloudFront API host and its XML namespace." }
+	]
+}

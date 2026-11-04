@@ -654,3 +654,29 @@ rather than `pagefind_host`, which would show "search isn't available" until a b
 (on `init`) saves the new value once, so it is tracked as a settings change and the next build is a full one, which
 builds the built-in index. Each build's finalizing step removes any `pagefind/` files the old mode published, so the next
 deploy deletes them from the target.
+
+
+## D40. Releases are built once, by CI, from the tag
+
+Release ZIPs were built on a developer machine, from whatever its wp-env and Composer cache held. A pushed `x.y.z`
+tag now starts `.github/workflows/release.yml`, which builds the one ZIP that every channel gets:
+
+1. **CI on the tag.** `ci.yml` is also a reusable workflow with a `ref` input, so the release runs the full matrix,
+   system and end-to-end jobs on the tagged commit rather than trusting an earlier run on `main`.
+2. **Versions agree.** `bin/release.mjs check-version` requires the tag, the `Version` header, `STILLPRESS_VERSION`
+   and `Stable tag` to be the same x.y.z, with a changelog entry for it. The tag can't choose the version.
+3. **Build and check.** `npm run build:zip` (D27), then Plugin Check, at a pinned version, on the ZIP's contents.
+   Plugin Check exits 0 even when it reports errors, so `bin/release.mjs gate` reads its JSON and fails on any error
+   not listed in `bin/plugin-check-allowed.json`, matched by file, code and count, so a new finding of a known kind
+   still fails. Output that isn't a report (a failed run) fails too. Warnings are logged, not enforced.
+4. **Publish.** A separate job, the only one with `contents: write`, downloads the built files and creates the GitHub
+   Release with the ZIP, its SHA-256 file and that version's changelog section from `readme.txt` as notes. It runs no
+   project code, so `npm ci` and the build never hold a write token. An existing release is never replaced.
+
+Run by hand ("Run workflow" with a tag), it releases an existing tag. The build checks out the tag but takes
+`bin/release.mjs` and the allowlist from the workflow's own commit, so tags made before this tooling existed (1.1.1)
+can be released.
+
+The plugin gets no GitHub-based updater: a plugin in the WordPress.org directory may only update from WordPress.org
+(guideline 8). Deploying the same ZIP to the directory's Subversion repository is the planned next step for this
+workflow, once the plugin is approved.

@@ -35,8 +35,9 @@ plugin needs.
 
 ## Install
 
-Use a release ZIP: it includes the plugin's PHP dependencies. Upload it under Plugins → Add New → Upload Plugin and
-activate it.
+Use a release ZIP from [GitHub Releases](https://github.com/brian-maloney/stillpress/releases): it includes the plugin's
+PHP dependencies, and a `.sha256` file next to it checks the download. Upload it under Plugins → Add New → Upload
+Plugin and activate it. A ZIP installed this way doesn't update itself; install the next release the same way.
 
 A Git checkout has no dependencies installed. Run `composer install --no-dev` in the plugin folder (Composer needs PHP
 8.1 or newer for this step, which also prefixes the bundled libraries), or build the release ZIP yourself with
@@ -104,6 +105,11 @@ npm run build:zip            # build/stillpress-<version>.zip from the committed
 
 `npm run sftp:start` and `npm run git:start` start the throwaway servers the SFTP and Git deploy tests need; without
 them those tests skip. [CLAUDE.md](CLAUDE.md) has the project's conventions and rules for changes.
+
+To release, bump `Version` and `STILLPRESS_VERSION` in `stillpress.php` and `Stable tag` in `readme.txt`, add the
+changelog entry, commit, and push an `x.y.z` tag. The Release workflow runs CI on the tag, builds the ZIP, runs Plugin
+Check on it and publishes a GitHub Release with the ZIP and its checksum. To release an existing tag, run the workflow
+by hand with that tag.
 
 ## Security
 

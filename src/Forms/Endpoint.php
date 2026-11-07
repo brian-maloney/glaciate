@@ -147,8 +147,7 @@ final class Endpoint {
 		}
 		return '<!doctype html><html lang="' . esc_attr( get_bloginfo( 'language' ) ) . '"><head><meta charset="utf-8">'
 			. '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">'
-			. '<title>' . esc_html( $result->message ) . '</title>'
-			. '<style>body{font:1.1rem/1.5 system-ui,sans-serif;max-width:36rem;margin:15vh auto;padding:0 1rem}</style></head><body>'
+			. '<title>' . esc_html( $result->message ) . '</title></head><body>'
 			. '<p>' . esc_html( $result->message ) . '</p>'
 			. ( '' === $items ? '' : '<ul>' . $items . '</ul>' )
 			. '<p><a href="' . esc_url( $back ) . '">' . esc_html__( 'Back to the page', 'glaciate' ) . '</a></p></body></html>';

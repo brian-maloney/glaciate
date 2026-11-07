@@ -32,16 +32,19 @@ final class AdminActionsTest extends \WP_UnitTestCase {
 	/**
 	 * @dataProvider provide_actions
 	 */
-	public function test_actions_refuse_users_without_capability( string $handler ): void {
+	public function test_actions_refuse_users_without_capability( string $handler, string $action ): void {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$_REQUEST['_wpnonce'] = wp_create_nonce( 'glaciate_' . $action );
 		$this->expectException( \WPDieException::class );
+		$this->expectExceptionMessage( 'not allowed' );
 		Admin::$handler();
 	}
 
 	/**
 	 * @dataProvider provide_actions
 	 */
-	public function test_actions_refuse_missing_nonce( string $handler ): void {
+	public function test_actions_refuse_missing_nonce( string $handler, string $action ): void {
+		unset( $action );
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		$_REQUEST['_wpnonce'] = 'bogus';
 		$this->expectException( \WPDieException::class );
@@ -50,12 +53,12 @@ final class AdminActionsTest extends \WP_UnitTestCase {
 
 	public function provide_actions(): array {
 		return array(
-			array( 'handle_build' ),
-			array( 'handle_cancel' ),
-			array( 'handle_onboard' ),
-			array( 'handle_publish_post' ),
-			array( 'handle_download' ),
-			array( 'handle_form_receiver' ),
+			array( 'handle_build', 'build' ),
+			array( 'handle_cancel', 'cancel' ),
+			array( 'handle_onboard', 'onboard' ),
+			array( 'handle_publish_post', 'publish_post' ),
+			array( 'handle_download', 'download_zip' ),
+			array( 'handle_form_receiver', 'form_receiver' ),
 		);
 	}
 

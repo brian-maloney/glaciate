@@ -113,7 +113,7 @@ final class Admin {
 	}
 
 	/**
-	 * Verifies capability and nonce for an admin-post action, or stops.
+	 * Verifies the nonce and capability for an admin-post action, or stops.
 	 *
 	 * @param string $action Action name without prefix.
 	 * @param string $cap    Capability.
@@ -121,10 +121,21 @@ final class Admin {
 	 * @return void
 	 */
 	private static function guard( string $action, string $cap, ...$args ): void {
+		check_admin_referer( 'glaciate_' . $action );
+		self::require_cap( $cap, ...$args );
+	}
+
+	/**
+	 * Stops unless the current user has a capability.
+	 *
+	 * @param string $cap     Capability.
+	 * @param mixed  ...$args Capability arguments.
+	 * @return void
+	 */
+	private static function require_cap( string $cap, ...$args ): void {
 		if ( ! current_user_can( $cap, ...$args ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'glaciate' ), '', array( 'response' => 403 ) );
 		}
-		check_admin_referer( 'glaciate_' . $action );
 	}
 
 	/**
@@ -202,8 +213,10 @@ final class Admin {
 	 * @return void
 	 */
 	public static function handle_publish_post(): void {
-		$post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Verified in guard().
-		self::guard( 'publish_post', Capabilities::PUBLISH_POST, $post_id );
+		// The capability check needs the post, so the nonce is checked before reading it.
+		check_admin_referer( 'glaciate_publish_post' );
+		$post_id = isset( $_GET['post'] ) ? absint( wp_unslash( $_GET['post'] ) ) : 0;
+		self::require_cap( Capabilities::PUBLISH_POST, $post_id );
 		$listener = Plugin::instance()->changes();
 		if ( null !== $listener ) {
 			$listener->flush();

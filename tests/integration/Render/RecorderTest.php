@@ -182,6 +182,23 @@ final class RecorderTest extends \WP_UnitTestCase {
 		$this->assertSame( 'recorded', $urls->get( $id )['deps_state'] );
 	}
 
+	public function test_closes_its_output_buffer_when_it_finishes(): void {
+		$level    = ob_get_level();
+		$recorder = new Recorder( 1, ( new UrlRepository() )->ensure( 'https://example.test/buffered/' ) );
+		$start    = new \ReflectionMethod( Recorder::class, 'start' );
+		$start->setAccessible( true );
+		$start->invoke( $recorder );
+		$this->assertSame( $level + 1, ob_get_level(), 'The render is buffered.' );
+
+		echo 'page';
+		ob_start(); // A buffer someone else left open.
+		echo ' end';
+		$recorder->finish();
+
+		$this->assertSame( $level, ob_get_level() );
+		$this->expectOutputString( 'page end' );
+	}
+
 	public function test_render_header_without_valid_token_does_not_start_recording(): void {
 		$_SERVER['HTTP_X_GLACIATE_RENDER'] = '1.1.9999999999.' . str_repeat( 'a', 64 );
 		Recorder::maybe_start();

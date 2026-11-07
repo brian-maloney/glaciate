@@ -725,3 +725,15 @@ replace with their newer one anyway, so the floor moves to 6.9. The PHP floor st
 
 Action Scheduler 4.0 counts arguments when it checks whether a unique action is already scheduled. The build queue's
 unique actions carry the build ID, and only one build runs at a time, so nothing changes for it.
+
+
+## D44. The page recorder closes its own output buffer
+
+The recorder buffers a render's output so it can add the confirmation and exclusion headers at shutdown, after the
+page has run; the build reads them from the response. It used to leave closing the buffer to
+WordPress's `wp_ob_end_flush_all()` at shutdown priority 1; the WordPress.org review flagged that as an unclosed
+`ob_start()`. The recorder now remembers its buffer's level and its shutdown callback (priority 0) flushes it,
+together with any buffer opened after it, right after setting the headers.
+
+WordPress 6.9's template enhancement output buffer would avoid a buffer of our own, but it only wraps responses
+rendered from a theme template. Feeds, sitemaps and robots.txt are rendered too, and need the same headers.

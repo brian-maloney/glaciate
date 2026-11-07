@@ -18,9 +18,11 @@ use Glaciate\Support\Settings;
  * Runs inside a loopback render request (identified by a valid render token) and records the posts, terms,
  * users, options and queries the page used. At shutdown it stores them as the URL's dependencies.
  *
- * Timing: the recorder buffers all output. Its shutdown callback runs at priority 0, before WordPress flushes
- * output buffers at priority 1, so dependencies are in the database and the confirmation header is set before
- * the crawler receives a single byte of the response.
+ * Timing: the recorder buffers all output, from the start of the render request until its shutdown callback, which
+ * runs at priority 0, before WordPress flushes output buffers at priority 1. Dependencies are in the database and the
+ * confirmation header is set before the crawler receives a single byte of the response; then the callback closes the
+ * buffer itself. WordPress 6.9's template enhancement output buffer can't take its place: it only covers responses
+ * rendered from a theme template, not feeds, sitemaps or robots.txt.
  *
  * A render request also gets a cleaner page: no admin bar, no page caching, and no head links that only make
  * sense on a live WordPress site (RSD, shortlink, REST API discovery, oEmbed discovery, pingback).
@@ -61,6 +63,13 @@ final class Recorder {
 	 * @var \WP_Term_Query[]
 	 */
 	private $term_queries = array();
+
+	/**
+	 * Output buffer level of the recorder's own buffer, or 0 when it has none open.
+	 *
+	 * @var int
+	 */
+	private $buffer_level = 0;
 
 	/**
 	 * Active recorder, if this request is a render.
@@ -133,7 +142,9 @@ final class Recorder {
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 			define( 'DONOTCACHEPAGE', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Shared page-cache convention.
 		}
-		ob_start();
+		if ( ob_start() ) {
+			$this->buffer_level = ob_get_level();
+		}
 		add_action( 'shutdown', array( $this, 'finish' ), 0 );
 
 		$this->clean_output();
@@ -425,6 +436,26 @@ final class Recorder {
 				header( RenderToken::EXCLUDE_HEADER . ': ' . $exclude );
 			}
 		}
+		$this->close_buffer();
+	}
+
+	/**
+	 * Sends and closes the output buffer that start() opened.
+	 *
+	 * Buffers opened after it are flushed into it first, as WordPress would do one priority later.
+	 *
+	 * @return void
+	 */
+	private function close_buffer(): void {
+		if ( 0 === $this->buffer_level ) {
+			return;
+		}
+		while ( ob_get_level() >= $this->buffer_level ) {
+			if ( ! ob_end_flush() ) {
+				break;
+			}
+		}
+		$this->buffer_level = 0;
 	}
 
 	/**

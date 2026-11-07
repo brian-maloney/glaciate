@@ -18,23 +18,15 @@ use Glaciate\Support\Settings;
  * Runs inside a loopback render request (identified by a valid render token) and records the posts, terms,
  * users, options and queries the page used. At shutdown it stores them as the URL's dependencies.
  *
- * Timing: the recorder buffers all output, from the start of the render request until its shutdown callback, which
- * runs at priority 0, before WordPress flushes output buffers at priority 1. Dependencies are in the database and the
- * confirmation header is set before the crawler receives a single byte of the response; then the callback closes the
- * buffer itself. WordPress 6.9's template enhancement output buffer can't take its place: it only covers responses
- * rendered from a theme template, not feeds, sitemaps or robots.txt.
+ * Timing: the shutdown callback stores the dependencies, the render's mark and any exclusion reason in the URL's row.
+ * Shutdown callbacks run before PHP ends the response, so the row is written by the time the crawler has the whole
+ * page; the crawler then reads it back and compares the mark with the token it sent, which proves this render (not a
+ * page cache) produced the response. Nothing is buffered and no response header is needed (D45).
  *
  * A render request also gets a cleaner page: no admin bar, no page caching, and no head links that only make
  * sense on a live WordPress site (RSD, shortlink, REST API discovery, oEmbed discovery, pingback).
  */
 final class Recorder {
-
-	/**
-	 * Build ID.
-	 *
-	 * @var int
-	 */
-	private $build_id;
 
 	/**
 	 * URL ID.
@@ -65,11 +57,11 @@ final class Recorder {
 	private $term_queries = array();
 
 	/**
-	 * Output buffer level of the recorder's own buffer, or 0 when it has none open.
+	 * Mark of this render: RenderToken::mark() of the token the request carried.
 	 *
-	 * @var int
+	 * @var string
 	 */
-	private $buffer_level = 0;
+	private $mark;
 
 	/**
 	 * Active recorder, if this request is a render.
@@ -95,7 +87,7 @@ final class Recorder {
 		if ( ! ( new BuildRepository() )->is_active( $claims['build_id'] ) ) {
 			return;
 		}
-		self::$active = new self( $claims['build_id'], $claims['url_id'] );
+		self::$active = new self( $claims['url_id'], RenderToken::mark( $header ) );
 		self::$active->start();
 	}
 
@@ -111,12 +103,12 @@ final class Recorder {
 	/**
 	 * Constructor.
 	 *
-	 * @param int $build_id Build ID.
-	 * @param int $url_id   URL ID.
+	 * @param int    $url_id URL ID.
+	 * @param string $mark   RenderToken::mark() of the request's token, or "" when there is none (tests).
 	 */
-	public function __construct( int $build_id, int $url_id ) {
-		$this->build_id = $build_id;
-		$this->url_id   = $url_id;
+	public function __construct( int $url_id, string $mark = '' ) {
+		$this->url_id = $url_id;
+		$this->mark   = $mark;
 	}
 
 	/**
@@ -141,9 +133,6 @@ final class Recorder {
 	private function start(): void {
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 			define( 'DONOTCACHEPAGE', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Shared page-cache convention.
-		}
-		if ( ob_start() ) {
-			$this->buffer_level = ob_get_level();
 		}
 		add_action( 'shutdown', array( $this, 'finish' ), 0 );
 
@@ -250,6 +239,9 @@ final class Recorder {
 			2
 		);
 
+		// These callbacks, like every observer here, only note which object was read and return the value unchanged,
+		// so they don't escape it: core and themes escape titles and names where they print them, and escaping here
+		// as well would double-escape every title on the page (an "&" would show as "&amp;").
 		$post_id = function ( $value, $post = null ) {
 			$id = $post instanceof \WP_Post ? $post->ID : (int) $post;
 			$this->add( 'post', $id );
@@ -376,7 +368,7 @@ final class Recorder {
 	}
 
 	/**
-	 * Shutdown: turns observed queries into dependencies, stores them, and confirms with a response header.
+	 * Shutdown: turns observed queries into dependencies and stores them with the render's mark and exclusion reason.
 	 *
 	 * @return void
 	 */
@@ -427,35 +419,7 @@ final class Recorder {
 		$deps = (array) apply_filters( 'glaciate_dependencies_for_url', $deps, $this->url_id );
 
 		$stored = ( new DependencyStore() )->replace( $this->url_id, $deps, $sigs );
-		$this->set_deps_state( $stored ? 'recorded' : 'unknown' );
-
-		if ( ! headers_sent() ) {
-			header( RenderToken::RECORDED_HEADER . ': ' . $this->build_id . '.' . $this->url_id );
-			$exclude = self::exclusion_reason();
-			if ( '' !== $exclude ) {
-				header( RenderToken::EXCLUDE_HEADER . ': ' . $exclude );
-			}
-		}
-		$this->close_buffer();
-	}
-
-	/**
-	 * Sends and closes the output buffer that start() opened.
-	 *
-	 * Buffers opened after it are flushed into it first, as WordPress would do one priority later.
-	 *
-	 * @return void
-	 */
-	private function close_buffer(): void {
-		if ( 0 === $this->buffer_level ) {
-			return;
-		}
-		while ( ob_get_level() >= $this->buffer_level ) {
-			if ( ! ob_end_flush() ) {
-				break;
-			}
-		}
-		$this->buffer_level = 0;
+		$this->save_state( $stored ? 'recorded' : 'unknown', self::exclusion_reason() );
 	}
 
 	/**
@@ -484,14 +448,23 @@ final class Recorder {
 	}
 
 	/**
-	 * Updates the URL's dependency state.
+	 * Stores the URL's dependency state, with the render's mark and exclusion reason for the crawler to read back.
 	 *
-	 * @param string $state recorded or unknown.
+	 * @param string $state   recorded or unknown.
+	 * @param string $exclude Exclusion reason, or "" to publish.
 	 * @return void
 	 */
-	private function set_deps_state( string $state ): void {
+	private function save_state( string $state, string $exclude ): void {
 		global $wpdb;
-		$wpdb->update( Schema::table( 'urls' ), array( 'deps_state' => $state ), array( 'id' => $this->url_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Custom table.
+		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Custom table.
+			Schema::table( 'urls' ),
+			array(
+				'deps_state'     => $state,
+				'render_mark'    => '' === $this->mark ? null : $this->mark,
+				'render_exclude' => $exclude,
+			),
+			array( 'id' => $this->url_id )
+		);
 	}
 
 	/**

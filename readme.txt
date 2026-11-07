@@ -4,7 +4,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 2.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,12 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 2.0.0 =
+* Changed: the plugin has a new name, Glaciate. It's a clean break: 2.0.0 reads nothing that 1.x stored, so to move a site over, delete the 1.x plugin, then install this one and set it up again. Hooks, options, constants (`GLACIATE_…`), the REST namespace (`glaciate/v1`) and the WP-CLI command (`wp glaciate`) are renamed to match.
+* Changed: requires WordPress 6.9 or later, for the bundled Action Scheduler 4.2.
+* Changed: the build cache, ZIP archives and the default folder target are kept in `wp-content/uploads/glaciate/` instead of a folder directly in `wp-content`.
+* Changed: `wp glaciate zip` and `wp glaciate forms receiver` no longer take `--out`. `wp glaciate zip --porcelain` prints just the archive's path, and `forms receiver` prints the receiver, so redirect it to a file.
 
 = 1.1.1 =
 * Changed: the search option "Pagefind, run on this server" is removed, so the plugin never starts a program on your server. Sites that used it switch to the built-in search, the whole site is rebuilt once to build its index, and the old Pagefind files are removed from the static site. "Pagefind, run by your host's build step" is unchanged.

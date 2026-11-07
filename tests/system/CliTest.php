@@ -127,11 +127,11 @@ final class CliTest extends SystemTestCase {
 		$this->assertSame( 0, $code, $out . $err );
 		$this->assertDirectoryDoesNotExist( $this->target, '--no-deploy must not deploy.' );
 
-		$zip                      = sys_get_temp_dir() . '/glaciate-cli-test.zip';
-		list( $code, $out, $err ) = $this->wp( 'zip --out=' . escapeshellarg( $zip ) );
+		list( $code, $out, $err ) = $this->wp( 'zip --porcelain' );
 		$this->assertSame( 0, $code, $out . $err );
+		$zip = trim( $out );
+		$this->assertStringStartsWith( \Glaciate\Support\Paths::zip_dir() . '/', $zip, 'Only the path is printed.' );
 		$this->assertFileExists( $zip );
-		wp_delete_file( $zip );
 
 		list( $code, $out ) = $this->wp( 'urls list --format=count' );
 		$this->assertSame( 0, $code );

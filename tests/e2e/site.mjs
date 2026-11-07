@@ -100,7 +100,9 @@ export function prepare( name, { search = 'builtin', forms = 'off' } = {} ) {
 
 	wp( [ 'glaciate', 'build', '--full', '--sync' ] );
 	mkdirSync( CACHE, { recursive: true } );
-	wp( [ 'glaciate', 'zip', '--out=tests/e2e/.cache/site.zip' ] );
+	const zip = wp( [ 'glaciate', 'zip', '--porcelain' ] ).trim();
+	// The archive is in the container's uploads folder; copy it into the plugin folder, which the host shares.
+	execFileSync( 'npx', [ 'wp-env', 'run', 'tests-cli', '--env-cwd=wp-content/plugins/glaciate', '--', 'cp', zip, 'tests/e2e/.cache/site.zip' ], { stdio: 'ignore' } );
 	rmSync( join( CACHE, 'site' ), { recursive: true, force: true } );
 	execFileSync( 'unzip', [ '-q', '-o', join( CACHE, 'site.zip' ), '-d', join( CACHE, 'site' ) ] );
 	if ( 'pagefind_host' === search ) {

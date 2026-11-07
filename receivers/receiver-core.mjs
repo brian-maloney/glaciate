@@ -352,7 +352,7 @@ export async function handle( request, config, io ) {
 	const html =
 		'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
 		'<meta name="robots" content="noindex"><title>' + escapeHtml( answer.message ) + '</title>' +
-		'<style>body{font:1.1rem/1.5 system-ui,sans-serif;max-width:36rem;margin:15vh auto;padding:0 1rem}</style></head><body>' +
+		'</head><body>' +
 		'<p>' + escapeHtml( answer.message ) + '</p>' + ( items ? '<ul>' + items + '</ul>' : '' ) +
 		( back ? '<p><a href="' + escapeHtml( back ) + '">' + escapeHtml( MESSAGES.back ) + '</a></p>' : '' ) + '</body></html>';
 	return new Response( html, { status: STATUS[ answer.status ] || 500, headers: { ...headers, 'Content-Type': 'text/html; charset=UTF-8' } } );

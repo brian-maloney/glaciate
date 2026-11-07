@@ -337,6 +337,7 @@ final class Runner {
 		$token     = RenderToken::for_site();
 		$requests  = array();
 		$results   = array();
+		$marks     = array();
 
 		foreach ( $rows as $id => $row ) {
 			$source = 'asset' === $row['kind'] ? $pipeline->copier->source_for( (string) wp_parse_url( $row['url'], PHP_URL_PATH ) ) : null;
@@ -347,6 +348,7 @@ final class Runner {
 			$headers = array();
 			if ( 'asset' !== $row['kind'] ) {
 				$headers[ RenderToken::HEADER ] = $token->issue( $build_id, $id );
+				$marks[ $id ]                   = RenderToken::mark( $headers[ RenderToken::HEADER ] );
 			}
 			$requests[ $id ] = array(
 				'url'     => $row['url'],
@@ -358,15 +360,18 @@ final class Runner {
 		$overloaded = array();
 		$retry      = null;
 		foreach ( $client->fetch( $requests ) as $id => $result ) {
-			$recorded = $result->headers[ strtolower( RenderToken::RECORDED_HEADER ) ] ?? '';
-			$result->recorded = ( $build_id . '.' . $id ) === $recorded;
 			if ( Backoff::is_overloaded( $result->status ) ) {
 				$overloaded[ $result->status ] = ( $overloaded[ $result->status ] ?? 0 ) + 1;
 				$after                         = Backoff::retry_after( $result->headers['retry-after'] ?? '', time() );
 				$retry                         = null === $after ? $retry : max( (int) $retry, $after );
 			}
-			// The recorder may have changed the row (dependency state); reload before processing.
-			$row            = $this->urls->get( (int) $id );
+			// The recorder wrote to the row during the render (dependency state, its mark, exclusion); reload it. A mark
+			// that matches the token sent proves the render ran rather than a page cache answering (D45).
+			$row = $this->urls->get( (int) $id );
+			if ( null !== $row && isset( $marks[ $id ] ) ) {
+				$result->recorded = hash_equals( $marks[ $id ], (string) $row['render_mark'] );
+				$result->exclude  = $result->recorded ? (string) $row['render_exclude'] : '';
+			}
 			$results[ $id ] = null === $row ? array(
 				'outcome'    => 'failed',
 				'discovered' => array(),

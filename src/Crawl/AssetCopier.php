@@ -9,6 +9,7 @@ namespace Glaciate\Crawl;
 
 use Glaciate\Output\PathMapper;
 use Glaciate\Output\UnsafePathException;
+use Glaciate\Support\Paths;
 
 /**
  * Maps asset URLs to files on disk, but only inside allowed roots and only for allowed file types (threat T3).
@@ -82,11 +83,24 @@ final class AssetCopier {
 	private $roots;
 
 	/**
+	 * Directories whose files are never copied, even below a root.
+	 *
+	 * @var string[]
+	 */
+	private $excluded;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param array<string,string> $roots URL path prefix (no trailing slash) => absolute directory.
+	 * @param array<string,string> $roots    URL path prefix (no trailing slash) => absolute directory.
+	 * @param string[]             $excluded Absolute directories whose files are never copied.
 	 */
-	public function __construct( array $roots ) {
+	public function __construct( array $roots, array $excluded = array() ) {
+		$this->excluded = array();
+		foreach ( $excluded as $dir ) {
+			$real             = realpath( (string) $dir );
+			$this->excluded[] = untrailingslashit( wp_normalize_path( false === $real ? (string) $dir : $real ) );
+		}
 		// Longest prefix first, so /wp-content/uploads wins over /wp-content.
 		uksort(
 			$roots,
@@ -130,7 +144,7 @@ final class AssetCopier {
 		 *
 		 * @param array<string,string> $roots URL path prefix => absolute directory.
 		 */
-		return new self( (array) apply_filters( 'glaciate_asset_roots', $roots ) );
+		return new self( (array) apply_filters( 'glaciate_asset_roots', $roots ), array( Paths::data_dir() ) );
 	}
 
 	/**
@@ -161,6 +175,11 @@ final class AssetCopier {
 			}
 			if ( 0 !== strpos( wp_normalize_path( $real_file ), wp_normalize_path( $real_dir ) . '/' ) ) {
 				return null;
+			}
+			foreach ( $this->excluded as $excluded ) {
+				if ( '' !== $excluded && 0 === strpos( wp_normalize_path( $real_file ), $excluded . '/' ) ) {
+					return null;
+				}
 			}
 			return $real_file;
 		}//end foreach

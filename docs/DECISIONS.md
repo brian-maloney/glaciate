@@ -697,3 +697,21 @@ for compatibility would have kept the conflicting name in the plugin indefinitel
 wp-env mounts the plugin through `mappings` as `wp-content/plugins/glaciate` (and activates it in `afterStart`), and the
 SFTP and Git test servers find the wp-env network from the checkout folder's name, so nothing depends on what the
 checkout is called.
+
+
+## D42. The data directory is in uploads
+
+The build cache, ZIP archives and the default local target lived in `wp-content/glaciate/`. The WordPress.org guidelines
+only allow plugins to write to the uploads directory, in a folder named after the plugin, unless the plugin's nature
+requires otherwise; `wp-content` isn't guaranteed to be writable or to persist. The data directory is now
+`glaciate/` inside the uploads directory, resolved with `wp_upload_dir()` at runtime, so it follows `UPLOADS`, the
+`upload_dir` filter and multisite's per-site folders. `GLACIATE_DATA_DIR` and the `glaciate_data_dir` filter still
+move it, for hosts whose uploads directory is on shared or remote storage.
+
+Uploads is served by the web server and is a root the asset copier reads from, so the data directory is excluded twice:
+`AssetCopier` never returns a file below it, and the build excludes its URL path, so a link to a cached page or a ZIP
+can't put it into the static site. The cache and ZIP folders keep their index.php and .htaccess guards; the data
+directory itself stays open so the default local target can be served from it.
+
+A local target chosen by an administrator (a super admin on multisite) can still be any folder `TargetPolicy` allows,
+outside WordPress included: writing the static site where the web server serves it is what that target is for.

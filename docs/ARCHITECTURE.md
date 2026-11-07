@@ -118,8 +118,10 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 
 ## Storage
 Custom tables per site (`$wpdb->prefix`), managed with `dbDelta` and a schema version option: `builds`, `urls`, `build_urls`,
-`deps`, `query_sigs`, `changes`, `log`, `target_files`, and for search `search_terms`, `search_docs`, `search_dirty`. The build cache (rendered files) defaults to `wp-content/glaciate/cache/<site_id>/`
-(public content only; protected with index.php and .htaccess deny). Uninstall drops tables and options. It never deletes a deploy target.
+`deps`, `query_sigs`, `changes`, `log`, `target_files`, and for search `search_terms`, `search_docs`, `search_dirty`. The data directory is `glaciate/` in the uploads directory, as
+`wp_upload_dir()` resolves it at runtime (or `GLACIATE_DATA_DIR`). It holds the build cache (`cache/<site_id>/`, rendered
+files, public content only) and ZIP archives (`zips/<site_id>/`), both protected with index.php and .htaccess deny.
+Builds never crawl its address or copy files from it. Uninstall drops tables and options. It never deletes a deploy target.
 
 **URL to file.** A URL ending in `/` (or without an extension) is saved as `<path>/index.html`, whatever its response
 type, because static hosts map a folder request only to `index.html`; `/feed/` becomes `feed/index.html`. The real type
@@ -312,7 +314,7 @@ from every log line. `wp glaciate secret list|set|delete` manages stored values;
   administrator (both) and editor (publish) once per site: on activation, or on the first request if activation never
   ran (the plugin was activated before `composer install`). They're removed on uninstall. Meta cap `glaciate_publish_post` is mapped in
   `map_meta_cap` to `glaciate_publish` + `edit_post`. In multisite, filesystem paths are set **only by a super admin or a constant**.
-- Activation defaults: target = Local directory at `wp-content/glaciate/public/<site>/`, public URL = current home URL. The one
+- Activation defaults: target = Local directory at `<uploads>/glaciate/public/<site>/`, public URL = current home URL. The one
   onboarding choice: *where to deploy*.
 - WP-CLI: `wp glaciate build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--out]`,
   `urls list|add|remove`, `why <url>` (shows recorded deps), `changes list|preview|flush`, `settings get|set|list`, `secret list|set|delete`,

@@ -50,7 +50,6 @@ final class UrlClassifier {
 		'*.php/*',
 		'/wp-content/cache/*',
 		'/wp-content/upgrade/*',
-		'/wp-content/glaciate/*',
 	);
 
 	/**

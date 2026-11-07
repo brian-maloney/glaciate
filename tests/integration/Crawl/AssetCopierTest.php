@@ -53,6 +53,14 @@ final class AssetCopierTest extends \WP_UnitTestCase {
 		$this->assertNotNull( $this->copier()->source_for( '/wp-content/uploads/style.css' ) );
 	}
 
+	public function test_never_copies_from_an_excluded_directory_below_a_root(): void {
+		mkdir( $this->root . '/glaciate/zips/1', 0777, true );
+		file_put_contents( $this->root . '/glaciate/zips/1/site.zip', 'zip' );
+		$copier = new AssetCopier( array( '/wp-content/uploads' => $this->root ), array( $this->root . '/glaciate' ) );
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/glaciate/zips/1/site.zip' ) );
+		$this->assertNotNull( $copier->source_for( '/wp-content/uploads/2026/10/photo.jpg' ) );
+	}
+
 	/**
 	 * @dataProvider provide_refused
 	 */

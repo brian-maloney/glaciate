@@ -100,7 +100,12 @@ final class Pipeline {
 		$p->rewriter = new UrlRewriter( $p->origins );
 
 		$p->extractor  = new LinkExtractor( $p->origins );
-		$p->classifier = new UrlClassifier( $p->policy, $p->origins, (array) $p->settings['exclude'], (string) $p->settings['feeds'] );
+		$excludes      = (array) $p->settings['exclude'];
+		$data_path     = Paths::data_url_path();
+		if ( null !== $data_path ) {
+			$excludes[] = $data_path . '/*';
+		}
+		$p->classifier = new UrlClassifier( $p->policy, $p->origins, $excludes, (string) $p->settings['feeds'] );
 		$p->client     = new LoopbackClient( $p->policy, self::connect_to( $p->settings ), (int) $p->settings['concurrency'] );
 		$p->copier     = AssetCopier::for_wordpress();
 

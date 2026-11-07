@@ -2,15 +2,15 @@
 /**
  * The rules every form receiver applies.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
 /**
- * Field names Stillpress adds to published forms, the limits on a submission and the spam checks, as pure functions.
+ * Field names Glaciate adds to published forms, the limits on a submission and the spam checks, as pure functions.
  *
- * The standalone receivers (receivers/stillpress-form-php.txt and receivers/receiver-core.js) can't load the plugin, so
+ * The standalone receivers (receivers/glaciate-form-php.txt and receivers/receiver-core.js) can't load the plugin, so
  * they implement the same rules again. All three are tested against tests/fixtures/forms-cases.json.
  *
  * A submission is a list of [name, value] pairs, in the order the browser sent them, so nested names such as
@@ -20,16 +20,16 @@ namespace Stillpress\Forms;
 final class Protocol {
 
 	/** Which published form a submission belongs to, such as "cf7:12" or "form:contact". */
-	const FIELD_FORM = 'stillpress_form';
+	const FIELD_FORM = 'glaciate_form';
 
 	/** Public address of the page the form was on. */
-	const FIELD_PAGE = 'stillpress_page';
+	const FIELD_PAGE = 'glaciate_page';
 
 	/** Honeypot: a field people can't see, which must stay empty. */
-	const FIELD_HONEYPOT = 'stillpress_hp';
+	const FIELD_HONEYPOT = 'glaciate_hp';
 
 	/** Seconds the form was open before it was sent; the client script fills it in. */
-	const FIELD_ELAPSED = 'stillpress_t';
+	const FIELD_ELAPSED = 'glaciate_t';
 
 	/** Fields captcha widgets add to a form. */
 	const CAPTCHA_FIELDS = array( 'cf-turnstile-response', 'h-captcha-response', 'g-recaptcha-response' );
@@ -107,7 +107,7 @@ final class Protocol {
 	}
 
 	/**
-	 * The fields without the ones Stillpress and captcha widgets added.
+	 * The fields without the ones Glaciate and captcha widgets added.
 	 *
 	 * @param array<int,array{0:string,1:string}> $pairs Fields.
 	 * @return array<int,array{0:string,1:string}>

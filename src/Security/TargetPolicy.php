@@ -2,10 +2,10 @@
 /**
  * Decides which directories may be used as a deploy target.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Security;
+namespace Glaciate\Security;
 
 /**
  * Guards against destructive deploy targets (threat T5).
@@ -19,7 +19,7 @@ namespace Stillpress\Security;
 final class TargetPolicy {
 
 	/** Marker file that must exist in a non-empty target before we write to it. */
-	const MARKER = '.stillpress-target';
+	const MARKER = '.glaciate-target';
 
 	/**
 	 * Directories that must not be a target or be inside a target.
@@ -77,31 +77,31 @@ final class TargetPolicy {
 	public function problem( string $dir ): ?string {
 		$raw = trim( $dir );
 		if ( '' === $raw ) {
-			return __( 'Enter a directory.', 'stillpress' );
+			return __( 'Enter a directory.', 'glaciate' );
 		}
 		$normalized = str_replace( '\\', '/', $raw );
 		if ( '/' !== $normalized[0] && ! preg_match( '#^[A-Za-z]:/#', $normalized ) ) {
-			return __( 'Use an absolute path.', 'stillpress' );
+			return __( 'Use an absolute path.', 'glaciate' );
 		}
 		if ( preg_match( '#(^|/)\.\.?(/|$)#', $normalized ) || false !== strpos( $normalized, "\0" ) ) {
-			return __( 'The path must not contain "." or ".." segments.', 'stillpress' );
+			return __( 'The path must not contain "." or ".." segments.', 'glaciate' );
 		}
 
 		$target = self::normalize( $raw );
 		if ( '' === $target || '/' === $target || preg_match( '#^[A-Za-z]:/?$#', $target ) ) {
-			return __( 'The filesystem root can\'t be a deploy target.', 'stillpress' );
+			return __( 'The filesystem root can\'t be a deploy target.', 'glaciate' );
 		}
 
 		foreach ( $this->protected as $p ) {
 			if ( self::is_within( $p, $target ) ) {
 				/* translators: %s: directory path. */
-				return sprintf( __( 'The target would contain %s, which must never be overwritten.', 'stillpress' ), $p );
+				return sprintf( __( 'The target would contain %s, which must never be overwritten.', 'glaciate' ), $p );
 			}
 		}
 		foreach ( $this->code_dirs as $c ) {
 			if ( self::is_within( $target, $c ) ) {
 				/* translators: %s: directory path. */
-				return sprintf( __( 'The target is inside %s, which holds code.', 'stillpress' ), $c );
+				return sprintf( __( 'The target is inside %s, which holds code.', 'glaciate' ), $c );
 			}
 		}
 		return null;

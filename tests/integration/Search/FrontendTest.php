@@ -2,12 +2,12 @@
 /**
  * Loading the search client on rendered pages.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Search;
+namespace Glaciate\Tests\Integration\Search;
 
-use Stillpress\Search\Frontend;
+use Glaciate\Search\Frontend;
 
 final class FrontendTest extends \WP_UnitTestCase {
 
@@ -30,8 +30,8 @@ final class FrontendTest extends \WP_UnitTestCase {
 		$this->assertSame( 'defer', $scripts->get_data( Frontend::HANDLE, 'strategy' ) );
 
 		$before = trim( implode( "\n", array_filter( (array) $scripts->get_data( Frontend::HANDLE, 'before' ) ) ) );
-		$this->assertStringStartsWith( 'window.stillpressSearchSettings = {', $before );
-		$this->assertStringContainsString( wp_json_encode( home_url( '/stillpress-search/' ) ), $before );
+		$this->assertStringStartsWith( 'window.glaciateSearchSettings = {', $before );
+		$this->assertStringContainsString( wp_json_encode( home_url( '/glaciate-search/' ) ), $before );
 	}
 
 	public function test_settings_can_be_filtered(): void {
@@ -39,9 +39,9 @@ final class FrontendTest extends \WP_UnitTestCase {
 			$settings['style'] = '';
 			return $settings;
 		};
-		add_filter( 'stillpress_search_settings', $filter );
+		add_filter( 'glaciate_search_settings', $filter );
 		$settings = Frontend::settings();
-		remove_filter( 'stillpress_search_settings', $filter );
+		remove_filter( 'glaciate_search_settings', $filter );
 		$this->assertSame( '', $settings['style'] );
 		$this->assertSame( Frontend::LIMIT, $settings['limit'] );
 	}
@@ -57,9 +57,9 @@ final class FrontendTest extends \WP_UnitTestCase {
 			$few = $n % 10 >= 2 && $n % 10 <= 4 && ( $n % 100 < 10 || $n % 100 >= 20 );
 			return $few ? '%d wyniki' : '%d wyników';
 		};
-		add_filter( 'ngettext_stillpress', $polish, 10, 4 );
+		add_filter( 'ngettext_glaciate', $polish, 10, 4 );
 		list( $forms, $rule ) = Frontend::result_counts();
-		remove_filter( 'ngettext_stillpress', $polish, 10 );
+		remove_filter( 'ngettext_glaciate', $polish, 10 );
 
 		$this->assertSame( array( '%d wyników', '%d wynik', '%d wyniki' ), $forms );
 		$this->assertSame( 196, strlen( $rule ), 'Up to 194 ("few"), then 195-199 cut to one digit.' );

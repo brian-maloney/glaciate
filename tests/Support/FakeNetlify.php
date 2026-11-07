@@ -2,12 +2,12 @@
 /**
  * In-memory stand-in for the Netlify API's file-digest deploys, for deployer tests.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Support;
+namespace Glaciate\Tests\Support;
 
-use Stillpress\Deploy\Aws\Transport;
+use Glaciate\Deploy\Aws\Transport;
 
 /**
  * Behaves like Netlify for the calls the deployer makes: files are stored by SHA-1 across deploys (so later deploys

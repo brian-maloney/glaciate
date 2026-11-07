@@ -2,10 +2,10 @@
 /**
  * A redirect a form plugin was about to send.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms\Adapter;
+namespace Glaciate\Forms\Adapter;
 
 /**
  * Thrown from a plugin's redirect filter to stop it from calling `exit`, carrying the address it chose.

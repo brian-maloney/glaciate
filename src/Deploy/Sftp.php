@@ -2,27 +2,27 @@
 /**
  * Deploys to a server over SFTP.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Vendor\phpseclib3\Crypt\PublicKeyLoader;
-use Stillpress\Vendor\phpseclib3\Net\SFTP as SftpConnection;
-use Stillpress\Output\PathMapper;
-use Stillpress\Output\UnsafePathException;
-use Stillpress\Security\TargetPolicy;
-use Stillpress\Support\Logger;
+use Glaciate\Vendor\phpseclib3\Crypt\PublicKeyLoader;
+use Glaciate\Vendor\phpseclib3\Net\SFTP as SftpConnection;
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
+use Glaciate\Security\TargetPolicy;
+use Glaciate\Support\Logger;
 
 /**
  * Mirrors the build into a folder on another server over SFTP, using phpseclib (MIT).
  *
  * Safety follows the local folder deployer (threat T5): the remote folder must be empty or carry the
- * `.stillpress-target` marker, and only files this deployer uploaded are ever deleted. Files are uploaded under a
+ * `.glaciate-target` marker, and only files this deployer uploaded are ever deleted. Files are uploaded under a
  * temporary name and renamed over the old file, atomically where the server supports OpenSSH's posix-rename.
  *
  * The server's host key is pinned by its SHA-256 fingerprint (threat T18): there is no trust on first use. Until
- * a fingerprint is set, `wp stillpress target check sftp` connects, shows the server's fingerprint and stops.
+ * a fingerprint is set, `wp glaciate target check sftp` connects, shows the server's fingerprint and stops.
  */
 final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInterface {
 
@@ -61,7 +61,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 	 * {@inheritDoc}
 	 */
 	public function label(): string {
-		return __( 'Another server, over SFTP', 'stillpress' );
+		return __( 'Another server, over SFTP', 'glaciate' );
 	}
 
 	/**
@@ -72,49 +72,49 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 	public function fields(): array {
 		return array(
 			'host'                   => array(
-				'label'      => __( 'Host', 'stillpress' ),
+				'label'      => __( 'Host', 'glaciate' ),
 				'required'   => true,
 				'restricted' => true,
 				'pattern'    => '[A-Za-z0-9.\-]{1,253}|\[[0-9A-Fa-f:.]{2,45}\]',
 			),
 			'port'                   => array(
-				'label'      => __( 'Port', 'stillpress' ),
+				'label'      => __( 'Port', 'glaciate' ),
 				'default'    => '22',
 				'restricted' => true,
 				'pattern'    => '[0-9]{1,5}',
 			),
 			'username'               => array(
-				'label'    => __( 'User name', 'stillpress' ),
+				'label'    => __( 'User name', 'glaciate' ),
 				'required' => true,
 				'pattern'  => '[A-Za-z0-9._@\-]{1,64}',
 			),
 			'password'               => array(
-				'label'       => __( 'Password', 'stillpress' ),
+				'label'       => __( 'Password', 'glaciate' ),
 				'type'        => 'secret',
-				'description' => __( 'Set a password or a private key.', 'stillpress' ),
+				'description' => __( 'Set a password or a private key.', 'glaciate' ),
 			),
 			'private_key'            => array(
-				'label'       => __( 'Private key', 'stillpress' ),
+				'label'       => __( 'Private key', 'glaciate' ),
 				'type'        => 'secret',
 				'multiline'   => true,
-				'description' => __( 'OpenSSH or PEM format. Preferred over a password.', 'stillpress' ),
+				'description' => __( 'OpenSSH or PEM format. Preferred over a password.', 'glaciate' ),
 			),
 			'private_key_passphrase' => array(
-				'label' => __( 'Private key passphrase', 'stillpress' ),
+				'label' => __( 'Private key passphrase', 'glaciate' ),
 				'type'  => 'secret',
 			),
 			'host_key'               => array(
-				'label'       => __( 'Host key fingerprint', 'stillpress' ),
+				'label'       => __( 'Host key fingerprint', 'glaciate' ),
 				'required'    => true,
 				'pattern'     => 'SHA256:[A-Za-z0-9+/]{43}',
-				'description' => __( 'The server\'s SHA256 fingerprint, as "ssh-keygen -lf" shows it. "wp stillpress target check sftp" shows the fingerprint the server presents.', 'stillpress' ),
+				'description' => __( 'The server\'s SHA256 fingerprint, as "ssh-keygen -lf" shows it. "wp glaciate target check sftp" shows the fingerprint the server presents.', 'glaciate' ),
 			),
 			'remote_path'            => array(
-				'label'       => __( 'Remote folder', 'stillpress' ),
+				'label'       => __( 'Remote folder', 'glaciate' ),
 				'required'    => true,
 				'restricted'  => true,
 				'pattern'     => '[A-Za-z0-9._\-/ ]{1,500}',
-				'description' => __( 'Absolute, or relative to the user\'s home folder. Must be empty or contain a file named .stillpress-target.', 'stillpress' ),
+				'description' => __( 'Absolute, or relative to the user\'s home folder. Must be empty or contain a file named .glaciate-target.', 'glaciate' ),
 			),
 		);
 	}
@@ -126,21 +126,21 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 		$missing = TargetConfig::missing( $this );
 		if ( $missing ) {
 			/* translators: %s: comma-separated field names. */
-			return sprintf( __( 'SFTP needs these settings: %s.', 'stillpress' ), implode( ', ', $missing ) );
+			return sprintf( __( 'SFTP needs these settings: %s.', 'glaciate' ), implode( ', ', $missing ) );
 		}
 		if ( '' === TargetConfig::value( $this, 'password' ) && '' === TargetConfig::value( $this, 'private_key' ) ) {
-			return __( 'SFTP needs a password or a private key.', 'stillpress' );
+			return __( 'SFTP needs a password or a private key.', 'glaciate' );
 		}
 		$port = (int) TargetConfig::value( $this, 'port' );
 		if ( $port < 1 || $port > 65535 ) {
-			return __( 'The SFTP port must be between 1 and 65535.', 'stillpress' );
+			return __( 'The SFTP port must be between 1 and 65535.', 'glaciate' );
 		}
 		if ( '' === trim( $this->root(), '/' ) ) {
-			return __( 'The remote folder can\'t be the server\'s root folder.', 'stillpress' );
+			return __( 'The remote folder can\'t be the server\'s root folder.', 'glaciate' );
 		}
 		foreach ( explode( '/', $this->root() ) as $segment ) {
 			if ( '.' === $segment || '..' === $segment ) {
-				return __( 'The remote folder may not contain "." or ".." folders.', 'stillpress' );
+				return __( 'The remote folder may not contain "." or ".." folders.', 'glaciate' );
 			}
 		}
 		return null;
@@ -160,7 +160,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 	 */
 	public function check_connection(): ?string {
 		$missing = TargetConfig::missing( $this );
-		if ( array( __( 'Host key fingerprint', 'stillpress' ) ) === $missing ) {
+		if ( array( __( 'Host key fingerprint', 'glaciate' ) ) === $missing ) {
 			// The one setting we can help with: show what the server presents, for the user to verify.
 			try {
 				$presented = self::fingerprint( $this->connection() );
@@ -168,7 +168,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 				return $e->getMessage();
 			}
 			/* translators: %s: SHA256 fingerprint. */
-			return sprintf( __( 'The server presents host key %s. Check it with the server\'s administrator (for example with "ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub" on the server), then save it as the host key fingerprint.', 'stillpress' ), $presented );
+			return sprintf( __( 'The server presents host key %s. Check it with the server\'s administrator (for example with "ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub" on the server), then save it as the host key fingerprint.', 'glaciate' ), $presented );
 		}
 		$problem = $this->problem();
 		if ( null !== $problem ) {
@@ -182,10 +182,10 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 				if ( null !== $problem ) {
 					return $problem;
 				}
-				$probe = $root . '/.stillpress-probe-' . bin2hex( random_bytes( 4 ) );
+				$probe = $root . '/.glaciate-probe-' . bin2hex( random_bytes( 4 ) );
 				if ( ! $sftp->put( $probe, '' ) ) {
 					/* translators: %s: remote folder. */
-					return sprintf( __( 'Logged in, but %s is not writable.', 'stillpress' ), $root );
+					return sprintf( __( 'Logged in, but %s is not writable.', 'glaciate' ), $root );
 				}
 				$sftp->delete( $probe, false );
 			}
@@ -258,7 +258,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 				$file = $source->absolute_path( $path );
 			} catch ( UnsafePathException $e ) {
 				/* translators: 1: file path, 2: error message. */
-				$logger->error( sprintf( __( 'Could not deploy %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
+				$logger->error( sprintf( __( 'Could not deploy %1$s: %2$s', 'glaciate' ), $path, $e->getMessage() ) );
 				++$result->failed;
 				continue;
 			}
@@ -274,7 +274,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 			if ( ! $ok ) {
 				self::fail_if_disconnected( $sftp );
 				/* translators: %s: file path. */
-				$logger->error( sprintf( __( 'Could not upload %s over SFTP.', 'stillpress' ), $path ) );
+				$logger->error( sprintf( __( 'Could not upload %s over SFTP.', 'glaciate' ), $path ) );
 				++$result->failed;
 				continue;
 			}
@@ -302,7 +302,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 				self::fail_if_disconnected( $sftp );
 				if ( $sftp->file_exists( $remote ) ) {
 					/* translators: %s: file path. */
-					$logger->error( sprintf( __( 'Could not delete %s over SFTP.', 'stillpress' ), $path ) );
+					$logger->error( sprintf( __( 'Could not delete %s over SFTP.', 'glaciate' ), $path ) );
 					++$result->failed;
 					continue;
 				}
@@ -327,7 +327,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 		$expected  = (string) TargetConfig::value( $this, 'host_key' );
 		if ( ! hash_equals( $expected, $presented ) ) {
 			/* translators: 1: expected fingerprint, 2: presented fingerprint. */
-			throw new \RuntimeException( sprintf( __( 'The SFTP server\'s host key does not match. Expected %1$s, but the server presented %2$s. If the server was rebuilt, confirm the new key with its administrator before updating the setting; otherwise someone may be intercepting the connection.', 'stillpress' ), $expected, $presented ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'The SFTP server\'s host key does not match. Expected %1$s, but the server presented %2$s. If the server was rebuilt, confirm the new key with its administrator before updating the setting; otherwise someone may be intercepting the connection.', 'glaciate' ), $expected, $presented ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$user = (string) TargetConfig::value( $this, 'username' );
 		$key  = (string) TargetConfig::value( $this, 'private_key' );
@@ -338,12 +338,12 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 			} else {
 				$ok = $sftp->login( $user, (string) TargetConfig::value( $this, 'password' ) );
 			}
-		} catch ( \Stillpress\Vendor\phpseclib3\Exception\NoKeyLoadedException $e ) {
-			throw new \RuntimeException( __( 'The private key could not be read. Check its format and passphrase.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+		} catch ( \Glaciate\Vendor\phpseclib3\Exception\NoKeyLoadedException $e ) {
+			throw new \RuntimeException( __( 'The private key could not be read. Check its format and passphrase.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( ! $ok ) {
 			/* translators: %s: user name. */
-			throw new \RuntimeException( sprintf( __( 'The SFTP server refused the login for %s.', 'stillpress' ), $user ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'The SFTP server refused the login for %s.', 'glaciate' ), $user ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$sftp->setTimeout( 30 );
 		return $sftp;
@@ -365,7 +365,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 			}
 		} catch ( \Exception $e ) {
 			/* translators: 1: host, 2: port, 3: error. */
-			throw new \RuntimeException( sprintf( __( 'Could not connect to %1$s:%2$d over SSH: %3$s', 'stillpress' ), $host, $port, $e->getMessage() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'Could not connect to %1$s:%2$d over SSH: %3$s', 'glaciate' ), $host, $port, $e->getMessage() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		return $sftp;
 	}
@@ -394,12 +394,12 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 		$entries = $sftp->nlist( $root );
 		if ( false === $entries ) {
 			/* translators: %s: remote folder. */
-			return sprintf( __( 'Could not list %s on the SFTP server.', 'stillpress' ), $root );
+			return sprintf( __( 'Could not list %s on the SFTP server.', 'glaciate' ), $root );
 		}
 		$entries = array_diff( $entries, array( '.', '..' ) );
 		if ( $entries && ! in_array( TargetPolicy::MARKER, $entries, true ) ) {
 			/* translators: 1: remote folder, 2: marker file name. */
-			return sprintf( __( 'The remote folder %1$s is not empty. Choose an empty folder, or create a file named %2$s in it to confirm it may be overwritten.', 'stillpress' ), $root, TargetPolicy::MARKER );
+			return sprintf( __( 'The remote folder %1$s is not empty. Choose an empty folder, or create a file named %2$s in it to confirm it may be overwritten.', 'glaciate' ), $root, TargetPolicy::MARKER );
 		}
 		return null;
 	}
@@ -420,13 +420,13 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 		}
 		if ( ! $sftp->is_dir( $root ) && ! $sftp->mkdir( $root, -1, true ) ) {
 			/* translators: %s: remote folder. */
-			throw new \RuntimeException( sprintf( __( 'Could not create %s on the SFTP server.', 'stillpress' ), $root ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'Could not create %s on the SFTP server.', 'glaciate' ), $root ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$problem = $this->root_problem( $sftp );
 		if ( null !== $problem ) {
 			throw new \RuntimeException( $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
-		$sftp->put( $marker, "This folder is managed by Stillpress. Files listed in its deploy records may be replaced or deleted.\n" );
+		$sftp->put( $marker, "This folder is managed by Glaciate. Files listed in its deploy records may be replaced or deleted.\n" );
 	}
 
 	/**
@@ -444,7 +444,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 		if ( ! $replace ) {
 			return (bool) $sftp->put( $remote, $local, SftpConnection::SOURCE_LOCAL_FILE );
 		}
-		$tmp = dirname( $remote ) . '/.stillpress-tmp-' . bin2hex( random_bytes( 6 ) );
+		$tmp = dirname( $remote ) . '/.glaciate-tmp-' . bin2hex( random_bytes( 6 ) );
 		if ( ! $sftp->put( $tmp, $local, SftpConnection::SOURCE_LOCAL_FILE ) ) {
 			return false;
 		}
@@ -520,7 +520,7 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 	 */
 	private static function fail_if_disconnected( SftpConnection $sftp ): void {
 		if ( ! $sftp->isConnected() ) {
-			throw new \RuntimeException( __( 'The SFTP connection dropped. The next deploy continues where this one stopped.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'The SFTP connection dropped. The next deploy continues where this one stopped.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 	}
 

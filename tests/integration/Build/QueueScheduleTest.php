@@ -2,14 +2,14 @@
 /**
  * Publishing at set times and the full-rebuild schedule, on Action Scheduler.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Build;
+namespace Glaciate\Tests\Integration\Build;
 
-use Stillpress\Build\Queue;
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Support\Settings;
+use Glaciate\Build\Queue;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Support\Settings;
 
 final class QueueScheduleTest extends \WP_UnitTestCase {
 
@@ -18,7 +18,7 @@ final class QueueScheduleTest extends \WP_UnitTestCase {
 		if ( ! function_exists( 'as_schedule_single_action' ) || ! \ActionScheduler::is_initialized() ) {
 			$this->markTestSkipped( 'Action Scheduler is not loaded.' );
 		}
-		add_filter( 'stillpress_kick_builds', '__return_false' );
+		add_filter( 'glaciate_kick_builds', '__return_false' );
 		update_option( 'timezone_string', 'Europe/Berlin' );
 		Queue::unschedule_all();
 	}
@@ -94,8 +94,8 @@ final class QueueScheduleTest extends \WP_UnitTestCase {
 	public function test_old_recurring_rebuild_is_replaced_by_a_single_run(): void {
 		// Earlier versions scheduled a recurring action every 24 hours, which drifts across daylight-saving changes.
 		as_schedule_recurring_action( time() + HOUR_IN_SECONDS, DAY_IN_SECONDS, Queue::SCHEDULED_HOOK, array(), Queue::GROUP, true );
-		update_option( 'stillpress_rebuild_interval', DAY_IN_SECONDS );
-		delete_option( 'stillpress_schedule_signature' );
+		update_option( 'glaciate_rebuild_interval', DAY_IN_SECONDS );
+		delete_option( 'glaciate_schedule_signature' );
 		Settings::update( array( 'full_rebuild' => 'daily' ) );
 
 		Queue::ensure_recurring();
@@ -107,11 +107,11 @@ final class QueueScheduleTest extends \WP_UnitTestCase {
 		);
 		$this->assertCount( 1, $actions );
 		$this->assertFalse( reset( $actions )->get_schedule()->is_recurring() );
-		$this->assertFalse( get_option( 'stillpress_rebuild_interval' ) );
+		$this->assertFalse( get_option( 'glaciate_rebuild_interval' ) );
 	}
 
 	public function test_scheduled_mode_holds_changes_until_a_publishing_time(): void {
-		update_option( 'stillpress_published_once', 1 );
+		update_option( 'glaciate_published_once', 1 );
 		Settings::update(
 			array(
 				'publish_mode'  => 'scheduled',
@@ -127,7 +127,7 @@ final class QueueScheduleTest extends \WP_UnitTestCase {
 	}
 
 	public function test_publishing_time_builds_only_when_something_changed(): void {
-		update_option( 'stillpress_published_once', 1 );
+		update_option( 'glaciate_published_once', 1 );
 		Settings::update(
 			array(
 				'publish_mode'  => 'scheduled',
@@ -135,9 +135,9 @@ final class QueueScheduleTest extends \WP_UnitTestCase {
 			)
 		);
 		$builds  = new BuildRepository();
-		$changes = new \Stillpress\Storage\ChangeRepository();
+		$changes = new \Glaciate\Storage\ChangeRepository();
 		// Changing the timezone and settings above are real site changes: write them out, then clear them.
-		$listener = \Stillpress\Plugin::instance()->changes();
+		$listener = \Glaciate\Plugin::instance()->changes();
 		if ( null !== $listener ) {
 			$listener->flush();
 		}

@@ -1,14 +1,14 @@
 <?php
 /**
- * The search check in Site Health and `wp stillpress doctor`.
+ * The search check in Site Health and `wp glaciate doctor`.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Search;
+namespace Glaciate\Tests\Integration\Search;
 
-use Stillpress\Service\HealthChecks;
-use Stillpress\Support\Settings;
+use Glaciate\Service\HealthChecks;
+use Glaciate\Support\Settings;
 
 final class SearchHealthTest extends \WP_UnitTestCase {
 

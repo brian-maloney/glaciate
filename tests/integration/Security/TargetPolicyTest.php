@@ -2,12 +2,12 @@
 /**
  * Deploy target rules (threat T5).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Security;
+namespace Glaciate\Tests\Integration\Security;
 
-use Stillpress\Security\TargetPolicy;
+use Glaciate\Security\TargetPolicy;
 
 final class TargetPolicyTest extends \WP_UnitTestCase {
 
@@ -28,14 +28,14 @@ final class TargetPolicyTest extends \WP_UnitTestCase {
 			'wp-content'      => array( '{CONTENT}' ),
 			'uploads'         => array( '{UPLOADS}' ),
 			'plugins'         => array( '{CONTENT}/plugins' ),
-			'inside a plugin' => array( '{CONTENT}/plugins/stillpress/out' ),
+			'inside a plugin' => array( '{CONTENT}/plugins/glaciate/out' ),
 			'themes'          => array( '{CONTENT}/themes' ),
 			'inside a theme'  => array( '{CONTENT}/themes/twentytwentyfive/static' ),
 			'wp-admin'        => array( '{ABSPATH}/wp-admin' ),
 			'inside wp-admin' => array( '{ABSPATH}/wp-admin/x' ),
 			'wp-includes'     => array( '{ABSPATH}/wp-includes/x' ),
 			'relative'        => array( 'static-out' ),
-			'dot-dot escape'  => array( '{CONTENT}/stillpress/../plugins' ),
+			'dot-dot escape'  => array( '{CONTENT}/glaciate/../plugins' ),
 			'empty'           => array( '' ),
 			'nul byte'        => array( "/tmp/a\0b" ),
 		);
@@ -51,15 +51,15 @@ final class TargetPolicyTest extends \WP_UnitTestCase {
 
 	public function provide_allowed(): array {
 		return array(
-			'default under data dir' => array( '{CONTENT}/stillpress/public/1' ),
+			'default under data dir' => array( '{CONTENT}/glaciate/public/1' ),
 			'inside uploads'         => array( '{UPLOADS}/static' ),
 			'docroot subfolder'      => array( '{ABSPATH}/static' ),
-			'outside wordpress'      => array( '/tmp/stillpress-site' ),
+			'outside wordpress'      => array( '/tmp/glaciate-site' ),
 		);
 	}
 
 	public function test_symlink_into_plugins_is_refused(): void {
-		$link = sys_get_temp_dir() . '/stillpress-link-' . wp_generate_password( 6, false );
+		$link = sys_get_temp_dir() . '/glaciate-link-' . wp_generate_password( 6, false );
 		symlink( WP_PLUGIN_DIR, $link );
 		try {
 			$this->assertNotNull( TargetPolicy::for_wordpress()->problem( $link . '/x' ) );

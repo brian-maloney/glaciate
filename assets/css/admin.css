@@ -1,9 +1,9 @@
 /* WordPress button styles would otherwise override the hidden attribute. */
-.stillpress [hidden] {
+.glaciate [hidden] {
 	display: none !important;
 }
 
-.stillpress .stillpress-card {
+.glaciate .glaciate-card {
 	background: #fff;
 	border: 1px solid #c3c4c7;
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
@@ -12,33 +12,33 @@
 	padding: 16px 24px;
 }
 
-.stillpress .stillpress-choice {
+.glaciate .glaciate-choice {
 	display: block;
 	margin: 12px 0 4px;
 }
 
-.stillpress .stillpress-choice span {
+.glaciate .glaciate-choice span {
 	color: #646970;
 	display: block;
 	margin-inline-start: 24px;
 }
 
-.stillpress .stillpress-indent {
+.glaciate .glaciate-indent {
 	margin-inline-start: 24px;
 }
 
-.stillpress .button.hero {
+.glaciate .button.hero {
 	margin-top: 16px;
 }
 
-.stillpress .stillpress-state {
+.glaciate .glaciate-state {
 	align-items: center;
 	display: flex;
 	font-size: 15px;
 	gap: 8px;
 }
 
-.stillpress-dot {
+.glaciate-dot {
 	background: #8c8f94;
 	border-radius: 50%;
 	display: inline-block;
@@ -46,88 +46,88 @@
 	width: 10px;
 }
 
-.stillpress-dot-up-to-date { background: #00a32a; }
-.stillpress-dot-pending { background: #dba617; }
-.stillpress-dot-building { background: #2271b1; }
-.stillpress-dot-failed { background: #d63638; }
+.glaciate-dot-up-to-date { background: #00a32a; }
+.glaciate-dot-pending { background: #dba617; }
+.glaciate-dot-building { background: #2271b1; }
+.glaciate-dot-failed { background: #d63638; }
 
-.stillpress .stillpress-progress progress {
+.glaciate .glaciate-progress progress {
 	max-width: 420px;
 	width: 100%;
 }
 
-.stillpress .stillpress-actions .button[aria-disabled="true"] {
+.glaciate .glaciate-actions .button[aria-disabled="true"] {
 	opacity: 0.5;
 	pointer-events: none;
 }
 
-.stillpress .stillpress-facts {
+.glaciate .glaciate-facts {
 	display: grid;
 	gap: 6px 16px;
 	grid-template-columns: max-content 1fr;
 }
 
-.stillpress .stillpress-facts dt {
+.glaciate .glaciate-facts dt {
 	color: #646970;
 }
 
-.stillpress .stillpress-facts dd {
+.glaciate .glaciate-facts dd {
 	margin: 0;
 }
 
-.stillpress .stillpress-history {
+.glaciate .glaciate-history {
 	max-width: 1100px;
 }
 
-.stillpress .stillpress-changes,
-.stillpress .stillpress-changeset-urls {
+.glaciate .glaciate-changes,
+.glaciate .glaciate-changeset-urls {
 	list-style: disc;
 	margin: 0 0 1em 1.5em;
 }
 
-.stillpress .stillpress-changeset-urls {
+.glaciate .glaciate-changeset-urls {
 	overflow-wrap: anywhere;
 }
 
-.stillpress .stillpress-log {
+.glaciate .glaciate-log {
 	max-height: 320px;
 	max-width: 640px;
 	overflow: auto;
 	white-space: pre-wrap;
 }
 
-.stillpress .stillpress-error {
+.glaciate .glaciate-error {
 	color: #d63638;
 }
 
 /* Settings: one deploy target's fields, nested inside the "Where to publish" table. */
-.stillpress-settings .stillpress-target-fields {
+.glaciate-settings .glaciate-target-fields {
 	margin-top: 0;
 }
 
-.stillpress-settings .stillpress-target-fields th {
+.glaciate-settings .glaciate-target-fields th {
 	padding-inline-start: 0;
 	width: 180px;
 }
 
-.stillpress-settings .stillpress-required {
+.glaciate-settings .glaciate-required {
 	color: #646970;
 	font-weight: 400;
 }
 
-.stillpress-settings .stillpress-check-result.is-ok {
+.glaciate-settings .glaciate-check-result.is-ok {
 	color: #00a32a;
 }
 
-.stillpress-settings .stillpress-check-result.is-error {
+.glaciate-settings .glaciate-check-result.is-error {
 	color: #d63638;
 }
 
-.stillpress-settings [hidden] {
+.glaciate-settings [hidden] {
 	display: none !important;
 }
 
-.stillpress-settings .stillpress-day {
+.glaciate-settings .glaciate-day {
 	display: inline-block;
 	margin-inline-end: 12px;
 }

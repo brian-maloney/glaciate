@@ -2,13 +2,13 @@
 /**
  * Link discovery in rendered documents.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Crawl;
+namespace Glaciate\Tests\Integration\Crawl;
 
-use Stillpress\Crawl\LinkExtractor;
-use Stillpress\Rewrite\OriginSet;
+use Glaciate\Crawl\LinkExtractor;
+use Glaciate\Rewrite\OriginSet;
 
 final class LinkExtractorTest extends \WP_UnitTestCase {
 

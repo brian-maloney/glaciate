@@ -2,13 +2,13 @@
 /**
  * A form submission that passed the receiver's checks.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
 /**
- * What adapters receive. `pairs` and `fields` exclude the fields Stillpress and captcha widgets added.
+ * What adapters receive. `pairs` and `fields` exclude the fields Glaciate and captcha widgets added.
  */
 final class Submission {
 
@@ -78,7 +78,7 @@ final class Submission {
 	/**
 	 * Builds a submission from everything that was posted.
 	 *
-	 * @param array<int,array{0:string,1:string}> $pairs      All submitted fields, including Stillpress's.
+	 * @param array<int,array{0:string,1:string}> $pairs      All submitted fields, including Glaciate's.
 	 * @param string                              $ip         Visitor IP address.
 	 * @param string                              $user_agent Visitor User-Agent.
 	 * @param bool                                $relayed    Forwarded by a separate receiver.

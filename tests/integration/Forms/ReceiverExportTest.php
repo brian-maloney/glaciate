@@ -2,15 +2,15 @@
 /**
  * Standalone receivers written for a site.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Forms;
+namespace Glaciate\Tests\Integration\Forms;
 
-use Stillpress\Forms\Config;
-use Stillpress\Forms\ReceiverExport;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Settings;
+use Glaciate\Forms\Config;
+use Glaciate\Forms\ReceiverExport;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Settings;
 use WP_UnitTestCase;
 
 final class ReceiverExportTest extends WP_UnitTestCase {
@@ -21,7 +21,7 @@ final class ReceiverExportTest extends WP_UnitTestCase {
 			array(
 				'public_url'             => 'https://static.example.org/',
 				'forms'                  => 'receiver',
-				'forms_endpoint'         => 'https://forms.example.net/stillpress-form.php',
+				'forms_endpoint'         => 'https://forms.example.net/glaciate-form.php',
 				'forms_captcha'          => 'turnstile',
 				'forms_captcha_site_key' => 'site-key',
 			)
@@ -39,20 +39,20 @@ final class ReceiverExportTest extends WP_UnitTestCase {
 	public function test_php_receiver_has_the_site_settings_and_no_secrets(): void {
 		$php = ReceiverExport::build( 'php', new Config() );
 		$this->assertStringContainsString( "'allowed_origin' => 'https://static.example.org'", $php );
-		$this->assertStringContainsString( "'forward_url' => '" . rest_url( 'stillpress/v1/forms/relay' ) . "'", $php );
+		$this->assertStringContainsString( "'forward_url' => '" . rest_url( 'glaciate/v1/forms/relay' ) . "'", $php );
 		$this->assertStringContainsString( "'captcha' => 'turnstile'", $php );
 		$this->assertStringNotContainsString( 'never-', $php );
 
 		// The file still parses and its settings are what was written.
-		$file = get_temp_dir() . 'stillpress-receiver-' . wp_generate_password( 6, false ) . '.php';
-		file_put_contents( $file, str_replace( 'namespace StillpressReceiver;', 'namespace StillpressReceiverExportTest;', $php ) );
-		if ( ! defined( 'STILLPRESS_RECEIVER_LIBRARY' ) ) {
-			define( 'STILLPRESS_RECEIVER_LIBRARY', true );
+		$file = get_temp_dir() . 'glaciate-receiver-' . wp_generate_password( 6, false ) . '.php';
+		file_put_contents( $file, str_replace( 'namespace GlaciateReceiver;', 'namespace GlaciateReceiverExportTest;', $php ) );
+		if ( ! defined( 'GLACIATE_RECEIVER_LIBRARY' ) ) {
+			define( 'GLACIATE_RECEIVER_LIBRARY', true );
 		}
 		require $file;
 		unlink( $file );
-		$this->assertSame( 'https://static.example.org', \StillpressReceiverExportTest\CONFIG['allowed_origin'] );
-		$this->assertSame( 5, \StillpressReceiverExportTest\CONFIG['rate_limit'] );
+		$this->assertSame( 'https://static.example.org', \GlaciateReceiverExportTest\CONFIG['allowed_origin'] );
+		$this->assertSame( 5, \GlaciateReceiverExportTest\CONFIG['rate_limit'] );
 	}
 
 	public function test_serverless_receivers_are_single_files(): void {
@@ -61,12 +61,12 @@ final class ReceiverExportTest extends WP_UnitTestCase {
 			$this->assertStringNotContainsString( 'import ', $js, $kind );
 			$this->assertStringNotContainsString( 'never-', $js, $kind );
 			$this->assertStringContainsString( '"allowedOrigin": "https://static.example.org"', $js, $kind );
-			$this->assertStringContainsString( '"forwardUrl": "' . rest_url( 'stillpress/v1/forms/relay' ) . '"', $js, $kind );
+			$this->assertStringContainsString( '"forwardUrl": "' . rest_url( 'glaciate/v1/forms/relay' ) . '"', $js, $kind );
 			$this->assertStringContainsString( 'async function handle(', $js, $kind );
 			$this->assertSame( 0, preg_match( '/^export (const (?!config =)|function|async function) /m', $js ), $kind . ': only the entry point exports' );
 		}
 		$this->assertStringContainsString( 'export default {', ReceiverExport::build( 'cloudflare', new Config() ) );
-		$this->assertStringContainsString( "export const config = { path: '/stillpress-form' };", ReceiverExport::build( 'netlify', new Config() ) );
+		$this->assertStringContainsString( "export const config = { path: '/glaciate-form' };", ReceiverExport::build( 'netlify', new Config() ) );
 	}
 
 	public function test_unknown_kind(): void {

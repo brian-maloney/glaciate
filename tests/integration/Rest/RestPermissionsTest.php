@@ -2,12 +2,12 @@
 /**
  * REST permissions (threat T6).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Rest;
+namespace Glaciate\Tests\Integration\Rest;
 
-use Stillpress\Security\Capabilities;
+use Glaciate\Security\Capabilities;
 
 final class RestPermissionsTest extends \WP_UnitTestCase {
 
@@ -18,12 +18,12 @@ final class RestPermissionsTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		// Don't start real background work from these requests.
-		add_filter( 'stillpress_kick_builds', '__return_false' );
+		add_filter( 'glaciate_kick_builds', '__return_false' );
 		do_action( 'rest_api_init' );
 	}
 
 	private function request( string $method, string $route, array $params = array() ): \WP_REST_Response {
-		$request = new \WP_REST_Request( $method, '/stillpress/v1' . $route );
+		$request = new \WP_REST_Request( $method, '/glaciate/v1' . $route );
 		foreach ( $params as $k => $v ) {
 			$request->set_param( $k, $v );
 		}

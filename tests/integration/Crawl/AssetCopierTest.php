@@ -2,12 +2,12 @@
 /**
  * Copying files from disk safely (threat T3).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Crawl;
+namespace Glaciate\Tests\Integration\Crawl;
 
-use Stillpress\Crawl\AssetCopier;
+use Glaciate\Crawl\AssetCopier;
 
 final class AssetCopierTest extends \WP_UnitTestCase {
 
@@ -33,8 +33,8 @@ final class AssetCopierTest extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
-		\Stillpress\Tests\Support\Fs::rmrf( $this->root );
-		\Stillpress\Tests\Support\Fs::rmrf( $this->outside );
+		\Glaciate\Tests\Support\Fs::rmrf( $this->root );
+		\Glaciate\Tests\Support\Fs::rmrf( $this->outside );
 		parent::tear_down();
 	}
 

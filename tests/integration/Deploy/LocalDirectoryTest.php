@@ -2,15 +2,15 @@
 /**
  * Local directory deploys (threat T5).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deploy;
+namespace Glaciate\Tests\Integration\Deploy;
 
-use Stillpress\Deploy\LocalDirectory;
-use Stillpress\Security\TargetPolicy;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Settings;
+use Glaciate\Deploy\LocalDirectory;
+use Glaciate\Security\TargetPolicy;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Settings;
 
 final class LocalDirectoryTest extends \WP_UnitTestCase {
 
@@ -32,7 +32,7 @@ final class LocalDirectoryTest extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
-		\Stillpress\Tests\Support\Fs::rmrf( dirname( $this->cache ) );
+		\Glaciate\Tests\Support\Fs::rmrf( dirname( $this->cache ) );
 		parent::tear_down();
 	}
 

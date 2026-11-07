@@ -2,10 +2,10 @@
 /**
  * Normalized descriptions of post queries, and conservative matching against changed posts.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deps;
+namespace Glaciate\Deps;
 
 /**
  * A query signature records what a post query asked for, so that when a post changes we can tell whether that

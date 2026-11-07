@@ -2,13 +2,13 @@
 /**
  * Parsing of srcset attributes and CSS references.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Crawl;
+namespace Glaciate\Tests\Unit\Crawl;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Crawl\LinkExtractor;
+use Glaciate\Crawl\LinkExtractor;
 
 final class LinkParsingTest extends TestCase {
 

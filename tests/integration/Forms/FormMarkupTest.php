@@ -5,14 +5,14 @@
  * The Contact Form 7, WPForms and comment fixtures are those plugins' real output (CF7 6.2, WPForms Lite 2.0,
  * WordPress 7.1); the Gravity Forms fixture is a stand-in written from its documented markup.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Forms;
+namespace Glaciate\Tests\Integration\Forms;
 
-use Stillpress\Forms\Adapters;
-use Stillpress\Forms\Config;
-use Stillpress\Forms\FormMarkup;
+use Glaciate\Forms\Adapters;
+use Glaciate\Forms\Config;
+use Glaciate\Forms\FormMarkup;
 use WP_UnitTestCase;
 
 final class FormMarkupTest extends WP_UnitTestCase {
@@ -50,11 +50,11 @@ final class FormMarkupTest extends WP_UnitTestCase {
 		$form = $forms[0];
 		$this->assertSame( self::ENDPOINT, $form['attrs']['action'] );
 		$this->assertSame( 'post', $form['attrs']['method'] );
-		$this->assertSame( $key, $form['attrs']['data-stillpress-form'] );
-		$this->assertSame( $key, $form['hidden']['stillpress_form'] );
-		$this->assertSame( self::PAGE, $form['hidden']['stillpress_page'] );
-		$this->assertSame( '', $form['hidden']['stillpress_t'] );
-		$this->assertContains( 'stillpress_hp', $form['names'] );
+		$this->assertSame( $key, $form['attrs']['data-glaciate-form'] );
+		$this->assertSame( $key, $form['hidden']['glaciate_form'] );
+		$this->assertSame( self::PAGE, $form['hidden']['glaciate_page'] );
+		$this->assertSame( '', $form['hidden']['glaciate_t'] );
+		$this->assertContains( 'glaciate_hp', $form['names'] );
 		$this->assertStringNotContainsString( FormMarkup::SLOT, $result['html'] );
 		$this->assertStringNotContainsString( 'target=', $result['html'] );
 		$this->assertStringContainsString( '<p>After</p></main>', $result['html'] );
@@ -79,21 +79,21 @@ final class FormMarkupTest extends WP_UnitTestCase {
 
 	public function test_marked_forms_and_unknown_forms(): void {
 		$html = '<form id="search" action="/"><input name="s"></form>'
-			. '<form data-stillpress-form="newsletter" action="/subscribe" class="x"><input type="email" name="email"><button>Go</button></form>'
-			. '<form data-stillpress-form="Bad Name!"><input name="q"></form>';
+			. '<form data-glaciate-form="newsletter" action="/subscribe" class="x"><input type="email" name="email"><button>Go</button></form>'
+			. '<form data-glaciate-form="Bad Name!"><input name="q"></form>';
 		$out  = $this->markup()->transform( $html, self::PAGE );
 		$this->assertSame( array( 'form:newsletter' ), $out['keys'] );
 		$forms = FormMarkup::scan( $out['html'] );
 		$this->assertSame( '/', $forms[0]['attrs']['action'], 'search form untouched' );
-		$this->assertArrayNotHasKey( 'stillpress_form', $forms[0]['hidden'] );
+		$this->assertArrayNotHasKey( 'glaciate_form', $forms[0]['hidden'] );
 		$this->assertSame( self::ENDPOINT, $forms[1]['attrs']['action'] );
 		$this->assertArrayNotHasKey( 'action', $forms[2]['attrs'] );
 	}
 
 	public function test_attribute_values_with_angle_brackets(): void {
-		$html = '<form data-stillpress-form="x" title="a > b" data-note=\'1>0\'><input name="m"></form>';
+		$html = '<form data-glaciate-form="x" title="a > b" data-note=\'1>0\'><input name="m"></form>';
 		$out  = $this->markup()->transform( $html, self::PAGE )['html'];
-		$this->assertMatchesRegularExpression( '#title="a > b" data-note=\'1>0\'[^>]*><input type="hidden" name="stillpress_form"#', $out );
+		$this->assertMatchesRegularExpression( '#title="a > b" data-note=\'1>0\'[^>]*><input type="hidden" name="glaciate_form"#', $out );
 	}
 
 	public function test_page_without_forms_is_returned_as_is(): void {
@@ -108,7 +108,7 @@ final class FormMarkupTest extends WP_UnitTestCase {
 	}
 
 	public function test_escapes_the_page_address(): void {
-		$out = $this->markup()->transform( '<form data-stillpress-form="x"></form>', 'https://static.example.org/a"b/' )['html'];
+		$out = $this->markup()->transform( '<form data-glaciate-form="x"></form>', 'https://static.example.org/a"b/' )['html'];
 		$this->assertStringContainsString( 'value="https://static.example.org/a&quot;b/"', $out );
 	}
 }

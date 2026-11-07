@@ -2,10 +2,10 @@
 /**
  * Deployment summary.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
 /**
  * Counts of what a deploy changed, plus an optional location for the user (a directory, a download, a URL).

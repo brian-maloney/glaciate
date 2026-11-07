@@ -2,16 +2,16 @@
 /**
  * Admin-post actions need capability and nonce (threat T6).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Admin;
+namespace Glaciate\Tests\Integration\Admin;
 
-use Stillpress\Admin\Admin;
-use Stillpress\Admin\SettingsPage;
-use Stillpress\Security\Capabilities;
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Support\Settings;
+use Glaciate\Admin\Admin;
+use Glaciate\Admin\SettingsPage;
+use Glaciate\Security\Capabilities;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Support\Settings;
 
 final class AdminActionsTest extends \WP_UnitTestCase {
 
@@ -21,7 +21,7 @@ final class AdminActionsTest extends \WP_UnitTestCase {
 
 	public function set_up(): void {
 		parent::set_up();
-		add_filter( 'stillpress_kick_builds', '__return_false' );
+		add_filter( 'glaciate_kick_builds', '__return_false' );
 	}
 
 	public function tear_down(): void {
@@ -71,11 +71,11 @@ final class AdminActionsTest extends \WP_UnitTestCase {
 	}
 
 	public function test_forged_background_kick_is_refused(): void {
-		$build          = ( new \Stillpress\Build\BuildService() )->start( 'full', 'manual', 0, false, array( 'sync' => true ) );
+		$build          = ( new \Glaciate\Build\BuildService() )->start( 'full', 'manual', 0, false, array( 'sync' => true ) );
 		$_POST['build'] = (string) $build;
 		$_POST['token'] = str_repeat( 'a', 64 );
 		try {
-			\Stillpress\Build\Queue::handle_kick();
+			\Glaciate\Build\Queue::handle_kick();
 			$this->fail( 'A forged kick must be refused.' );
 		} catch ( \WPDieException $e ) {
 			$this->assertSame( 'queued', ( new BuildRepository() )->get( $build )['status'], 'No work may run.' );
@@ -126,7 +126,7 @@ final class AdminActionsTest extends \WP_UnitTestCase {
 		$this->assertSame( 'scheduled', $clean['publish_mode'] );
 		$this->assertSame( array( '09:00', '17:30' ), $clean['publish_times'] );
 		$this->assertSame( array( 'mon', 'fri' ), $clean['publish_days'], 'The stored days are kept.' );
-		$this->assertContains( 'stillpress_publish_days', wp_list_pluck( get_settings_errors( Settings::OPTION ), 'code' ) );
+		$this->assertContains( 'glaciate_publish_days', wp_list_pluck( get_settings_errors( Settings::OPTION ), 'code' ) );
 
 		$clean = SettingsPage::sanitize(
 			array(
@@ -136,6 +136,6 @@ final class AdminActionsTest extends \WP_UnitTestCase {
 			)
 		);
 		$this->assertSame( array( 'sat', 'sun' ), $clean['publish_days'] );
-		$this->assertContains( 'stillpress_publish_times', wp_list_pluck( get_settings_errors( Settings::OPTION ), 'code' ) );
+		$this->assertContains( 'glaciate_publish_times', wp_list_pluck( get_settings_errors( Settings::OPTION ), 'code' ) );
 	}
 }

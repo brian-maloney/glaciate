@@ -6,7 +6,7 @@
 ( function ( wp ) {
 	'use strict';
 
-	const app = document.getElementById( 'stillpress-app' );
+	const app = document.getElementById( 'glaciate-app' );
 	if ( ! app || ! wp || ! wp.apiFetch ) {
 		return;
 	}
@@ -14,10 +14,10 @@
 	const { __, _n, sprintf } = wp.i18n;
 	// The admin's language, as WordPress gives it to the page (en_US becomes en-US).
 	const locale = ( document.documentElement.lang || 'en' ).replace( '_', '-' );
-	const part = ( name ) => app.querySelector( '[data-stillpress="' + name + '"]' );
+	const part = ( name ) => app.querySelector( '[data-glaciate="' + name + '"]' );
 	let state = app.dataset.state;
 	let timer = null;
-	const ANNOUNCE = 'stillpress-announce';
+	const ANNOUNCE = 'glaciate-announce';
 
 	function setDisabled( el, disabled ) {
 		if ( ! el ) {
@@ -43,7 +43,7 @@
 				progress.querySelector( 'progress' ).value = status.active.percent;
 				part( 'progress-text' ).textContent = sprintf(
 					/* translators: 1: addresses processed, 2: addresses queued. Both are formatted numbers. */
-					_n( '%1$s of %2$s address', '%1$s of %2$s addresses', status.active.total, 'stillpress' ),
+					_n( '%1$s of %2$s address', '%1$s of %2$s addresses', status.active.total, 'glaciate' ),
 					status.active.done.toLocaleString( locale ),
 					status.active.total.toLocaleString( locale )
 				);
@@ -55,9 +55,9 @@
 		if ( cancel ) {
 			cancel.hidden = ! building;
 		}
-		const dot = app.querySelector( '.stillpress-dot' );
+		const dot = app.querySelector( '.glaciate-dot' );
 		if ( dot ) {
-			dot.className = 'stillpress-dot stillpress-dot-' + status.state;
+			dot.className = 'glaciate-dot glaciate-dot-' + status.state;
 		}
 
 		const finished = 'building' === state && ! building;
@@ -72,7 +72,7 @@
 
 	function poll() {
 		window.clearTimeout( timer );
-		apiFetch( { path: '/stillpress/v1/status' } )
+		apiFetch( { path: '/glaciate/v1/status' } )
 			.then( render )
 			.catch( () => {} )
 			.finally( () => {
@@ -105,46 +105,46 @@
 		if ( 'true' === event.currentTarget.getAttribute( 'aria-disabled' ) ) {
 			return;
 		}
-		wp.a11y.speak( __( 'Publishing started.', 'stillpress' ) );
+		wp.a11y.speak( __( 'Publishing started.', 'glaciate' ) );
 		state = 'building';
 		apiFetch( request )
 			.then( ( response ) => render( response.status || response ) )
-			.catch( ( error ) => window.alert( error.message || __( 'Something went wrong.', 'stillpress' ) ) )
+			.catch( ( error ) => window.alert( error.message || __( 'Something went wrong.', 'glaciate' ) ) )
 			.finally( poll );
 	}
 
 	const publish = part( 'publish' );
 	if ( publish ) {
-		publish.addEventListener( 'click', ( e ) => act( e, { path: '/stillpress/v1/builds', method: 'POST', data: { kind: 'incremental' } } ) );
+		publish.addEventListener( 'click', ( e ) => act( e, { path: '/glaciate/v1/builds', method: 'POST', data: { kind: 'incremental' } } ) );
 	}
 	const rebuild = part( 'rebuild' );
 	if ( rebuild ) {
-		rebuild.addEventListener( 'click', ( e ) => act( e, { path: '/stillpress/v1/builds', method: 'POST', data: { kind: 'full' } } ) );
+		rebuild.addEventListener( 'click', ( e ) => act( e, { path: '/glaciate/v1/builds', method: 'POST', data: { kind: 'full' } } ) );
 	}
 	const cancel = part( 'cancel' );
 	if ( cancel ) {
 		cancel.addEventListener( 'click', ( e ) => {
 			e.preventDefault();
-			apiFetch( { path: '/stillpress/v1/builds/cancel', method: 'POST' } ).finally( () => window.location.reload() );
+			apiFetch( { path: '/glaciate/v1/builds/cancel', method: 'POST' } ).finally( () => window.location.reload() );
 		} );
 	}
 
-	app.querySelectorAll( 'details[data-stillpress-log]' ).forEach( ( details ) => {
+	app.querySelectorAll( 'details[data-glaciate-log]' ).forEach( ( details ) => {
 		details.addEventListener( 'toggle', () => {
 			if ( ! details.open || details.dataset.loaded ) {
 				return;
 			}
 			details.dataset.loaded = '1';
 			const pre = details.querySelector( 'pre' );
-			apiFetch( { path: '/stillpress/v1/builds/' + details.dataset.stillpressLog + '/log' } )
+			apiFetch( { path: '/glaciate/v1/builds/' + details.dataset.glaciateLog + '/log' } )
 				.then( ( lines ) => {
 					// textContent, never innerHTML: log lines contain data from crawled pages.
 					pre.textContent = lines.length
 						? lines.map( ( l ) => '[' + l.level + '] ' + l.message ).join( '\n' )
-						: __( 'Nothing was logged.', 'stillpress' );
+						: __( 'Nothing was logged.', 'glaciate' );
 				} )
 				.catch( () => {
-					pre.textContent = __( 'The log could not be loaded.', 'stillpress' );
+					pre.textContent = __( 'The log could not be loaded.', 'glaciate' );
 				} );
 		} );
 	} );

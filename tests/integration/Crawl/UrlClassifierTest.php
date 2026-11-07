@@ -2,14 +2,14 @@
 /**
  * Which discovered URLs get crawled.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Crawl;
+namespace Glaciate\Tests\Integration\Crawl;
 
-use Stillpress\Crawl\UrlClassifier;
-use Stillpress\Rewrite\OriginSet;
-use Stillpress\Security\UrlPolicy;
+use Glaciate\Crawl\UrlClassifier;
+use Glaciate\Rewrite\OriginSet;
+use Glaciate\Security\UrlPolicy;
 
 final class UrlClassifierTest extends \WP_UnitTestCase {
 
@@ -131,7 +131,7 @@ final class UrlClassifierTest extends \WP_UnitTestCase {
 
 	public function test_exclusion_filter(): void {
 		add_filter(
-			'stillpress_exclude_patterns',
+			'glaciate_exclude_patterns',
 			static function ( $p ) {
 				$p[] = '/shop/*';
 				return $p;

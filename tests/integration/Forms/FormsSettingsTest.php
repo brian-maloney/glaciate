@@ -2,18 +2,18 @@
 /**
  * Forms settings: sanitizing, the settings screen's secret boxes, Site Health, and the client's settings.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Forms;
+namespace Glaciate\Tests\Integration\Forms;
 
-use Stillpress\Admin\SettingsPage;
-use Stillpress\Forms\Config;
-use Stillpress\Forms\Frontend;
-use Stillpress\Security\Capabilities;
-use Stillpress\Security\Secrets;
-use Stillpress\Service\HealthChecks;
-use Stillpress\Support\Settings;
+use Glaciate\Admin\SettingsPage;
+use Glaciate\Forms\Config;
+use Glaciate\Forms\Frontend;
+use Glaciate\Security\Capabilities;
+use Glaciate\Security\Secrets;
+use Glaciate\Service\HealthChecks;
+use Glaciate\Support\Settings;
 use WP_UnitTestCase;
 
 // phpcs:disable WordPress.Security.NonceVerification.Missing -- Simulates a verified options.php submission.
@@ -124,7 +124,7 @@ final class FormsSettingsTest extends WP_UnitTestCase {
 		);
 		$config = new Config();
 		$this->assertTrue( $config->enabled() );
-		$this->assertSame( rest_url( 'stillpress/v1/forms/submit' ), $config->endpoint() );
+		$this->assertSame( rest_url( 'glaciate/v1/forms/submit' ), $config->endpoint() );
 		$this->assertSame(
 			array(
 				'provider' => 'turnstile',
@@ -155,7 +155,7 @@ final class FormsSettingsTest extends WP_UnitTestCase {
 			global $wp_filter;
 			$saved = $wp_filter['admin_init'] ?? null;
 			unset( $wp_filter['admin_init'] );
-			add_action( 'admin_init', array( \Stillpress\Admin\Admin::class, 'privacy_policy' ) );
+			add_action( 'admin_init', array( \Glaciate\Admin\Admin::class, 'privacy_policy' ) );
 			do_action( 'admin_init' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core hook.
 			$wp_filter['admin_init'] = $saved; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Restores what was there.
 		};

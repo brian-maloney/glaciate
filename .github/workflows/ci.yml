@@ -103,7 +103,7 @@ jobs:
       - run: npm run env:start
       - run: npm run composer -- install --no-interaction --no-progress
       - name: System tests
-        run: npx wp-env run tests-cli --env-cwd=wp-content/plugins/stillpress -- env STILLPRESS_SYSTEM_TESTS=1 STILLPRESS_DIFF_ITERATIONS=${{ github.event_name == 'schedule' && '500' || '25' }} vendor/bin/phpunit -c phpunit-system.xml.dist
+        run: npx wp-env run tests-cli --env-cwd=wp-content/plugins/glaciate -- env GLACIATE_SYSTEM_TESTS=1 GLACIATE_DIFF_ITERATIONS=${{ github.event_name == 'schedule' && '500' || '25' }} vendor/bin/phpunit -c phpunit-system.xml.dist
 
   e2e:
     name: Visual diff (${{ matrix.theme }})

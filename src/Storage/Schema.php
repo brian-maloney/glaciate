@@ -2,10 +2,10 @@
 /**
  * Database schema.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Storage;
+namespace Glaciate\Storage;
 
 /**
  * Creates and upgrades the plugin's custom tables with dbDelta().
@@ -18,7 +18,7 @@ final class Schema {
 	const VERSION = 3;
 
 	/** Option holding the installed schema version. */
-	const OPTION = 'stillpress_schema_version';
+	const OPTION = 'glaciate_schema_version';
 
 	/**
 	 * Table name suffixes, without prefix.
@@ -35,7 +35,7 @@ final class Schema {
 	 */
 	public static function table( string $suffix ): string {
 		global $wpdb;
-		return $wpdb->prefix . 'stillpress_' . $suffix;
+		return $wpdb->prefix . 'glaciate_' . $suffix;
 	}
 
 	/**

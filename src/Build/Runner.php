@@ -2,25 +2,25 @@
 /**
  * Advances a build through its phases.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
-use Stillpress\Crawl\Seeds;
-use Stillpress\Deploy\Registry;
-use Stillpress\Deps\DependencyStore;
-use Stillpress\Deps\Invalidator;
-use Stillpress\Render\RenderToken;
-use Stillpress\Search\Index;
-use Stillpress\Search\IndexWriter;
-use Stillpress\Search\PageIndexer;
-use Stillpress\Search\PagefindBundle;
-use Stillpress\Search\TextExtractor;
-use Stillpress\Search\Tokenizer;
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Storage\UrlRepository;
-use Stillpress\Support\Logger;
+use Glaciate\Crawl\Seeds;
+use Glaciate\Deploy\Registry;
+use Glaciate\Deps\DependencyStore;
+use Glaciate\Deps\Invalidator;
+use Glaciate\Render\RenderToken;
+use Glaciate\Search\Index;
+use Glaciate\Search\IndexWriter;
+use Glaciate\Search\PageIndexer;
+use Glaciate\Search\PagefindBundle;
+use Glaciate\Search\TextExtractor;
+use Glaciate\Search\Tokenizer;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Storage\UrlRepository;
+use Glaciate\Support\Logger;
 
 /**
  * Runs a build in resumable slices. Each call to run_slice() does as much work as fits in its time budget and
@@ -88,8 +88,8 @@ final class Runner {
 		} catch ( \Throwable $e ) {
 			$logger = new Logger( $build_id );
 			/* translators: %s: error message. */
-			$logger->error( sprintf( __( 'Build failed: %s', 'stillpress' ), $e->getMessage() ) );
-			$this->builds->update( $build_id, array( 'error' => substr( \Stillpress\Security\Redactor::scrub( $e->getMessage() ), 0, 1000 ) ) );
+			$logger->error( sprintf( __( 'Build failed: %s', 'glaciate' ), $e->getMessage() ) );
+			$this->builds->update( $build_id, array( 'error' => substr( \Glaciate\Security\Redactor::scrub( $e->getMessage() ), 0, 1000 ) ) );
 			$this->builds->transition( $build_id, 'running', 'failed' );
 			$this->finished( $build_id );
 			return self::DONE;
@@ -117,11 +117,11 @@ final class Runner {
 			}
 			$this->builds->update( $build_id, array( 'phase' => 'planning' ) );
 			$names = array(
-				'full'        => __( 'Started a full build.', 'stillpress' ),
-				'incremental' => __( 'Started an incremental build.', 'stillpress' ),
-				'urls'        => __( 'Started a build of selected pages.', 'stillpress' ),
+				'full'        => __( 'Started a full build.', 'glaciate' ),
+				'incremental' => __( 'Started an incremental build.', 'glaciate' ),
+				'urls'        => __( 'Started a build of selected pages.', 'glaciate' ),
 			);
-			( new Logger( $build_id ) )->info( $names[ $build['kind'] ] ?? __( 'Started a build.', 'stillpress' ) );
+			( new Logger( $build_id ) )->info( $names[ $build['kind'] ] ?? __( 'Started a build.', 'glaciate' ) );
 			$build = $this->builds->get( $build_id );
 		}
 		if ( 'running' !== $build['status'] ) {
@@ -186,7 +186,7 @@ final class Runner {
 					$this->builds->merge_stats( $build_id, array( 'urls' => $counts ) );
 					$this->builds->transition( $build_id, 'running', 'done' );
 					/* translators: 1: number of addresses processed, 2: number that failed. */
-					$logger->info( sprintf( __( 'Build finished. Addresses processed: %1$d, failed: %2$d.', 'stillpress' ), $counts['done'] + $counts['failed'], $counts['failed'] ) );
+					$logger->info( sprintf( __( 'Build finished. Addresses processed: %1$d, failed: %2$d.', 'glaciate' ), $counts['done'] + $counts['failed'], $counts['failed'] ) );
 					$this->finished( $build_id );
 					return self::DONE;
 			}
@@ -208,7 +208,7 @@ final class Runner {
 		}
 		$list = implode( ', ', $examples ) . ( empty( $build['stats']['query_skipped_more'] ) ? '' : ', …' );
 		/* translators: %s: comma-separated list of addresses. */
-		$logger->info( sprintf( __( 'Links to addresses with a query string were skipped, because a static host can\'t serve them: %s', 'stillpress' ), $list ) );
+		$logger->info( sprintf( __( 'Links to addresses with a query string were skipped, because a static host can\'t serve them: %s', 'glaciate' ), $list ) );
 	}
 
 	/**
@@ -225,13 +225,13 @@ final class Runner {
 
 		if ( 'incremental' === $build['kind'] ) {
 			// Changes made earlier in this same process (WP-CLI, tests) are normally written at shutdown.
-			$listener = \Stillpress\Plugin::instance()->changes();
+			$listener = \Glaciate\Plugin::instance()->changes();
 			if ( null !== $listener ) {
 				$listener->flush();
 			}
 			$plan = ( new Invalidator() )->plan( (int) $build['id'] );
 			if ( $plan['full'] ) {
-				$logger->info( __( 'A change affects every page (theme, plugins or site settings); switching to a full build.', 'stillpress' ) );
+				$logger->info( __( 'A change affects every page (theme, plugins or site settings); switching to a full build.', 'glaciate' ) );
 				$this->builds->update( (int) $build['id'], array( 'kind' => 'full' ) );
 				return false; // Plan again, now as a full build.
 			}
@@ -251,7 +251,7 @@ final class Runner {
 			}
 			$frontier->add( array_merge( $plan['url_ids'], $ids ) );
 			/* translators: 1: number of changes, 2: number of addresses. */
-			$logger->info( sprintf( __( 'Planned an incremental build. Changes: %1$d, addresses affected: %2$d.', 'stillpress' ), $plan['changes'], $frontier->total() ) );
+			$logger->info( sprintf( __( 'Planned an incremental build. Changes: %1$d, addresses affected: %2$d.', 'glaciate' ), $plan['changes'], $frontier->total() ) );
 			$this->builds->merge_stats( (int) $build['id'], array( 'changes' => $plan['changes'] ) );
 			return true;
 		}
@@ -262,7 +262,7 @@ final class Runner {
 				$classified = $pipeline->classifier->classify( (string) $url );
 				if ( null === $classified ) {
 					/* translators: 1: address, 2: reason. */
-					$logger->warning( sprintf( __( 'Skipped %1$s (%2$s).', 'stillpress' ), $url, $pipeline->classifier->reason() ) );
+					$logger->warning( sprintf( __( 'Skipped %1$s (%2$s).', 'glaciate' ), $url, $pipeline->classifier->reason() ) );
 					continue;
 				}
 				$ids[] = $this->urls->ensure( $classified['url'], 'request', $classified['kind'] );
@@ -293,7 +293,7 @@ final class Runner {
 				} else {
 					if ( 'additional' === $seed['source'] ) {
 						/* translators: 1: address, 2: reason. */
-						$logger->warning( sprintf( __( 'Skipped %1$s (%2$s).', 'stillpress' ), $seed['url'], $pipeline->classifier->reason() ) );
+						$logger->warning( sprintf( __( 'Skipped %1$s (%2$s).', 'glaciate' ), $seed['url'], $pipeline->classifier->reason() ) );
 					}
 					continue;
 				}
@@ -328,11 +328,11 @@ final class Runner {
 		if ( ! $claimed ) {
 			return false;
 		}
-		$client = $concurrency < $configured ? new \Stillpress\Render\LoopbackClient( $pipeline->policy, Pipeline::connect_to( $pipeline->settings ), $concurrency ) : $pipeline->client;
+		$client = $concurrency < $configured ? new \Glaciate\Render\LoopbackClient( $pipeline->policy, Pipeline::connect_to( $pipeline->settings ), $concurrency ) : $pipeline->client;
 		$rows      = $this->urls->get_many( array_keys( $claimed ) );
 		$search    = 'builtin' === $pipeline->settings['search'] ? new PageIndexer( new TextExtractor(), new Tokenizer(), new Index() ) : null;
-		$forms     = new \Stillpress\Forms\Config( $pipeline->settings );
-		$markup    = $forms->enabled() ? new \Stillpress\Forms\FormMarkup( \Stillpress\Forms\Adapters::defaults( $forms ), $forms->endpoint() ) : null;
+		$forms     = new \Glaciate\Forms\Config( $pipeline->settings );
+		$markup    = $forms->enabled() ? new \Glaciate\Forms\FormMarkup( \Glaciate\Forms\Adapters::defaults( $forms ), $forms->endpoint() ) : null;
 		$processor = new Processor( $pipeline->origins, $pipeline->rewriter, $pipeline->extractor, $pipeline->classifier, $pipeline->cache, $this->urls, $logger, $build_id, $search, $markup );
 		$token     = RenderToken::for_site();
 		$requests  = array();
@@ -439,7 +439,7 @@ final class Runner {
 		 * @param int      $count       Back-offs in a row, including this one.
 		 * @param int|null $retry_after The Retry-After the site sent, in seconds, or null.
 		 */
-		$delay = max( 0, (int) apply_filters( 'stillpress_backoff_seconds', Backoff::delay( $count, $retry_after ), $count, $retry_after ) );
+		$delay = max( 0, (int) apply_filters( 'glaciate_backoff_seconds', Backoff::delay( $count, $retry_after ), $count, $retry_after ) );
 		$next  = Backoff::concurrency( $concurrency );
 
 		$codes = array();
@@ -448,11 +448,11 @@ final class Runner {
 		}
 		$logger->warning(
 			/* translators: %s: answers such as "3 × HTTP 503". */
-			sprintf( __( 'The site is overloaded (%s).', 'stillpress' ), implode( ', ', $codes ) )
+			sprintf( __( 'The site is overloaded (%s).', 'glaciate' ), implode( ', ', $codes ) )
 			/* translators: %d: seconds. */
-			. ' ' . sprintf( _n( 'Waiting %d second before continuing,', 'Waiting %d seconds before continuing,', $delay, 'stillpress' ), $delay )
+			. ' ' . sprintf( _n( 'Waiting %d second before continuing,', 'Waiting %d seconds before continuing,', $delay, 'glaciate' ), $delay )
 			/* translators: %d: number of requests. */
-			. ' ' . sprintf( _n( 'then sending %d request at a time.', 'then sending %d requests at a time.', $next, 'stillpress' ), $next )
+			. ' ' . sprintf( _n( 'then sending %d request at a time.', 'then sending %d requests at a time.', $next, 'glaciate' ), $next )
 		);
 
 		return array(
@@ -525,7 +525,7 @@ final class Runner {
 			if ( $max_depth > 0 && $depth > $max_depth ) {
 				if ( $pages && empty( $build['stats']['depth_limited'] ) ) {
 					/* translators: %d: the link depth limit. */
-					$logger->warning( sprintf( __( 'Reached the link depth limit of %d (Settings → Advanced); links on pages that deep were not followed.', 'stillpress' ), $max_depth ) );
+					$logger->warning( sprintf( __( 'Reached the link depth limit of %d (Settings → Advanced); links on pages that deep were not followed.', 'glaciate' ), $max_depth ) );
 					$this->builds->merge_stats( (int) $build['id'], array( 'depth_limited' => true ) );
 					$build['stats']['depth_limited'] = true;
 				}
@@ -534,7 +534,7 @@ final class Runner {
 			// Pages already waiting in the queue may have been reached by a longer path first.
 			$frontier->lower( array_diff( $linked, $pages ), $depth );
 			if ( count( $pages ) > $max_pages - $followed ) {
-				$logger->warning( __( 'Reached the address limit (Settings → Advanced); some links were not followed.', 'stillpress' ) );
+				$logger->warning( __( 'Reached the address limit (Settings → Advanced); some links were not followed.', 'glaciate' ) );
 				$pages = array_slice( $pages, 0, max( 0, $max_pages - $followed ) );
 			}
 			$followed += $frontier->add( $pages, $depth );
@@ -557,7 +557,7 @@ final class Runner {
 		$deployer = Registry::instance()->get( $target );
 		if ( null === $deployer ) {
 			/* translators: %s: deployer ID. */
-			throw new \RuntimeException( sprintf( __( 'Unknown deploy target "%s".', 'stillpress' ), $target ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'Unknown deploy target "%s".', 'glaciate' ), $target ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$manifest = iterator_to_array( $this->urls->published_files() );
 
@@ -569,8 +569,8 @@ final class Runner {
 		 * @param array<string,string> $manifest Files that make up the site.
 		 * @param string               $target   Deployer ID.
 		 */
-		$manifest = (array) apply_filters( 'stillpress_manifest', $manifest, $target );
-		if ( $deployer instanceof \Stillpress\Deploy\ResumableDeployerInterface ) {
+		$manifest = (array) apply_filters( 'glaciate_manifest', $manifest, $target );
+		if ( $deployer instanceof \Glaciate\Deploy\ResumableDeployerInterface ) {
 			$deployer->set_deadline( $deadline );
 		}
 		$result = $deployer->deploy( $manifest, $pipeline->cache->mapper()->root(), $logger );
@@ -584,7 +584,7 @@ final class Runner {
 		if ( ! $result->done ) {
 			$this->builds->merge_stats( (int) $build['id'], array( 'deploy_progress' => $totals ) );
 			/* translators: 1: deploy target, 2: number of files. */
-			$logger->info( sprintf( __( 'Deploying to %1$s. Files sent so far: %2$d; continuing.', 'stillpress' ), $deployer->label(), $totals['added'] + $totals['modified'] ) );
+			$logger->info( sprintf( __( 'Deploying to %1$s. Files sent so far: %2$d; continuing.', 'glaciate' ), $deployer->label(), $totals['added'] + $totals['modified'] ) );
 			return false;
 		}
 		$summary = array(
@@ -598,10 +598,10 @@ final class Runner {
 		);
 		$this->builds->merge_stats( (int) $build['id'], array( 'deploy' => $summary ) );
 		/* translators: 1: deploy target, 2-5: numbers of files. */
-		$logger->info( sprintf( __( 'Deployed to %1$s. Added: %2$d, changed: %3$d, deleted: %4$d, unchanged: %5$d.', 'stillpress' ), $deployer->label(), $summary['added'], $summary['modified'], $summary['deleted'], $summary['unchanged'] ) );
+		$logger->info( sprintf( __( 'Deployed to %1$s. Added: %2$d, changed: %3$d, deleted: %4$d, unchanged: %5$d.', 'glaciate' ), $deployer->label(), $summary['added'], $summary['modified'], $summary['deleted'], $summary['unchanged'] ) );
 		if ( $summary['failed'] > 0 ) {
 			/* translators: %d: number of files. */
-			$logger->warning( sprintf( _n( '%d file could not be deployed; the next deploy retries it.', '%d files could not be deployed; the next deploy retries them.', $summary['failed'], 'stillpress' ), $summary['failed'] ) );
+			$logger->warning( sprintf( _n( '%d file could not be deployed; the next deploy retries it.', '%d files could not be deployed; the next deploy retries them.', $summary['failed'], 'glaciate' ), $summary['failed'] ) );
 		}
 		return true;
 	}
@@ -623,6 +623,6 @@ final class Runner {
 		 *
 		 * @param array<string,mixed> $build Build row, including status and stats.
 		 */
-		do_action( 'stillpress_build_finished', $build );
+		do_action( 'glaciate_build_finished', $build );
 	}
 }

@@ -2,10 +2,10 @@
 /**
  * Maps URL paths to files inside an output root.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Output;
+namespace Glaciate\Output;
 
 /**
  * The only way the plugin turns a URL into a filesystem path (threat T2).

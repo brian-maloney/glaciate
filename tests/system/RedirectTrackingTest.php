@@ -6,10 +6,10 @@
  * current one through WordPress's 404 guessing; when an ancestor of the page is deleted, the redirect target changes
  * and the redirect page must be rebuilt.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\System;
+namespace Glaciate\Tests\System;
 
 final class RedirectTrackingTest extends SystemTestCase {
 
@@ -40,7 +40,7 @@ final class RedirectTrackingTest extends SystemTestCase {
 			)
 		);
 		$this->build( 'full' );
-		update_option( 'stillpress_published_once', 1 );
+		update_option( 'glaciate_published_once', 1 );
 
 		// Move the leaf: /leaf/ becomes a redirect to /top/mid/leaf/.
 		wp_update_post(

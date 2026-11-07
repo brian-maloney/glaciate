@@ -2,22 +2,22 @@
 /**
  * The publishing status shown in the admin, admin bar, editor, REST API and WP-CLI.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Service;
+namespace Glaciate\Service;
 
-use Stillpress\Build\Frontier;
-use Stillpress\Build\Pipeline;
-use Stillpress\Deploy\LocalDirectory;
-use Stillpress\Deploy\Registry;
-use Stillpress\Deploy\Zip;
-use Stillpress\Rewrite\OriginSet;
-use Stillpress\Security\UrlPolicy;
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Storage\ChangeRepository;
-use Stillpress\Storage\UrlRepository;
-use Stillpress\Support\Settings;
+use Glaciate\Build\Frontier;
+use Glaciate\Build\Pipeline;
+use Glaciate\Deploy\LocalDirectory;
+use Glaciate\Deploy\Registry;
+use Glaciate\Deploy\Zip;
+use Glaciate\Rewrite\OriginSet;
+use Glaciate\Security\UrlPolicy;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Storage\ChangeRepository;
+use Glaciate\Storage\UrlRepository;
+use Glaciate\Support\Settings;
 
 /**
  * Summarizes the state of the static site.
@@ -43,7 +43,7 @@ final class StatusService {
 		$last    = $recent[0] ?? null;
 		$pending = ( new ChangeRepository() )->pending_count();
 		$counts  = ( new UrlRepository() )->published_counts();
-		$once    = (bool) get_option( 'stillpress_published_once' );
+		$once    = (bool) get_option( 'glaciate_published_once' );
 
 		if ( null !== $active ) {
 			$state = 'building';
@@ -73,7 +73,7 @@ final class StatusService {
 				'id'       => (string) $settings['target'],
 				'label'    => null === $deployer ? (string) $settings['target'] : $deployer->label(),
 				'location' => $deployer instanceof LocalDirectory ? $deployer->directory() : '',
-				'problem'  => null === $deployer ? __( 'The configured deploy target is not available.', 'stillpress' ) : $deployer->problem(),
+				'problem'  => null === $deployer ? __( 'The configured deploy target is not available.', 'glaciate' ) : $deployer->problem(),
 			),
 			'zip'             => null !== Zip::current_file(),
 			'published_once'  => $once,
@@ -88,11 +88,11 @@ final class StatusService {
 	 * @return array{mode:string,next_publish:int|null,next_full_rebuild:int|null}
 	 */
 	private static function schedule( array $settings ): array {
-		$next = \Stillpress\Build\Queue::next_runs();
+		$next = \Glaciate\Build\Queue::next_runs();
 		return array(
 			'mode'              => (string) $settings['publish_mode'],
-			'next_publish'      => $next[ \Stillpress\Build\Queue::WINDOW_HOOK ],
-			'next_full_rebuild' => $next[ \Stillpress\Build\Queue::SCHEDULED_HOOK ],
+			'next_publish'      => $next[ \Glaciate\Build\Queue::WINDOW_HOOK ],
+			'next_full_rebuild' => $next[ \Glaciate\Build\Queue::SCHEDULED_HOOK ],
 		);
 	}
 
@@ -107,20 +107,20 @@ final class StatusService {
 		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) {
 			return array(
 				'state' => 'not-public',
-				'label' => __( 'Publish the post first; only published content goes to the static site.', 'stillpress' ),
+				'label' => __( 'Publish the post first; only published content goes to the static site.', 'glaciate' ),
 			);
 		}
 		if ( '' !== $post->post_password ) {
 			return array(
 				'state' => 'excluded',
-				'label' => __( 'Password-protected posts are not published to the static site.', 'stillpress' ),
+				'label' => __( 'Password-protected posts are not published to the static site.', 'glaciate' ),
 			);
 		}
 
 		$origins = new OriginSet( home_url( '/' ), Pipeline::public_url( Settings::all() ) );
 		$url     = ( new UrlPolicy( $origins->origins() ) )->normalize( (string) get_permalink( $post ) );
 		$row     = null === $url ? null : ( new UrlRepository() )->find( $url );
-		$public  = null === $url ? '' : ( new \Stillpress\Rewrite\UrlRewriter( $origins ) )->rewrite_url( $url );
+		$public  = null === $url ? '' : ( new \Glaciate\Rewrite\UrlRewriter( $origins ) )->rewrite_url( $url );
 		$site    = $this->site();
 
 		if ( 'building' === $site['state'] ) {
@@ -134,10 +134,10 @@ final class StatusService {
 		}
 
 		$labels = array(
-			'building'      => __( 'Publishing…', 'stillpress' ),
-			'not-published' => __( 'Not on the static site yet', 'stillpress' ),
-			'pending'       => __( 'Changes not published yet', 'stillpress' ),
-			'up-to-date'    => __( 'Up to date', 'stillpress' ),
+			'building'      => __( 'Publishing…', 'glaciate' ),
+			'not-published' => __( 'Not on the static site yet', 'glaciate' ),
+			'pending'       => __( 'Changes not published yet', 'glaciate' ),
+			'up-to-date'    => __( 'Up to date', 'glaciate' ),
 		);
 		return array(
 			'state'       => $state,
@@ -191,15 +191,15 @@ final class StatusService {
 			case 'building':
 				$summary = self::build_summary( (array) $active );
 				/* translators: %d: percent complete. */
-				return sprintf( __( 'Publishing… %d%%', 'stillpress' ), $summary['percent'] );
+				return sprintf( __( 'Publishing… %d%%', 'glaciate' ), $summary['percent'] );
 			case 'never':
-				return __( 'Not published yet', 'stillpress' );
+				return __( 'Not published yet', 'glaciate' );
 			case 'failed':
-				return __( 'Last publish failed', 'stillpress' );
+				return __( 'Last publish failed', 'glaciate' );
 			case 'pending':
 				/* translators: %d: number of changes. */
-				return sprintf( _n( '%d change to publish', '%d changes to publish', $pending, 'stillpress' ), $pending );
+				return sprintf( _n( '%d change to publish', '%d changes to publish', $pending, 'glaciate' ), $pending );
 		}
-		return __( 'Up to date', 'stillpress' );
+		return __( 'Up to date', 'glaciate' );
 	}
 }

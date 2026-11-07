@@ -2,7 +2,7 @@
 /**
  * Stops the benchmark scripts anywhere but the wp-env tests site, whose content they erase.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 if ( 'http://localhost:8889' !== untrailingslashit( home_url() ) ) {

@@ -1,36 +1,36 @@
 <?php
 /**
- * Stillpress form receiver: a single file for any PHP host (PHP 7.4 or later, no WordPress).
+ * Glaciate form receiver: a single file for any PHP host (PHP 7.4 or later, no WordPress).
  *
  * Forms on your static site post here. Each submission is checked (size limits, a honeypot field, the time the page
  * was open, an optional captcha, a per-address rate limit) and then forwarded to your WordPress site, sent to a
  * webhook, and/or emailed.
  *
  * Setup:
- * 1. Upload this file to a PHP host, for example as https://forms.example.org/stillpress-form.php, and set that
- *    address as the receiver address in Stillpress (Static Site → Settings → Forms).
- * 2. Set the secrets as environment variables, or in the settings below: STILLPRESS_FORMS_SECRET (the same value
- *    as in Stillpress) and, with a captcha, STILLPRESS_FORMS_CAPTCHA_SECRET.
+ * 1. Upload this file to a PHP host, for example as https://forms.example.org/glaciate-form.php, and set that
+ *    address as the receiver address in Glaciate (Static Site → Settings → Forms).
+ * 2. Set the secrets as environment variables, or in the settings below: GLACIATE_FORMS_SECRET (the same value
+ *    as in Glaciate) and, with a captcha, GLACIATE_FORMS_CAPTCHA_SECRET.
  * 3. Never put this file on the static site itself: a static host would serve it as text.
  *
- * `wp stillpress forms receiver php` writes this file with the settings below filled in. Inside the plugin it is
- * stored as stillpress-form-php.txt, so that it can never run on the WordPress site itself.
+ * `wp glaciate forms receiver php` writes this file with the settings below filled in. Inside the plugin it is
+ * stored as glaciate-form-php.txt, so that it can never run on the WordPress site itself.
  *
- * The rules match Stillpress\Forms\Protocol and are tested against the same table (tests/fixtures/forms-cases.json).
+ * The rules match Glaciate\Forms\Protocol and are tested against the same table (tests/fixtures/forms-cases.json).
  *
- * @package Stillpress
+ * @package Glaciate
  * @license GPL-2.0-or-later
  */
 
-namespace StillpressReceiver;
+namespace GlaciateReceiver;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions, WordPress.Security, WordPress.PHP.DiscouragedPHPFunctions, WordPress.PHP.NoSilencedErrors, WordPress.DateTime.RestrictedFunctions, Squiz.Commenting.InlineComment.InvalidEndChar -- Runs without WordPress; the config markers are read by ReceiverExport.
 
-// stillpress:config:start
+// glaciate:config:start
 const CONFIG = array(
 	// The public static site; only pages there may post. Empty allows any page.
 	'allowed_origin'   => '',
-	// Where accepted submissions go: Stillpress's relay (https://wp.example.org/wp-json/stillpress/v1/forms/relay)
+	// Where accepted submissions go: Glaciate's relay (https://wp.example.org/wp-json/glaciate/v1/forms/relay)
 	// or any webhook. Signed with the secret.
 	'forward_url'      => '',
 	// Also, or instead, email each submission here with PHP's mail().
@@ -38,7 +38,7 @@ const CONFIG = array(
 	// none, turnstile or hcaptcha.
 	'captcha'          => 'none',
 	'captcha_site_key' => '',
-	// Secrets: better as environment variables STILLPRESS_FORMS_SECRET and STILLPRESS_FORMS_CAPTCHA_SECRET.
+	// Secrets: better as environment variables GLACIATE_FORMS_SECRET and GLACIATE_FORMS_CAPTCHA_SECRET.
 	'secret'           => '',
 	'captcha_secret'   => '',
 	// Submissions per address, and in how many seconds.
@@ -47,12 +47,12 @@ const CONFIG = array(
 	// Writable folder for rate-limit counters; empty uses the system's temporary folder.
 	'data_dir'         => '',
 );
-// stillpress:config:end
+// glaciate:config:end
 
-const FIELD_FORM     = 'stillpress_form';
-const FIELD_PAGE     = 'stillpress_page';
-const FIELD_HONEYPOT = 'stillpress_hp';
-const FIELD_ELAPSED  = 'stillpress_t';
+const FIELD_FORM     = 'glaciate_form';
+const FIELD_PAGE     = 'glaciate_page';
+const FIELD_HONEYPOT = 'glaciate_hp';
+const FIELD_ELAPSED  = 'glaciate_t';
 const MIN_SECONDS    = 3;
 const MAX_FIELDS     = 100;
 const MAX_NAME       = 200;
@@ -82,13 +82,13 @@ const MESSAGES       = array(
  */
 function config( array $config ): array {
 	$env = array(
-		'secret'           => 'STILLPRESS_FORMS_SECRET',
-		'captcha_secret'   => 'STILLPRESS_FORMS_CAPTCHA_SECRET',
-		'forward_url'      => 'STILLPRESS_FORWARD_URL',
-		'email_to'         => 'STILLPRESS_EMAIL_TO',
-		'allowed_origin'   => 'STILLPRESS_ALLOWED_ORIGIN',
-		'captcha'          => 'STILLPRESS_CAPTCHA',
-		'captcha_site_key' => 'STILLPRESS_CAPTCHA_SITE_KEY',
+		'secret'           => 'GLACIATE_FORMS_SECRET',
+		'captcha_secret'   => 'GLACIATE_FORMS_CAPTCHA_SECRET',
+		'forward_url'      => 'GLACIATE_FORWARD_URL',
+		'email_to'         => 'GLACIATE_EMAIL_TO',
+		'allowed_origin'   => 'GLACIATE_ALLOWED_ORIGIN',
+		'captcha'          => 'GLACIATE_CAPTCHA',
+		'captcha_site_key' => 'GLACIATE_CAPTCHA_SITE_KEY',
 	);
 	foreach ( $env as $key => $name ) {
 		$value = getenv( $name );
@@ -100,7 +100,7 @@ function config( array $config ): array {
 }
 
 /**
- * Why a submission is refused, or null. Same rules as Stillpress\Forms\Protocol::refusal().
+ * Why a submission is refused, or null. Same rules as Glaciate\Forms\Protocol::refusal().
  *
  * @param array<int,array{0:string,1:string}> $pairs Fields.
  * @return string|null
@@ -149,7 +149,7 @@ function value( array $pairs, string $name ): string {
 }
 
 /**
- * Signature header for a body. Same as Stillpress\Forms\Signature::sign().
+ * Signature header for a body. Same as Glaciate\Forms\Signature::sign().
  *
  * @param string $body   Body.
  * @param string $secret Secret.
@@ -303,7 +303,7 @@ function handle( array $config, array $pairs, string $ip, string $agent, string 
 			array(
 				'Content-Type: application/json',
 				'Accept: application/json',
-				'X-Stillpress-Signature: ' . sign( (string) $payload, (string) $config['secret'], $io['time']() ),
+				'X-Glaciate-Signature: ' . sign( (string) $payload, (string) $config['secret'], $io['time']() ),
 			),
 			(string) $payload
 		);
@@ -380,7 +380,7 @@ function within_limit( array $config, string $ip, int $now ): bool {
 	if ( $limit <= 0 || ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
 		return true;
 	}
-	$dir = '' !== (string) $config['data_dir'] ? (string) $config['data_dir'] : sys_get_temp_dir() . '/stillpress-receiver-' . substr( hash( 'sha256', __FILE__ ), 0, 12 );
+	$dir = '' !== (string) $config['data_dir'] ? (string) $config['data_dir'] : sys_get_temp_dir() . '/glaciate-receiver-' . substr( hash( 'sha256', __FILE__ ), 0, 12 );
 	if ( ! is_dir( $dir ) && ! @mkdir( $dir, 0700, true ) && ! is_dir( $dir ) ) {
 		return true;
 	}
@@ -561,6 +561,6 @@ function main( array $config ): void {
 		. ( '' === $back ? '' : '<p><a href="' . esc( $back ) . '">' . esc( MESSAGES['back'] ) . '</a></p>' ) . '</body></html>';
 }
 
-if ( ! defined( 'STILLPRESS_RECEIVER_LIBRARY' ) ) {
+if ( ! defined( 'GLACIATE_RECEIVER_LIBRARY' ) ) {
 	main( CONFIG );
 }

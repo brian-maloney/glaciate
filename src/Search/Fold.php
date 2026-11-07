@@ -2,10 +2,10 @@
 /**
  * Accent folding without the intl extension.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Search;
+namespace Glaciate\Search;
 
 /**
  * Removes accents the way the search client does in the browser: decompose (NFD), drop combining diacritical marks

@@ -2,12 +2,12 @@
 /**
  * Renders pages by requesting them from the site itself.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Render;
+namespace Glaciate\Render;
 
-use Stillpress\Security\UrlPolicy;
+use Glaciate\Security\UrlPolicy;
 use WpOrg\Requests\Exception as RequestsException;
 use WpOrg\Requests\Exception\Transport\Curl as CurlException;
 use WpOrg\Requests\Hooks;
@@ -164,7 +164,7 @@ final class LoopbackClient {
 			'follow_redirects' => false,
 			'max_bytes'        => $this->max_bytes,
 			'hooks'            => new Hooks(),
-			'useragent'        => 'Stillpress/' . ( defined( 'STILLPRESS_VERSION' ) ? STILLPRESS_VERSION : 'dev' ) . ' (static render)',
+			'useragent'        => 'Glaciate/' . ( defined( 'GLACIATE_VERSION' ) ? GLACIATE_VERSION : 'dev' ) . ' (static render)',
 		);
 		if ( null !== $pin ) {
 			$options['transport'] = Curl::class;
@@ -195,7 +195,7 @@ final class LoopbackClient {
 		 *
 		 * @param array<int|string,array<string,mixed>> $requests Requests keyed by caller ID.
 		 */
-		do_action( 'stillpress_before_loopback_batch', $requests );
+		do_action( 'glaciate_before_loopback_batch', $requests );
 
 		$responses = Requests::request_multiple( $requests, $options );
 
@@ -279,7 +279,7 @@ final class LoopbackClient {
 		$message = $e->getMessage();
 		// 60 is CURLE_PEER_FAILED_VERIFICATION: the certificate is self-signed, expired or from an unknown authority.
 		if ( $verify && $e instanceof CurlException && 60 === $e->getCode() ) {
-			$message .= '. ' . __( 'Certificate checks are on for this site\'s requests to itself because a plugin, theme or mu-plugin makes the https_local_ssl_verify filter return true. Remove that filter, or give this server a certificate it trusts', 'stillpress' );
+			$message .= '. ' . __( 'Certificate checks are on for this site\'s requests to itself because a plugin, theme or mu-plugin makes the https_local_ssl_verify filter return true. Remove that filter, or give this server a certificate it trusts', 'glaciate' );
 		}
 		return $message;
 	}

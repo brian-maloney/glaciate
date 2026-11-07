@@ -2,12 +2,12 @@
 /**
  * What each deploy target currently holds.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Storage\Schema;
+use Glaciate\Storage\Schema;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table.
 

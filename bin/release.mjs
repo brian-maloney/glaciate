@@ -4,11 +4,11 @@
  *
  * Run from the root of the tree being released.
  *
- *   node bin/release.mjs check-version <tag>      Tag, plugin header, STILLPRESS_VERSION and Stable tag must agree.
+ *   node bin/release.mjs check-version <tag>      Tag, plugin header, GLACIATE_VERSION and Stable tag must agree.
  *   node bin/release.mjs notes <version>          Prints that version's changelog section from readme.txt as Markdown.
  *   node bin/release.mjs gate <plugin-check.txt>  Fails on Plugin Check errors not in bin/plugin-check-allowed.json.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 import { readFileSync } from 'node:fs';
@@ -23,7 +23,7 @@ const TOOLS = join( dirname( fileURLToPath( import.meta.url ) ), '..' );
 /**
  * Versions the release files declare.
  *
- * @param {string} plugin Contents of stillpress.php.
+ * @param {string} plugin Contents of glaciate.php.
  * @param {string} readme Contents of readme.txt.
  * @return {{header: ?string, constant: ?string, stable: ?string}} Each version, or null when missing.
  */
@@ -31,7 +31,7 @@ export function declaredVersions( plugin, readme ) {
 	const find = ( text, pattern ) => ( text.match( pattern ) || [] )[ 1 ] || null;
 	return {
 		header: find( plugin, /^ \* Version:\s*(\S+)\s*$/m ),
-		constant: find( plugin, /define\(\s*'STILLPRESS_VERSION',\s*'([^']+)'\s*\)/ ),
+		constant: find( plugin, /define\(\s*'GLACIATE_VERSION',\s*'([^']+)'\s*\)/ ),
 		stable: find( readme, /^Stable tag:\s*(\S+)\s*$/m ),
 	};
 }
@@ -40,7 +40,7 @@ export function declaredVersions( plugin, readme ) {
  * Problems with releasing a tag, or an empty list.
  *
  * @param {string} tag    Git tag, e.g. 1.1.1.
- * @param {string} plugin Contents of stillpress.php.
+ * @param {string} plugin Contents of glaciate.php.
  * @param {string} readme Contents of readme.txt.
  * @return {string[]} Problems.
  */
@@ -50,7 +50,7 @@ export function versionProblems( tag, plugin, readme ) {
 		problems.push( `Tag "${ tag }" isn't a release version (x.y.z).` );
 	}
 	const versions = declaredVersions( plugin, readme );
-	const labels = { header: 'Version header in stillpress.php', constant: 'STILLPRESS_VERSION', stable: 'Stable tag in readme.txt' };
+	const labels = { header: 'Version header in glaciate.php', constant: 'GLACIATE_VERSION', stable: 'Stable tag in readme.txt' };
 	for ( const [ key, label ] of Object.entries( labels ) ) {
 		if ( versions[ key ] !== tag ) {
 			problems.push( `${ label } is ${ versions[ key ] ?? 'missing' }, not ${ tag }.` );
@@ -135,7 +135,7 @@ const [ command, argument ] = process.argv.slice( 2 );
 if ( fileURLToPath( import.meta.url ) === process.argv[ 1 ] ) {
 	const readme = () => readFileSync( join( ROOT, 'readme.txt' ), 'utf8' );
 	if ( 'check-version' === command && argument ) {
-		const problems = versionProblems( argument, readFileSync( join( ROOT, 'stillpress.php' ), 'utf8' ), readme() );
+		const problems = versionProblems( argument, readFileSync( join( ROOT, 'glaciate.php' ), 'utf8' ), readme() );
 		problems.forEach( ( problem ) => console.error( problem ) );
 		if ( problems.length ) {
 			process.exit( 1 );

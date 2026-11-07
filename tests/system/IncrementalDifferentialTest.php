@@ -8,13 +8,13 @@
  * page that dependency tracking failed to catch.
  *
  * Environment:
- *   STILLPRESS_DIFF_ITERATIONS  Number of edit sequences (default 20).
- *   STILLPRESS_DIFF_SEED        Seed to reproduce a failing run.
+ *   GLACIATE_DIFF_ITERATIONS  Number of edit sequences (default 20).
+ *   GLACIATE_DIFF_SEED        Seed to reproduce a failing run.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\System;
+namespace Glaciate\Tests\System;
 
 final class IncrementalDifferentialTest extends SystemTestCase {
 
@@ -33,8 +33,8 @@ final class IncrementalDifferentialTest extends SystemTestCase {
 	private $history = array();
 
 	public function test_incremental_builds_match_full_builds(): void {
-		$iterations = (int) ( getenv( 'STILLPRESS_DIFF_ITERATIONS' ) ? getenv( 'STILLPRESS_DIFF_ITERATIONS' ) : 20 );
-		$seed       = (int) ( getenv( 'STILLPRESS_DIFF_SEED' ) ? getenv( 'STILLPRESS_DIFF_SEED' ) : random_int( 1, PHP_INT_MAX >> 1 ) );
+		$iterations = (int) ( getenv( 'GLACIATE_DIFF_ITERATIONS' ) ? getenv( 'GLACIATE_DIFF_ITERATIONS' ) : 20 );
+		$seed       = (int) ( getenv( 'GLACIATE_DIFF_SEED' ) ? getenv( 'GLACIATE_DIFF_SEED' ) : random_int( 1, PHP_INT_MAX >> 1 ) );
 		$failure    = $this->run_sequences( $seed, $iterations );
 		if ( null !== $failure ) {
 			$this->fail( $failure );
@@ -46,11 +46,11 @@ final class IncrementalDifferentialTest extends SystemTestCase {
 	 * The differential check must be able to fail: with invalidation switched off, it has to notice.
 	 */
 	public function test_check_detects_broken_invalidation(): void {
-		add_filter( 'stillpress_affected_url_ids', '__return_empty_array' );
+		add_filter( 'glaciate_affected_url_ids', '__return_empty_array' );
 		try {
 			$failure = $this->run_sequences( 42, 8 );
 		} finally {
-			remove_filter( 'stillpress_affected_url_ids', '__return_empty_array' );
+			remove_filter( 'glaciate_affected_url_ids', '__return_empty_array' );
 		}
 		$this->assertNotNull( $failure, 'With invalidation disabled, incremental builds should have gone stale.' );
 		$this->assertStringContainsString( 'stale: ', $failure );
@@ -70,7 +70,7 @@ final class IncrementalDifferentialTest extends SystemTestCase {
 
 		$this->seed_content();
 		$this->build( 'full' );
-		update_option( 'stillpress_published_once', 1 );
+		update_option( 'glaciate_published_once', 1 );
 
 		$edits = $this->edits();
 		$names = array_keys( $edits );
@@ -90,7 +90,7 @@ final class IncrementalDifferentialTest extends SystemTestCase {
 			$this->build( 'full' );
 			$after_full = $this->snapshot();
 
-			if ( getenv( 'STILLPRESS_DIFF_DEBUG' ) ) {
+			if ( getenv( 'GLACIATE_DIFF_DEBUG' ) ) {
 				fwrite( STDERR, sprintf( "iteration %d: %.1f MB\n", $i, memory_get_usage() / 1048576 ) );
 			}
 			$failure = $this->compare( $after_full, $after_inc, $seed, $i, (int) $incremental['id'] );
@@ -128,7 +128,7 @@ final class IncrementalDifferentialTest extends SystemTestCase {
 			}
 		}
 		return sprintf(
-			"Incremental build differs from full build at iteration %d (reproduce with STILLPRESS_DIFF_SEED=%d).\n\nEdits so far:\n%s\n\nDifferences:\n%s\n\nIncremental build log:\n%s",
+			"Incremental build differs from full build at iteration %d (reproduce with GLACIATE_DIFF_SEED=%d).\n\nEdits so far:\n%s\n\nDifferences:\n%s\n\nIncremental build log:\n%s",
 			$i,
 			$seed,
 			implode( "\n", array_slice( $this->history, -12 ) ),

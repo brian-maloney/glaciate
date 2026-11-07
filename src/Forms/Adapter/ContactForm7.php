@@ -2,13 +2,13 @@
 /**
  * Contact Form 7.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms\Adapter;
+namespace Glaciate\Forms\Adapter;
 
-use Stillpress\Forms\Result;
-use Stillpress\Forms\Submission;
+use Glaciate\Forms\Result;
+use Glaciate\Forms\Submission;
 
 /**
  * Recognizes Contact Form 7 forms (class `wpcf7-form`, hidden `_wpcf7` form ID) and submits them through

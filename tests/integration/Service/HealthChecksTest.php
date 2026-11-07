@@ -2,14 +2,14 @@
 /**
  * The address and extension checks, and Site Health registering every check `doctor` runs.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Service;
+namespace Glaciate\Tests\Integration\Service;
 
-use Stillpress\Admin\SiteHealth;
-use Stillpress\Service\HealthChecks;
-use Stillpress\Support\Settings;
+use Glaciate\Admin\SiteHealth;
+use Glaciate\Service\HealthChecks;
+use Glaciate\Support\Settings;
 
 final class HealthChecksTest extends \WP_UnitTestCase {
 
@@ -48,7 +48,7 @@ final class HealthChecksTest extends \WP_UnitTestCase {
 	public function test_site_health_runs_every_direct_check(): void {
 		$tests = SiteHealth::tests( array() );
 		foreach ( HealthChecks::DIRECT as $id ) {
-			$this->assertArrayHasKey( 'stillpress_' . $id, $tests['direct'], $id );
+			$this->assertArrayHasKey( 'glaciate_' . $id, $tests['direct'], $id );
 		}
 		$this->assertSame( HealthChecks::DIRECT, array_keys( ( new HealthChecks() )->direct() ) );
 	}

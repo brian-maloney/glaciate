@@ -4,18 +4,18 @@
  *
  * Start it with `npm run sftp:start`; these tests skip themselves when sftp.test isn't reachable.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deploy;
+namespace Glaciate\Tests\Integration\Deploy;
 
-use Stillpress\Vendor\phpseclib3\Net\SFTP as SftpConnection;
-use Stillpress\Deploy\Sftp;
-use Stillpress\Deploy\TargetConfig;
-use Stillpress\Security\Redactor;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Logger;
-use Stillpress\Tests\Support\CountingSftp;
+use Glaciate\Vendor\phpseclib3\Net\SFTP as SftpConnection;
+use Glaciate\Deploy\Sftp;
+use Glaciate\Deploy\TargetConfig;
+use Glaciate\Security\Redactor;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Logger;
+use Glaciate\Tests\Support\CountingSftp;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Test fixtures.
 
@@ -58,7 +58,7 @@ final class SftpTest extends \WP_UnitTestCase {
 		$this->assertTrue( $this->peek->login( 'deploy', self::PASSWORD ) );
 
 		// Host, port and folder are restricted fields: an administrator sets them.
-		\Stillpress\Security\Capabilities::grant_defaults();
+		\Glaciate\Security\Capabilities::grant_defaults();
 		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		if ( is_multisite() ) {
 			grant_super_admin( $admin ); // On multisite only a super admin may set them.
@@ -78,7 +78,7 @@ final class SftpTest extends \WP_UnitTestCase {
 			$this->peek->delete( $this->remote, true ); // Test-only cleanup of this test's own folder.
 		}
 		if ( $this->cache ) {
-			\Stillpress\Tests\Support\Fs::rmrf( $this->cache );
+			\Glaciate\Tests\Support\Fs::rmrf( $this->cache );
 		}
 		Redactor::reset();
 		parent::tear_down();
@@ -94,11 +94,11 @@ final class SftpTest extends \WP_UnitTestCase {
 		return $out;
 	}
 
-	private function deploy(): \Stillpress\Deploy\DeployResult {
+	private function deploy(): \Glaciate\Deploy\DeployResult {
 		return $this->deploy_with( $this->deployer );
 	}
 
-	private function deploy_with( Sftp $deployer ): \Stillpress\Deploy\DeployResult {
+	private function deploy_with( Sftp $deployer ): \Glaciate\Deploy\DeployResult {
 		return $deployer->deploy( $this->manifest(), $this->cache, new Logger() );
 	}
 
@@ -133,8 +133,8 @@ final class SftpTest extends \WP_UnitTestCase {
 		$this->assertSame( 3, $result->added );
 		$this->assertSame( 'home v1', $this->peek->get( $this->remote . '/index.html' ) );
 		$this->assertSame( 'about v1', $this->peek->get( $this->remote . '/about/index.html' ) );
-		$this->assertTrue( $this->peek->file_exists( $this->remote . '/.stillpress-target' ) );
-		$this->assertSame( array(), preg_grep( '/^\.stillpress-tmp-/', (array) $this->peek->nlist( $this->remote ) ), 'No temporary files are left.' );
+		$this->assertTrue( $this->peek->file_exists( $this->remote . '/.glaciate-target' ) );
+		$this->assertSame( array(), preg_grep( '/^\.glaciate-tmp-/', (array) $this->peek->nlist( $this->remote ) ), 'No temporary files are left.' );
 	}
 
 	public function test_changes_and_deletes_touch_only_our_files(): void {
@@ -168,7 +168,7 @@ final class SftpTest extends \WP_UnitTestCase {
 			$this->deploy();
 			$this->fail( 'Expected a refusal.' );
 		} catch ( \RuntimeException $e ) {
-			$this->assertStringContainsString( '.stillpress-target', $e->getMessage() );
+			$this->assertStringContainsString( '.glaciate-target', $e->getMessage() );
 		}
 		$this->assertSame( array( 'important.txt' ), array_values( array_diff( (array) $this->peek->nlist( $this->remote ), array( '.', '..' ) ) ) );
 	}

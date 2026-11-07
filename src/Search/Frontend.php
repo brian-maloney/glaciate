@@ -2,14 +2,14 @@
 /**
  * Adds the search client to rendered pages.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Search;
+namespace Glaciate\Search;
 
-use Stillpress\Render\Recorder;
-use Stillpress\Support\Assets;
-use Stillpress\Support\Settings;
+use Glaciate\Render\Recorder;
+use Glaciate\Support\Assets;
+use Glaciate\Support\Settings;
 
 /**
  * Enqueues assets/js/search.js on pages rendered for the static copy, and only there: the live site keeps
@@ -22,7 +22,7 @@ use Stillpress\Support\Settings;
 final class Frontend {
 
 	/** Script and style handle. */
-	const HANDLE = 'stillpress-search';
+	const HANDLE = 'glaciate-search';
 
 	/** Results described at most, per query. */
 	const LIMIT = 20;
@@ -55,7 +55,7 @@ final class Frontend {
 				'in_footer' => true,
 			)
 		);
-		wp_add_inline_script( self::HANDLE, 'window.stillpressSearchSettings = ' . wp_json_encode( self::settings() ) . ';', 'before' );
+		wp_add_inline_script( self::HANDLE, 'window.glaciateSearchSettings = ' . wp_json_encode( self::settings() ) . ';', 'before' );
 	}
 
 	/**
@@ -72,7 +72,7 @@ final class Frontend {
 		$rule  = '';
 		for ( $n = 0; $n < 200; $n++ ) {
 			/* translators: %d: number of search results. */
-			$form  = _n( '%d result', '%d results', $n, 'stillpress' );
+			$form  = _n( '%d result', '%d results', $n, 'glaciate' );
 			$index = array_search( $form, $forms, true );
 			if ( false === $index ) {
 				$forms[] = $form;
@@ -91,7 +91,7 @@ final class Frontend {
 	public static function settings(): array {
 		$mode     = (string) Settings::get( 'search' );
 		$pagefind = 'pagefind_host' === $mode;
-		$public   = (string) wp_parse_url( \Stillpress\Build\Pipeline::public_url( Settings::all() ), PHP_URL_PATH );
+		$public   = (string) wp_parse_url( \Glaciate\Build\Pipeline::public_url( Settings::all() ), PHP_URL_PATH );
 		$settings = array(
 			'backend' => $pagefind ? 'pagefind' : 'builtin',
 			'base'    => home_url( '/' . ( $pagefind ? PagefindBundle::DIR : IndexWriter::DIR ) . '/' ),
@@ -100,12 +100,12 @@ final class Frontend {
 			'style'   => add_query_arg( 'ver', Assets::version( 'assets/css/search.css' ), Assets::url( 'assets/css/search.css' ) ),
 			'limit'   => self::LIMIT,
 			'labels'  => array(
-				'title'       => __( 'Search this site', 'stillpress' ),
-				'placeholder' => __( 'Search…', 'stillpress' ),
-				'close'       => __( 'Close', 'stillpress' ),
+				'title'       => __( 'Search this site', 'glaciate' ),
+				'placeholder' => __( 'Search…', 'glaciate' ),
+				'close'       => __( 'Close', 'glaciate' ),
 				/* translators: %s: what the visitor searched for. */
-				'none'        => __( 'Nothing found for “%s”.', 'stillpress' ),
-				'error'       => __( 'Search isn’t available right now.', 'stillpress' ),
+				'none'        => __( 'Nothing found for “%s”.', 'glaciate' ),
+				'error'       => __( 'Search isn’t available right now.', 'glaciate' ),
 			),
 		);
 		list( $settings['labels']['results'], $settings['labels']['plural'] ) = self::result_counts();
@@ -119,6 +119,6 @@ final class Frontend {
 		 *
 		 * @param array<string,mixed> $settings Settings printed for assets/js/search.js.
 		 */
-		return (array) apply_filters( 'stillpress_search_settings', $settings );
+		return (array) apply_filters( 'glaciate_search_settings', $settings );
 	}
 }

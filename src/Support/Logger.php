@@ -2,13 +2,13 @@
 /**
  * Build log.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Support;
+namespace Glaciate\Support;
 
-use Stillpress\Security\Redactor;
-use Stillpress\Storage\Schema;
+use Glaciate\Security\Redactor;
+use Glaciate\Storage\Schema;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table.
 

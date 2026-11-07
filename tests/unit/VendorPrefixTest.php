@@ -1,11 +1,11 @@
 <?php
 /**
- * Bundled libraries that other plugins also bundle load under Stillpress's own namespace (DECISIONS.md D29).
+ * Bundled libraries that other plugins also bundle load under Glaciate's own namespace (DECISIONS.md D29).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit;
+namespace Glaciate\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 
@@ -19,7 +19,7 @@ final class VendorPrefixTest extends TestCase {
 
 	public function test_libraries_load_only_under_the_prefix(): void {
 		foreach ( self::LIBRARIES as $class ) {
-			$this->assertTrue( class_exists( 'Stillpress\\Vendor\\' . $class ), "Stillpress\\Vendor\\{$class} doesn't load. Run composer install with scripts enabled, which runs Strauss." );
+			$this->assertTrue( class_exists( 'Glaciate\\Vendor\\' . $class ), "Glaciate\\Vendor\\{$class} doesn't load. Run composer install with scripts enabled, which runs Strauss." );
 			$this->assertFalse( class_exists( $class ), "{$class} loads under its original name, where another plugin's copy can replace it." );
 		}
 	}
@@ -29,13 +29,13 @@ final class VendorPrefixTest extends TestCase {
 		// Eval engine). Strauss doesn't rewrite class names inside that code; tools/strauss/strauss.php does.
 		$expected = null;
 		foreach ( array( 'OpenSSL', 'Eval', 'PHP' ) as $engine ) {
-			$aes = new \Stillpress\Vendor\phpseclib3\Crypt\AES( 'ctr' );
+			$aes = new \Glaciate\Vendor\phpseclib3\Crypt\AES( 'ctr' );
 			$aes->setPreferredEngine( $engine );
 			$this->assertSame( $engine, $aes->getEngine() );
 			$aes->setKey( str_repeat( 'k', 16 ) );
 			$aes->setIV( str_repeat( 'i', 16 ) );
 			$aes->enableContinuousBuffer();
-			$ciphertext = $aes->encrypt( str_repeat( 'Stillpress ', 20 ) ) . $aes->encrypt( 'and more' );
+			$ciphertext = $aes->encrypt( str_repeat( 'Glaciate ', 20 ) ) . $aes->encrypt( 'and more' );
 			$this->assertSame( $expected ?? $ciphertext, $ciphertext, $engine );
 			$expected = $ciphertext;
 		}
@@ -58,6 +58,6 @@ final class VendorPrefixTest extends TestCase {
 				}
 			}
 		}
-		$this->assertSame( array(), $problems, 'Use Stillpress\\Vendor\\ in front of the library namespace.' );
+		$this->assertSame( array(), $problems, 'Use Glaciate\\Vendor\\ in front of the library namespace.' );
 	}
 }

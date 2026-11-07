@@ -2,13 +2,13 @@
 /**
  * Search index tables.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Search;
+namespace Glaciate\Tests\Integration\Search;
 
-use Stillpress\Search\Index;
-use Stillpress\Storage\UrlRepository;
+use Glaciate\Search\Index;
+use Glaciate\Storage\UrlRepository;
 
 final class IndexTest extends \WP_UnitTestCase {
 

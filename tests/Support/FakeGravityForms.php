@@ -5,7 +5,7 @@
  * It returns what https://docs.gravityforms.com/submitting-forms-with-the-gfapi/ documents, from a queue the test
  * fills, and records every call.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 // phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter, Generic.Files.OneObjectStructurePerFile, PEAR.NamingConventions.ValidClassName, WordPress.NamingConventions.PrefixAllGlobals -- Mirrors the real class name.

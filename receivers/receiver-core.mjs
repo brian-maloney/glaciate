@@ -1,22 +1,22 @@
 /**
- * Stillpress form receiver for serverless platforms (Cloudflare Workers, Netlify Functions), on the standard
+ * Glaciate form receiver for serverless platforms (Cloudflare Workers, Netlify Functions), on the standard
  * Request/Response and Web Crypto APIs. No dependencies.
  *
- * Same behaviour as receivers/stillpress-form-php.txt, minus email (serverless platforms have no mail()): each submission
+ * Same behaviour as receivers/glaciate-form-php.txt, minus email (serverless platforms have no mail()): each submission
  * is checked (size limits, honeypot, time the page was open, optional captcha, per-address rate limit) and forwarded,
- * signed, to Stillpress's relay route or any webhook. The rules match Stillpress\Forms\Protocol and are tested against
+ * signed, to Glaciate's relay route or any webhook. The rules match Glaciate\Forms\Protocol and are tested against
  * tests/fixtures/forms-cases.json.
  *
- * `wp stillpress forms receiver cloudflare|netlify` writes a single file: this code, with `export` removed, plus a
+ * `wp glaciate forms receiver cloudflare|netlify` writes a single file: this code, with `export` removed, plus a
  * small entry point for the platform.
  *
  * @license GPL-2.0-or-later
  */
 
-export const FIELD_FORM = 'stillpress_form';
-export const FIELD_PAGE = 'stillpress_page';
-export const FIELD_HONEYPOT = 'stillpress_hp';
-export const FIELD_ELAPSED = 'stillpress_t';
+export const FIELD_FORM = 'glaciate_form';
+export const FIELD_PAGE = 'glaciate_page';
+export const FIELD_HONEYPOT = 'glaciate_hp';
+export const FIELD_ELAPSED = 'glaciate_t';
 export const MIN_SECONDS = 3;
 export const MAX_FIELDS = 100;
 export const MAX_NAME = 200;
@@ -63,7 +63,7 @@ export function fieldValue( pairs, name ) {
 }
 
 /**
- * Why a submission is refused, or null. Same rules as Stillpress\Forms\Protocol::refusal().
+ * Why a submission is refused, or null. Same rules as Glaciate\Forms\Protocol::refusal().
  *
  * @param {Array<[string,string]>} pairs Fields.
  * @return {string|null} Reason.
@@ -99,7 +99,7 @@ export function refusal( pairs ) {
 }
 
 /**
- * Signature header for a body. Same as Stillpress\Forms\Signature::sign().
+ * Signature header for a body. Same as Glaciate\Forms\Signature::sign().
  *
  * @param {string} body   Body.
  * @param {string} secret Secret.
@@ -143,7 +143,7 @@ const STATUS = { sent: 200, invalid: 422, spam: 403, limited: 429 };
 
 /**
  * An in-memory rate limiter. Serverless instances come and go, so this limits bursts at one instance only; give the
- * Cloudflare Worker a KV namespace (STILLPRESS_RATE) for a shared limit.
+ * Cloudflare Worker a KV namespace (GLACIATE_RATE) for a shared limit.
  *
  * @param {number} limit  Submissions per window.
  * @param {number} window Seconds.
@@ -194,21 +194,21 @@ export function kvLimiter( kv, limit, window ) {
 /**
  * Settings from the platform's environment, over the defaults written into the file.
  *
- * @param {Object} defaults Settings written by Stillpress.
+ * @param {Object} defaults Settings written by Glaciate.
  * @param {Object} env      Environment (Worker bindings, or Netlify.env as an object).
  * @return {Object} Settings.
  */
 export function settings( defaults, env ) {
 	const read = ( name, fallback ) => ( env && 'string' === typeof env[ name ] && '' !== env[ name ] ? env[ name ] : fallback );
 	return {
-		allowedOrigin: read( 'STILLPRESS_ALLOWED_ORIGIN', defaults.allowedOrigin || '' ),
-		forwardUrl: read( 'STILLPRESS_FORWARD_URL', defaults.forwardUrl || '' ),
-		captcha: read( 'STILLPRESS_CAPTCHA', defaults.captcha || 'none' ),
-		captchaSiteKey: read( 'STILLPRESS_CAPTCHA_SITE_KEY', defaults.captchaSiteKey || '' ),
-		secret: read( 'STILLPRESS_FORMS_SECRET', '' ),
-		captchaSecret: read( 'STILLPRESS_FORMS_CAPTCHA_SECRET', '' ),
-		rateLimit: Number( read( 'STILLPRESS_RATE_LIMIT', defaults.rateLimit ?? 5 ) ),
-		rateWindow: Number( read( 'STILLPRESS_RATE_WINDOW', defaults.rateWindow ?? 600 ) ),
+		allowedOrigin: read( 'GLACIATE_ALLOWED_ORIGIN', defaults.allowedOrigin || '' ),
+		forwardUrl: read( 'GLACIATE_FORWARD_URL', defaults.forwardUrl || '' ),
+		captcha: read( 'GLACIATE_CAPTCHA', defaults.captcha || 'none' ),
+		captchaSiteKey: read( 'GLACIATE_CAPTCHA_SITE_KEY', defaults.captchaSiteKey || '' ),
+		secret: read( 'GLACIATE_FORMS_SECRET', '' ),
+		captchaSecret: read( 'GLACIATE_FORMS_CAPTCHA_SECRET', '' ),
+		rateLimit: Number( read( 'GLACIATE_RATE_LIMIT', defaults.rateLimit ?? 5 ) ),
+		rateWindow: Number( read( 'GLACIATE_RATE_WINDOW', defaults.rateWindow ?? 600 ) ),
 	};
 }
 
@@ -280,7 +280,7 @@ export async function check( config, pairs, visitor, io ) {
 			headers: {
 				'Content-Type': 'application/json',
 				Accept: 'application/json',
-				'X-Stillpress-Signature': await sign( payload, config.secret, io.now() ),
+				'X-Glaciate-Signature': await sign( payload, config.secret, io.now() ),
 			},
 		} );
 	} catch ( e ) {

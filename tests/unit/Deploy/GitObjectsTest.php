@@ -3,16 +3,16 @@
  * Git objects and packs, against IDs computed by Git itself.
  *
  * The expected IDs come from `git hash-object`, `git write-tree` and `git commit-tree` (GIT_*_DATE=1700000000 +0000,
- * author and committer "Stillpress <stillpress@invalid>") over the files built in files().
+ * author and committer "Glaciate <glaciate@invalid>") over the files built in files().
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Deploy;
+namespace Glaciate\Tests\Unit\Deploy;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Deploy\Git\Objects;
-use Stillpress\Deploy\Git\Pack;
+use Glaciate\Deploy\Git\Objects;
+use Glaciate\Deploy\Git\Pack;
 
 final class GitObjectsTest extends TestCase {
 
@@ -54,10 +54,10 @@ final class GitObjectsTest extends TestCase {
 
 	public function test_commits_match_git(): void {
 		$tree  = 'd31c4f4bdc2cd3e2621f39d6df448e1f33b0f906';
-		$sig   = 'Stillpress <stillpress@invalid>';
+		$sig   = 'Glaciate <glaciate@invalid>';
 		$first = Objects::id( 'commit', Objects::commit( $tree, array(), $sig, 1700000000, 'Publish static site' ) );
-		$this->assertSame( '76d3f3ed3a421b26b46acf6eb37d5b9b90b92d41', $first );
-		$this->assertSame( 'dd57c1786d43312340b494fa2bd2b750ea50fd84', Objects::id( 'commit', Objects::commit( $tree, array( $first ), $sig, 1700000060, "Second\n" ) ) );
+		$this->assertSame( '172a79a3ba39d2a667fab5670ae39e32044748be', $first );
+		$this->assertSame( '6771d87196c3abbbd1df6a3db57ef072de386c10', Objects::id( 'commit', Objects::commit( $tree, array( $first ), $sig, 1700000060, "Second\n" ) ) );
 	}
 
 	public function test_pack_layout_and_contents(): void {

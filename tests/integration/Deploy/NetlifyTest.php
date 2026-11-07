@@ -2,17 +2,17 @@
 /**
  * Netlify deploys against an in-memory Netlify API.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deploy;
+namespace Glaciate\Tests\Integration\Deploy;
 
-use Stillpress\Deploy\Netlify;
-use Stillpress\Deploy\TargetConfig;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Settings;
-use Stillpress\Tests\Support\FakeNetlify;
+use Glaciate\Deploy\Netlify;
+use Glaciate\Deploy\TargetConfig;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Settings;
+use Glaciate\Tests\Support\FakeNetlify;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Test fixtures.
 
@@ -50,7 +50,7 @@ final class NetlifyTest extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
-		\Stillpress\Tests\Support\Fs::rmrf( $this->cache );
+		\Glaciate\Tests\Support\Fs::rmrf( $this->cache );
 		parent::tear_down();
 	}
 
@@ -64,7 +64,7 @@ final class NetlifyTest extends \WP_UnitTestCase {
 		return $out;
 	}
 
-	private function deploy(): \Stillpress\Deploy\DeployResult {
+	private function deploy(): \Glaciate\Deploy\DeployResult {
 		return $this->deployer->deploy( $this->manifest(), $this->cache, new Logger() );
 	}
 

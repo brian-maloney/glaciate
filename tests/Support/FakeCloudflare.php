@@ -2,12 +2,12 @@
 /**
  * In-memory stand-in for Cloudflare's Workers static-assets direct upload, for deployer tests.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Support;
+namespace Glaciate\Tests\Support;
 
-use Stillpress\Deploy\Aws\Transport;
+use Glaciate\Deploy\Aws\Transport;
 
 /**
  * Answers the calls the Cloudflare deployer makes. Stored assets persist across sessions, so a new session only asks

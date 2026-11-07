@@ -2,10 +2,10 @@
 /**
  * Wall-clock schedules.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
 /**
  * Finds the next time a "these weekdays at these times" schedule fires, in a given timezone.

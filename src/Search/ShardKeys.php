@@ -2,10 +2,10 @@
 /**
  * Decides how the search index is split into files.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Search;
+namespace Glaciate\Search;
 
 /**
  * Groups terms into shards by prefix. Pure: no WordPress calls.

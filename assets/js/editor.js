@@ -22,7 +22,7 @@
 	const PluginPostStatusInfo = editor.PluginPostStatusInfo || legacy.PluginPostStatusInfo;
 	const PluginSidebar = editor.PluginSidebar || legacy.PluginSidebar;
 	const PluginPostPublishPanel = editor.PluginPostPublishPanel || legacy.PluginPostPublishPanel;
-	const SIDEBAR = 'stillpress-sidebar';
+	const SIDEBAR = 'glaciate-sidebar';
 
 	function useStaticStatus() {
 		const { postId, isSaving, isAutosaving, postStatus } = useSelect( ( select ) => {
@@ -43,7 +43,7 @@
 			if ( ! postId ) {
 				return;
 			}
-			apiFetch( { path: '/stillpress/v1/posts/' + postId } )
+			apiFetch( { path: '/glaciate/v1/posts/' + postId } )
 				.then( ( s ) => {
 					setStatus( s );
 					window.clearTimeout( timer.current );
@@ -70,13 +70,13 @@
 		const { createNotice } = useDispatch( 'core/notices' );
 		const publish = () => {
 			setBusy( true );
-			apiFetch( { path: '/stillpress/v1/posts/' + postId + '/publish', method: 'POST' } )
+			apiFetch( { path: '/glaciate/v1/posts/' + postId + '/publish', method: 'POST' } )
 				.then( ( response ) => {
 					setStatus( response.status );
-					createNotice( 'info', __( 'Publishing to your static site…', 'stillpress' ), { type: 'snackbar', id: 'stillpress' } );
+					createNotice( 'info', __( 'Publishing to your static site…', 'glaciate' ), { type: 'snackbar', id: 'glaciate' } );
 					timer.current = window.setTimeout( load, 1500 );
 				} )
-				.catch( ( error ) => createNotice( 'error', error.message, { id: 'stillpress' } ) )
+				.catch( ( error ) => createNotice( 'error', error.message, { id: 'glaciate' } ) )
 				.finally( () => setBusy( false ) );
 		};
 
@@ -90,9 +90,9 @@
 		return h(
 			Fragment,
 			null,
-			h( 'span', { className: 'stillpress-status stillpress-status-' + status.state }, status.label ),
+			h( 'span', { className: 'glaciate-status glaciate-status-' + status.state }, status.label ),
 			status.public_url && 'up-to-date' === status.state
-				? h( 'span', null, ' ', h( ExternalLink, { href: status.public_url }, __( 'View', 'stillpress' ) ) )
+				? h( 'span', null, ' ', h( ExternalLink, { href: status.public_url }, __( 'View', 'glaciate' ) ) )
 				: null
 		);
 	}
@@ -111,7 +111,7 @@
 				onClick: publish,
 				__next40pxDefaultSize: true,
 			},
-			building ? __( 'Publishing…', 'stillpress' ) : __( 'Publish to static', 'stillpress' )
+			building ? __( 'Publishing…', 'glaciate' ) : __( 'Publish to static', 'glaciate' )
 		);
 	}
 
@@ -119,9 +119,9 @@
 		const s = useStaticStatus();
 		return h(
 			PluginPostStatusInfo,
-			{ className: 'stillpress-post-status' },
+			{ className: 'glaciate-post-status' },
 			h( 'div', { style: { width: '100%' } },
-				h( 'div', null, h( 'strong', null, __( 'Static site', 'stillpress' ) ), ': ', h( StatusLine, { status: s.status } ) ),
+				h( 'div', null, h( 'strong', null, __( 'Static site', 'glaciate' ) ), ': ', h( StatusLine, { status: s.status } ) ),
 				h( 'div', { style: { marginTop: '8px' } }, h( PublishButton, s ) )
 			)
 		);
@@ -131,7 +131,7 @@
 		const s = useStaticStatus();
 		return h(
 			PluginSidebar,
-			{ name: SIDEBAR, title: __( 'Static site', 'stillpress' ), icon: 'cloud-upload' },
+			{ name: SIDEBAR, title: __( 'Static site', 'glaciate' ), icon: 'cloud-upload' },
 			h( PanelBody, null,
 				h( 'p', null, h( StatusLine, { status: s.status } ) ),
 				h( PublishButton, Object.assign( {}, s, { variant: 'primary' } ) ),
@@ -146,13 +146,13 @@
 		const s = useStaticStatus();
 		return h(
 			PluginPostPublishPanel,
-			{ title: __( 'Static site', 'stillpress' ), initialOpen: true },
+			{ title: __( 'Static site', 'glaciate' ), initialOpen: true },
 			h( 'p', null, h( StatusLine, { status: s.status } ) ),
 			h( PublishButton, Object.assign( {}, s, { variant: 'primary' } ) )
 		);
 	}
 
-	wp.plugins.registerPlugin( 'stillpress', {
+	wp.plugins.registerPlugin( 'glaciate', {
 		icon: 'cloud-upload',
 		render: () => h( Fragment, null, h( StatusInfo ), h( Sidebar ), h( AfterPublish ) ),
 	} );
@@ -160,13 +160,13 @@
 	// Pin the sidebar button next to Publish/Update once per user; after that, the user's choice wins.
 	wp.domReady( () => {
 		const prefs = wp.data.select( 'core/preferences' );
-		if ( ! prefs || prefs.get( 'stillpress', 'pinnedOnce' ) ) {
+		if ( ! prefs || prefs.get( 'glaciate', 'pinnedOnce' ) ) {
 			return;
 		}
 		const iface = wp.data.dispatch( 'core/interface' );
 		if ( iface && iface.pinItem ) {
-			iface.pinItem( 'core', 'stillpress/' + SIDEBAR );
+			iface.pinItem( 'core', 'glaciate/' + SIDEBAR );
 		}
-		wp.data.dispatch( 'core/preferences' ).set( 'stillpress', 'pinnedOnce', true );
+		wp.data.dispatch( 'core/preferences' ).set( 'glaciate', 'pinnedOnce', true );
 	} );
 } )( window.wp );

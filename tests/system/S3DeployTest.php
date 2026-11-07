@@ -2,18 +2,18 @@
 /**
  * A real build deployed to an in-memory S3 in many short background slices.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\System;
+namespace Glaciate\Tests\System;
 
-use Stillpress\Build\BuildService;
-use Stillpress\Build\Runner;
-use Stillpress\Deploy\Registry;
-use Stillpress\Deploy\S3;
-use Stillpress\Deploy\TargetConfig;
-use Stillpress\Security\Secrets;
-use Stillpress\Tests\Support\FakeS3;
+use Glaciate\Build\BuildService;
+use Glaciate\Build\Runner;
+use Glaciate\Deploy\Registry;
+use Glaciate\Deploy\S3;
+use Glaciate\Deploy\TargetConfig;
+use Glaciate\Security\Secrets;
+use Glaciate\Tests\Support\FakeS3;
 
 final class S3DeployTest extends SystemTestCase {
 
@@ -37,7 +37,7 @@ final class S3DeployTest extends SystemTestCase {
 		TargetConfig::set( $deployer, 'bucket', 'system-test' );
 		TargetConfig::set( $deployer, 'access_key_id', 'AKIAIOSFODNN7EXAMPLE' );
 		Secrets::set( 's3', 'secret_access_key', 'system-test-secret' );
-		\Stillpress\Support\Settings::update( array( 'target' => 's3' ) );
+		\Glaciate\Support\Settings::update( array( 'target' => 's3' ) );
 
 		// Each upload takes 20 ms, so a 50 ms slice fits only a few of them.
 		$s3->after = static function () {
@@ -49,11 +49,11 @@ final class S3DeployTest extends SystemTestCase {
 		while ( Runner::DONE !== $runner->run_slice( $id, 0.05 ) && $slices < 500 ) {
 			++$slices;
 		}
-		$build = ( new \Stillpress\Storage\BuildRepository() )->get( $id );
+		$build = ( new \Glaciate\Storage\BuildRepository() )->get( $id );
 		$this->assertSame( 'done', $build['status'], (string) $build['error'] . "\n" . $this->log( $id ) );
 		$this->assertStringContainsString( 'continuing', $this->log( $id ), 'The deploy needed more than one slice.' );
 
-		$manifest = iterator_to_array( ( new \Stillpress\Storage\UrlRepository() )->published_files() );
+		$manifest = iterator_to_array( ( new \Glaciate\Storage\UrlRepository() )->published_files() );
 		$this->assertGreaterThan( 5, count( $manifest ) );
 		$this->assertSame( count( $manifest ), $build['stats']['deploy']['added'] );
 		$this->assertSame( 0, $build['stats']['deploy']['unchanged'] );

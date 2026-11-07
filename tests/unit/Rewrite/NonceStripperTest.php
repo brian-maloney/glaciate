@@ -2,13 +2,13 @@
 /**
  * Nonces in inline scripts are emptied so unchanged pages hash the same from build to build.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Rewrite;
+namespace Glaciate\Tests\Unit\Rewrite;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Rewrite\NonceStripper;
+use Glaciate\Rewrite\NonceStripper;
 
 final class NonceStripperTest extends TestCase {
 

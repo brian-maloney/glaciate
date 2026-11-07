@@ -2,13 +2,13 @@
 /**
  * Asset version strings.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Support;
+namespace Glaciate\Tests\Unit\Support;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Support\Assets;
+use Glaciate\Support\Assets;
 
 final class AssetsTest extends TestCase {
 

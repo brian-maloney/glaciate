@@ -2,12 +2,12 @@
 /**
  * Runs form plugin code as if the visitor had posted to this site.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms\Adapter;
+namespace Glaciate\Forms\Adapter;
 
-use Stillpress\Forms\Submission;
+use Glaciate\Forms\Submission;
 
 // phpcs:disable WordPress.Security.NonceVerification -- The submission has passed the receiver's checks; plugins read the superglobals themselves.
 

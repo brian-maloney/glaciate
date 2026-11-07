@@ -2,10 +2,10 @@
 /**
  * Prevents two queue slices from working on builds at the same time.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Atomic compare-and-set on the options table; the options API has no such primitive.
 
@@ -16,7 +16,7 @@ namespace Stillpress\Build;
 final class Lock {
 
 	/** Option name. */
-	const OPTION = 'stillpress_build_lock';
+	const OPTION = 'glaciate_build_lock';
 
 	/**
 	 * Lock token held by this process.

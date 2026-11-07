@@ -2,15 +2,15 @@
 /**
  * What the next "Publish changes" would do, shown in the admin, REST API and WP-CLI.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Service;
+namespace Glaciate\Service;
 
-use Stillpress\Build\Pipeline;
-use Stillpress\Deps\Invalidator;
-use Stillpress\Storage\ChangeRepository;
-use Stillpress\Storage\UrlRepository;
+use Glaciate\Build\Pipeline;
+use Glaciate\Deps\Invalidator;
+use Glaciate\Storage\ChangeRepository;
+use Glaciate\Storage\UrlRepository;
 
 /**
  * Previews the pending changeset without claiming it: the changed content, whether it forces a full rebuild, and the
@@ -88,13 +88,13 @@ final class ChangesetService {
 				$post = get_post( (int) $key );
 				if ( $post instanceof \WP_Post ) {
 					$object = get_post_type_object( $post->post_type );
-					$title  = '' === $post->post_title ? __( '(no title)', 'stillpress' ) : $post->post_title;
+					$title  = '' === $post->post_title ? __( '(no title)', 'glaciate' ) : $post->post_title;
 					/* translators: 1: post type name, such as "Page", 2: post title. */
-					$label = sprintf( _x( '%1$s: %2$s', 'changed post', 'stillpress' ), $object ? $object->labels->singular_name : $post->post_type, $title );
+					$label = sprintf( _x( '%1$s: %2$s', 'changed post', 'glaciate' ), $object ? $object->labels->singular_name : $post->post_type, $title );
 					$link  = (string) get_edit_post_link( $post->ID, 'raw' );
 				} else {
 					/* translators: %s: post ID. */
-					$label = sprintf( __( 'Deleted content (ID %s)', 'stillpress' ), $key );
+					$label = sprintf( __( 'Deleted content (ID %s)', 'glaciate' ), $key );
 				}
 				break;
 			case 'term':
@@ -102,33 +102,33 @@ final class ChangesetService {
 				if ( $term instanceof \WP_Term ) {
 					$taxonomy = get_taxonomy( $term->taxonomy );
 					/* translators: 1: taxonomy name, such as "Category", 2: term name. */
-					$label = sprintf( _x( '%1$s: %2$s', 'changed term', 'stillpress' ), $taxonomy ? $taxonomy->labels->singular_name : $term->taxonomy, $term->name );
+					$label = sprintf( _x( '%1$s: %2$s', 'changed term', 'glaciate' ), $taxonomy ? $taxonomy->labels->singular_name : $term->taxonomy, $term->name );
 					$link  = (string) get_edit_term_link( $term );
 				} else {
 					/* translators: %s: term ID. */
-					$label = sprintf( __( 'Deleted term (ID %s)', 'stillpress' ), $key );
+					$label = sprintf( __( 'Deleted term (ID %s)', 'glaciate' ), $key );
 				}
 				break;
 			case 'term_count':
 				$taxonomy = get_taxonomy( $key );
 				/* translators: %s: taxonomy name, such as "Categories". */
-				$label = sprintf( __( 'Post counts of %s', 'stillpress' ), $taxonomy ? $taxonomy->labels->name : $key );
+				$label = sprintf( __( 'Post counts of %s', 'glaciate' ), $taxonomy ? $taxonomy->labels->name : $key );
 				break;
 			case 'user':
 				$user = get_userdata( (int) $key );
 				/* translators: %s: user's display name, or their ID if the user was deleted. */
-				$label = sprintf( __( 'Author: %s', 'stillpress' ), $user ? $user->display_name : $key );
+				$label = sprintf( __( 'Author: %s', 'glaciate' ), $user ? $user->display_name : $key );
 				$link  = $user ? (string) get_edit_user_link( $user->ID ) : '';
 				break;
 			case 'comment':
 				$comment = get_comment( (int) $key );
 				$post    = $comment ? get_post( (int) $comment->comment_post_ID ) : null;
 				/* translators: %s: title of the post the comment belongs to. */
-				$label = $post ? sprintf( __( 'Comment on %s', 'stillpress' ), $post->post_title ) : __( 'Comment', 'stillpress' );
+				$label = $post ? sprintf( __( 'Comment on %s', 'glaciate' ), $post->post_title ) : __( 'Comment', 'glaciate' );
 				break;
 			case 'option':
 				/* translators: %s: option name, such as "blogname". */
-				$label = sprintf( __( 'Site setting: %s', 'stillpress' ), $key );
+				$label = sprintf( __( 'Site setting: %s', 'glaciate' ), $key );
 				break;
 			case 'full':
 				$label = self::full_reason( $key );
@@ -150,18 +150,18 @@ final class ChangesetService {
 	 */
 	private static function full_reason( string $key ): string {
 		if ( 'code' === $key ) {
-			return __( 'Theme or plugins changed: every page is rebuilt', 'stillpress' );
+			return __( 'Theme or plugins changed: every page is rebuilt', 'glaciate' );
 		}
 		if ( 0 === strpos( $key, 'option:' ) ) {
 			/* translators: %s: option name, such as "permalink_structure". */
-			return sprintf( __( 'Site setting %s changed: every page is rebuilt', 'stillpress' ), substr( $key, 7 ) );
+			return sprintf( __( 'Site setting %s changed: every page is rebuilt', 'glaciate' ), substr( $key, 7 ) );
 		}
 		if ( 0 === strpos( $key, 'term-in-permalinks:' ) ) {
-			return __( 'A term in the permalink structure was renamed: every page is rebuilt', 'stillpress' );
+			return __( 'A term in the permalink structure was renamed: every page is rebuilt', 'glaciate' );
 		}
 		if ( 0 === strpos( $key, 'author-in-permalinks:' ) ) {
-			return __( 'An author in the permalink structure was renamed: every page is rebuilt', 'stillpress' );
+			return __( 'An author in the permalink structure was renamed: every page is rebuilt', 'glaciate' );
 		}
-		return __( 'Every page is rebuilt', 'stillpress' );
+		return __( 'Every page is rebuilt', 'glaciate' );
 	}
 }

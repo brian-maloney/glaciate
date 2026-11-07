@@ -2,10 +2,10 @@
 /**
  * Optional contract for adapters whose forms carry per-render values.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms\Adapter;
+namespace Glaciate\Forms\Adapter;
 
 /**
  * Some form plugins print tokens that change on every render (a signed render time, say). On the static copy those

@@ -2,17 +2,17 @@
 /**
  * Deploys to Cloudflare as a Worker that serves only static assets.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Deploy\Aws\RequestsTransport;
-use Stillpress\Deploy\Aws\Transport;
-use Stillpress\Output\PathMapper;
-use Stillpress\Output\UnsafePathException;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Settings;
+use Glaciate\Deploy\Aws\RequestsTransport;
+use Glaciate\Deploy\Aws\Transport;
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Settings;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Reads files from the build cache (see DECISIONS.md D9).
 
@@ -47,7 +47,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 	const SESSION_TTL = 3300;
 
 	/** Option holding per-Worker state: target key => {deployed, owned, session, fingerprint, buckets, completion, started}. */
-	const STATE_OPTION = 'stillpress_cloudflare_state';
+	const STATE_OPTION = 'glaciate_cloudflare_state';
 
 	/**
 	 * Transport (injected by tests; RequestsTransport otherwise).
@@ -90,7 +90,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 	 * {@inheritDoc}
 	 */
 	public function label(): string {
-		return __( 'Cloudflare (Workers static assets)', 'stillpress' );
+		return __( 'Cloudflare (Workers static assets)', 'glaciate' );
 	}
 
 	/**
@@ -101,37 +101,37 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 	public function fields(): array {
 		return array(
 			'account_id'       => array(
-				'label'       => __( 'Account ID', 'stillpress' ),
+				'label'       => __( 'Account ID', 'glaciate' ),
 				'required'    => true,
 				'pattern'     => '[a-f0-9]{32}',
-				'description' => __( 'Shown on the Workers & Pages overview in the Cloudflare dashboard.', 'stillpress' ),
+				'description' => __( 'Shown on the Workers & Pages overview in the Cloudflare dashboard.', 'glaciate' ),
 			),
 			'worker_name'      => array(
-				'label'       => __( 'Worker name', 'stillpress' ),
+				'label'       => __( 'Worker name', 'glaciate' ),
 				'required'    => true,
 				'pattern'     => '[a-z0-9][a-z0-9\-]{0,62}',
-				'description' => __( 'A new name is created on the first publish. Add a custom domain or route to it in the Cloudflare dashboard.', 'stillpress' ),
+				'description' => __( 'A new name is created on the first publish. Add a custom domain or route to it in the Cloudflare dashboard.', 'glaciate' ),
 			),
 			'api_token'        => array(
-				'label'       => __( 'API token', 'stillpress' ),
+				'label'       => __( 'API token', 'glaciate' ),
 				'type'        => 'secret',
 				'required'    => true,
-				'description' => __( 'A token with the "Workers Scripts: Edit" permission for this account.', 'stillpress' ),
+				'description' => __( 'A token with the "Workers Scripts: Edit" permission for this account.', 'glaciate' ),
 			),
 			'not_found'        => array(
-				'label'   => __( 'Missing pages', 'stillpress' ),
+				'label'   => __( 'Missing pages', 'glaciate' ),
 				'type'    => 'select',
 				'default' => '404-page',
 				'options' => array(
-					'404-page' => __( 'Show the site\'s 404 page', 'stillpress' ),
-					'none'     => __( 'Plain 404 response', 'stillpress' ),
+					'404-page' => __( 'Show the site\'s 404 page', 'glaciate' ),
+					'none'     => __( 'Plain 404 response', 'glaciate' ),
 				),
 			),
 			'replace_existing' => array(
-				'label'       => __( 'Replace an existing Worker', 'stillpress' ),
+				'label'       => __( 'Replace an existing Worker', 'glaciate' ),
 				'type'        => 'bool',
 				'default'     => false,
-				'description' => __( 'Allow publishing to a Worker that Stillpress didn\'t create. Any code it runs is replaced by the static site.', 'stillpress' ),
+				'description' => __( 'Allow publishing to a Worker that Glaciate didn\'t create. Any code it runs is replaced by the static site.', 'glaciate' ),
 			),
 		);
 	}
@@ -143,7 +143,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 		$missing = TargetConfig::missing( $this );
 		if ( $missing ) {
 			/* translators: %s: comma-separated field names. */
-			return sprintf( __( 'Cloudflare needs these settings: %s.', 'stillpress' ), implode( ', ', $missing ) );
+			return sprintf( __( 'Cloudflare needs these settings: %s.', 'glaciate' ), implode( ', ', $missing ) );
 		}
 		return null;
 	}
@@ -190,7 +190,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 		if ( null !== $problem ) {
 			throw new \RuntimeException( $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Logged as plain text and escaped on display.
 		}
-		$this->served = ( new \Stillpress\Storage\UrlRepository() )->directory_types();
+		$this->served = ( new \Glaciate\Storage\UrlRepository() )->directory_types();
 		$key          = $this->target_key();
 		$files        = new TargetFiles( 'cff-' . $key );
 		$hashes       = new TargetFiles( 'cfh-' . $key );
@@ -211,14 +211,14 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 				$file = $source->absolute_path( $path );
 			} catch ( UnsafePathException $e ) {
 				/* translators: 1: file path, 2: error message. */
-				$logger->error( sprintf( __( 'Could not publish %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
+				$logger->error( sprintf( __( 'Could not publish %1$s: %2$s', 'glaciate' ), $path, $e->getMessage() ) );
 				++$result->failed;
 				continue;
 			}
 			$size = filesize( $file );
 			if ( false === $size || $size > self::MAX_FILE ) {
 				/* translators: %s: file path. */
-				$logger->error( sprintf( __( 'Could not publish %s: Cloudflare accepts files up to 25 MiB.', 'stillpress' ), $path ) );
+				$logger->error( sprintf( __( 'Could not publish %s: Cloudflare accepts files up to 25 MiB.', 'glaciate' ), $path ) );
 				++$result->failed;
 				continue;
 			}
@@ -228,7 +228,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 				$contents = file_get_contents( $file );
 				if ( false === $contents ) {
 					/* translators: %s: file path. */
-					$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $path ) );
+					$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'glaciate' ), $path ) );
 					++$result->failed;
 					continue;
 				}
@@ -276,11 +276,11 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 			// Nothing to upload: the token is already the completion token.
 			$state['started'] = time();
 			if ( '' === $state['session'] ) {
-				throw new \RuntimeException( __( 'Cloudflare did not return an upload token.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+				throw new \RuntimeException( __( 'Cloudflare did not return an upload token.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 			}
 			$this->save_state( $state );
 		} else {
-			$logger->info( __( 'Continuing the unfinished Cloudflare upload.', 'stillpress' ) );
+			$logger->info( __( 'Continuing the unfinished Cloudflare upload.', 'glaciate' ) );
 		}//end if
 
 		$uploaded = 0;
@@ -301,7 +301,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 		}
 		if ( '' === $state['completion'] ) {
 			$this->save_state( array_merge( $state, array( 'session' => '' ) ) );
-			throw new \RuntimeException( __( 'Cloudflare accepted the files but did not confirm the upload. The next publish starts a new upload.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Cloudflare accepted the files but did not confirm the upload. The next publish starts a new upload.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 
 		$this->publish_worker( $state['completion'] );
@@ -328,7 +328,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 			)
 		);
 		/* translators: 1: Worker name, 2: number of files. */
-		$logger->info( sprintf( __( 'Cloudflare Worker %1$s updated. Files uploaded: %2$d.', 'stillpress' ), (string) TargetConfig::value( $this, 'worker_name' ), $uploaded ) );
+		$logger->info( sprintf( __( 'Cloudflare Worker %1$s updated. Files uploaded: %2$d.', 'glaciate' ), (string) TargetConfig::value( $this, 'worker_name' ), $uploaded ) );
 		return $result;
 	}
 
@@ -358,18 +358,18 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 	 * @throws \RuntimeException When a file is unknown or unreadable, or Cloudflare refuses the upload.
 	 */
 	private function upload_bucket( array $bucket, array $local, string $jwt ): array {
-		$boundary = 'stillpress-' . bin2hex( random_bytes( 12 ) );
+		$boundary = 'glaciate-' . bin2hex( random_bytes( 12 ) );
 		$body     = '';
 		foreach ( $bucket as $hash ) {
 			$hash = (string) $hash;
 			if ( ! isset( $local[ $hash ] ) ) {
 				/* translators: %s: content hash. */
-				throw new \RuntimeException( sprintf( __( 'Cloudflare asked for a file this build does not have (%s).', 'stillpress' ), $hash ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+				throw new \RuntimeException( sprintf( __( 'Cloudflare asked for a file this build does not have (%s).', 'glaciate' ), $hash ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 			}
 			$contents = file_get_contents( $local[ $hash ]['file'] );
 			if ( false === $contents ) {
 				/* translators: %s: file path. */
-				throw new \RuntimeException( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $local[ $hash ]['path'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+				throw new \RuntimeException( sprintf( __( 'Could not read %s from the build cache.', 'glaciate' ), $local[ $hash ]['path'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 			}
 			$body .= '--' . $boundary . "\r\n"
 				. 'Content-Disposition: form-data; name="' . $hash . '"; filename="' . $hash . "\"\r\n"
@@ -398,7 +398,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 				),
 			),
 		);
-		$boundary = 'stillpress-' . bin2hex( random_bytes( 12 ) );
+		$boundary = 'glaciate-' . bin2hex( random_bytes( 12 ) );
 		$body     = '--' . $boundary . "\r\n"
 			. "Content-Disposition: form-data; name=\"metadata\"\r\n"
 			. "Content-Type: application/json\r\n\r\n"
@@ -449,7 +449,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 	private function api( string $method, string $path, string $body, string $content_type, string $bearer = '' ): array {
 		$headers = array(
 			'Authorization' => 'Bearer ' . ( '' === $bearer ? TargetConfig::value( $this, 'api_token' ) : $bearer ),
-			'User-Agent'    => 'Stillpress/' . ( defined( 'STILLPRESS_VERSION' ) ? STILLPRESS_VERSION : 'dev' ) . ' (WordPress plugin)',
+			'User-Agent'    => 'Glaciate/' . ( defined( 'GLACIATE_VERSION' ) ? GLACIATE_VERSION : 'dev' ) . ' (WordPress plugin)',
 		);
 		if ( '' !== $content_type ) {
 			$headers['Content-Type'] = $content_type;
@@ -466,17 +466,17 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 		)[0];
 		if ( 0 === $response['status'] ) {
 			/* translators: %s: error message. */
-			throw new \RuntimeException( sprintf( __( 'Could not reach Cloudflare: %s', 'stillpress' ), $response['error'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'Could not reach Cloudflare: %s', 'glaciate' ), $response['error'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$data = json_decode( $response['body'], true );
 		if ( $response['status'] >= 200 && $response['status'] < 300 && is_array( $data ) && ! empty( $data['success'] ) ) {
 			return is_array( $data['result'] ?? null ) ? $data['result'] : array();
 		}
 		if ( 401 === $response['status'] || 403 === $response['status'] ) {
-			throw new \RuntimeException( __( 'Cloudflare refused the API token, or it lacks the "Workers Scripts: Edit" permission for this account.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Cloudflare refused the API token, or it lacks the "Workers Scripts: Edit" permission for this account.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( 429 === $response['status'] ) {
-			throw new \RuntimeException( __( 'Cloudflare\'s rate limit was reached. The changes stay pending and go out with the next publish.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Cloudflare\'s rate limit was reached. The changes stay pending and go out with the next publish.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$messages = array();
 		foreach ( (array) ( is_array( $data ) ? ( $data['errors'] ?? array() ) : array() ) as $error ) {
@@ -485,7 +485,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 			}
 		}
 		/* translators: 1: HTTP status, 2: error messages. */
-		throw new \RuntimeException( sprintf( __( 'Cloudflare answered with HTTP %1$d: %2$s', 'stillpress' ), $response['status'], substr( implode( '; ', $messages ), 0, 400 ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+		throw new \RuntimeException( sprintf( __( 'Cloudflare answered with HTTP %1$d: %2$s', 'glaciate' ), $response['status'], substr( implode( '; ', $messages ), 0, 400 ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 	}
 
 	/**
@@ -495,7 +495,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 	 */
 	private function foreign_worker_message(): string {
 		/* translators: %s: Worker name. */
-		return sprintf( __( 'A Worker named %s already exists and Stillpress didn\'t create it. Choose a new name, or turn on "Replace an existing Worker" if its code may be replaced by the static site.', 'stillpress' ), (string) TargetConfig::value( $this, 'worker_name' ) );
+		return sprintf( __( 'A Worker named %s already exists and Glaciate didn\'t create it. Choose a new name, or turn on "Replace an existing Worker" if its code may be replaced by the static site.', 'glaciate' ), (string) TargetConfig::value( $this, 'worker_name' ) );
 	}
 
 	/**

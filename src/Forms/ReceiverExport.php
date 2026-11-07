@@ -2,16 +2,16 @@
 /**
  * Writes the standalone receivers for a site.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
 /**
  * Produces a ready-to-deploy receiver from the files in receivers/, with this site's settings filled in: the public
  * site as the only allowed page origin, this site's relay route as the forward address, and the captcha provider and
  * site key. Secrets are never written into the file (threat T10): the receiver reads them from its environment, where
- * the owner puts the same value they set in Stillpress.
+ * the owner puts the same value they set in Glaciate.
  *
  * The serverless variants become one file each: receiver-core.mjs without its `export` keywords, followed by the
  * platform's entry point without its import line.
@@ -20,9 +20,9 @@ final class ReceiverExport {
 
 	/** Kind => file name it is offered as. */
 	const FILES = array(
-		'php'        => 'stillpress-form.php',
-		'cloudflare' => 'stillpress-form-worker.mjs',
-		'netlify'    => 'stillpress-form.mjs',
+		'php'        => 'glaciate-form.php',
+		'cloudflare' => 'glaciate-form-worker.mjs',
+		'netlify'    => 'glaciate-form.mjs',
 	);
 
 	/** Entry point per serverless kind. */
@@ -58,7 +58,7 @@ final class ReceiverExport {
 				'data_dir'         => '',
 			);
 			$code   = 'const CONFIG = ' . var_export( $values, true ) . ';'; // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- Writes PHP source.
-			return self::replace_config( self::source( 'stillpress-form-php.txt' ), $code );
+			return self::replace_config( self::source( 'glaciate-form-php.txt' ), $code );
 		}
 
 		$values = array(
@@ -70,7 +70,7 @@ final class ReceiverExport {
 			'rateWindow'     => Receiver::RATE_WINDOW,
 		);
 		$entry  = self::replace_config( self::source( self::ENTRY[ $kind ] ), 'const DEFAULTS = ' . wp_json_encode( $values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . ';' );
-		$entry  = (string) preg_replace( '#^import .*// stillpress:import\n#m', '', $entry );
+		$entry  = (string) preg_replace( '#^import .*// glaciate:import\n#m', '', $entry );
 		$core   = (string) preg_replace( '/^export (const|function|async function) /m', '$1 ', self::source( 'receiver-core.mjs' ) );
 		return $entry . "\n// ---- Shared receiver code (receiver-core.mjs) ----\n\n" . $core;
 	}
@@ -82,7 +82,7 @@ final class ReceiverExport {
 	 * @return string
 	 */
 	private static function source( string $name ): string {
-		return (string) file_get_contents( dirname( STILLPRESS_FILE ) . '/receivers/' . $name ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- The plugin's own file.
+		return (string) file_get_contents( dirname( GLACIATE_FILE ) . '/receivers/' . $name ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- The plugin's own file.
 	}
 
 	/**
@@ -93,12 +93,12 @@ final class ReceiverExport {
 	 * @return string
 	 */
 	private static function replace_config( string $source, string $code ): string {
-		$start = strpos( $source, "// stillpress:config:start\n" );
-		$end   = strpos( $source, '// stillpress:config:end' );
+		$start = strpos( $source, "// glaciate:config:start\n" );
+		$end   = strpos( $source, '// glaciate:config:end' );
 		if ( false === $start || false === $end ) {
 			return $source;
 		}
-		$start += strlen( "// stillpress:config:start\n" );
+		$start += strlen( "// glaciate:config:start\n" );
 		return substr( $source, 0, $start ) . $code . "\n" . substr( $source, $end );
 	}
 }

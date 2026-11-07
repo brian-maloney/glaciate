@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes how Stillpress turns a WordPress site into static files. Non-obvious
+This document describes how Glaciate turns a WordPress site into static files. Non-obvious
 choices and their reasons live in [DECISIONS.md](DECISIONS.md); security reasoning lives in
 [THREAT_MODEL.md](THREAT_MODEL.md).
 
@@ -16,8 +16,8 @@ Key limits of the design, stated up front:
 ## Layers
 ```
  UI (admin screen, editor, admin bar, Site Health) ─┐
- REST (stillpress/v1)                              ├─> Services (BuildService, StatusService, HealthChecks, Settings)
- WP-CLI (wp stillpress …)                          ─┘           │
+ REST (glaciate/v1)                              ├─> Services (BuildService, StatusService, HealthChecks, Settings)
+ WP-CLI (wp glaciate …)                          ─┘           │
                                                                 ▼
               Build pipeline:  Plan ─> Discover/Crawl ─> Render ─> Rewrite ─> Store(cache+manifest) ─> Deploy
                                  ▲                         │
@@ -31,20 +31,20 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - `LoopbackClient` uses the WP HTTP API (`wp_remote_request`; `WpOrg\Requests\Requests::request_multiple` for
   concurrency, default 4, configurable). Requests carry **no cookies**, so pages render as an anonymous visitor.
   `redirection => 0`; redirects get recorded, not followed blindly.
-- Each request carries `X-Stillpress-Render: <build_id>.<expiry>.<hmac>`, an HMAC-SHA256 under a per-site random key
+- Each request carries `X-Glaciate-Render: <build_id>.<expiry>.<hmac>`, an HMAC-SHA256 under a per-site random key
   stored in an option with `autoload=no`. The render-side `Recorder` boots only when the token verifies (`hash_equals`)
   and the build is active. The token **grants no privileges**. It only turns on recording, hides the admin bar and
   sets `DONOTCACHEPAGE`.
-- At shutdown, the Recorder writes the deps for (build, URL) into the DB and sends back `X-Stillpress-Recorded: <build_id>`.
+- At shutdown, the Recorder writes the deps for (build, URL) into the DB and sends back `X-Glaciate-Recorded: <build_id>`.
   If that header is missing, a page cache answered the request instead of WordPress. The URL is then marked `deps=unknown`
   (always rebuilt on any change) and Site Health warns.
 - Response checks: status, content-type, size cap (default 20 MB), `logged-in` body class (must not appear), redirect target.
 - Back-off (`Build\Backoff`): a 429, 500, 502, 503 or 504 answer puts the address back in the queue (three tries in all,
   then it fails and its published file stays), pauses the build for `Retry-After` (at most 300 s) or 5, 10, 20 … up to
-  120 s (`stillpress_backoff_seconds`), and halves the requests sent at once for the rest of the build. The slice ends
+  120 s (`glaciate_backoff_seconds`), and halves the requests sent at once for the rest of the build. The slice ends
   with `Runner::WAIT`; the queue schedules the next one for when the wait is over, and `--sync` sleeps.
-- The recorder can also mark a page as excluded with `X-Stillpress-Exclude` (password-protected posts by default, or
-  anything the `stillpress_exclude_render` filter decides); excluded pages are removed like 404s.
+- The recorder can also mark a page as excluded with `X-Glaciate-Exclude` (password-protected posts by default, or
+  anything the `glaciate_exclude_render` filter decides); excluded pages are removed like 404s.
 
 ## URL rewriting
 - `OriginSet` holds every form of the origin: `home_url` and `site_url`, http and https, protocol-relative `//host`,
@@ -61,7 +61,7 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   and the textual rewriter can't tell those contexts apart.
 - Clean-up passes (each filterable): remove EditURI/RSD, wlwmanifest, REST discovery `<link>`, oEmbed discovery,
   shortlink and pingback headers, head links to feeds the `feeds` setting doesn't publish (D32), and empty the nonces
-  in inline scripts (`Rewrite\NonceStripper`, `stillpress_strip_nonces`, D34).
+  in inline scripts (`Rewrite\NonceStripper`, `glaciate_strip_nonces`, D34).
 
 ## Discovery / crawl
 - Seeds: home; core sitemaps (`wp-sitemap.xml` and any index listed in robots.txt); enumerated content (public posts of
@@ -108,17 +108,17 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   that actually moved invalidates them. A simple query (no search, meta or custom ordering) doesn't match a post whose
   edit moved none of the fields it selects or sorts on: that post's pages are reached through `post:<id>` (D23).
 - Affected set = URLs from the object deps ∪ matching query signatures ∪ option deps ∪ the changed post's old and new permalinks
-  ∪ `deps=unknown` URLs, and the `stillpress_affected_url_ids` filter can add more.
+  ∪ `deps=unknown` URLs, and the `glaciate_affected_url_ids` filter can add more.
 - **Orphans**: URLs that now return 404 or redirect get removed from the manifest, so deployers delete them.
 - **Safety nets**: a "Full rebuild" button and `--full` flag, a scheduled full rebuild (setting: off/daily/weekly at a chosen local time, **default daily at 03:00**), and a
-  `stillpress_dependencies_for_url` filter for extensions that know their own deps.
+  `glaciate_dependencies_for_url` filter for extensions that know their own deps.
 - **Output hashing**: each URL row keeps its output path, SHA-256 and size. Deployers receive the whole manifest
   (path → SHA-256) and compare it with their own `target_files` records, so each target works out its own added,
   modified and deleted files.
 
 ## Storage
 Custom tables per site (`$wpdb->prefix`), managed with `dbDelta` and a schema version option: `builds`, `urls`, `build_urls`,
-`deps`, `query_sigs`, `changes`, `log`, `target_files`, and for search `search_terms`, `search_docs`, `search_dirty`. The build cache (rendered files) defaults to `wp-content/stillpress/cache/<site_id>/`
+`deps`, `query_sigs`, `changes`, `log`, `target_files`, and for search `search_terms`, `search_docs`, `search_dirty`. The build cache (rendered files) defaults to `wp-content/glaciate/cache/<site_id>/`
 (public content only; protected with index.php and .htaccess deny). Uninstall drops tables and options. It never deletes a deploy target.
 
 **URL to file.** A URL ending in `/` (or without an extension) is saved as `<path>/index.html`, whatever its response
@@ -135,30 +135,30 @@ server) serve these files as `text/html`, which feed readers handle (D19).
   schedules the next one. Batches can resume after a crash, and a lock prevents two builds running at once.
 - WP-CLI can run the same pipeline synchronously in-process (`--sync`).
 - Starting a build from the admin or REST also sends a signed, non-blocking request to `admin-ajax.php`
-  (`stillpress_run`) that runs the first slice right away and chains the next, so a build starts within a second rather
+  (`glaciate_run`) that runs the first slice right away and chains the next, so a build starts within a second rather
   than at the next cron tick. Action Scheduler remains the fallback; `run_slice()` reports done, more or busy, and a busy
   slice reschedules itself 30 seconds later.
 - **When changes go out** (`publish_mode`): `immediate` debounces content changes by a minute and starts an
   incremental build; `scheduled` leaves them pending until the next of `publish_times` on `publish_days`, when
-  `stillpress_publish_window` builds only if something is pending; `manual` waits for the Publish button or the CLI.
+  `glaciate_publish_window` builds only if something is pending; `manual` waits for the Publish button or the CLI.
 - **Wall-clock schedules** (D18): the full rebuild and the publishing times are single Action Scheduler actions, each
   computed by `Build\Schedule::next()` in the site's timezone (`wp_timezone()`) and re-armed by the run itself, so they
   stay on the local clock across daylight-saving changes. `ensure_recurring()` (every `action_scheduler_init`) re-arms a
-  missing run and reschedules when the settings or timezone change. `wp stillpress schedule` and the Publish page show the
+  missing run and reschedules when the settings or timezone change. `wp glaciate schedule` and the Publish page show the
   next runs.
 
 ## Deployers
 `DeployerInterface { id(); label(); problem(); deploy(manifest, source_root, logger): DeployResult; }`, registered through
-`stillpress_register_deployers`. Built in: **Local directory**, **ZIP**, **Amazon S3** (with optional CloudFront invalidation), **SFTP**, **Git**, **Netlify** and **Cloudflare** (Workers static assets).
+`glaciate_register_deployers`. Built in: **Local directory**, **ZIP**, **Amazon S3** (with optional CloudFront invalidation), **SFTP**, **Git**, **Netlify** and **Cloudflare** (Workers static assets).
 - Local directory applies the changeset with an atomic write per file (temp file + rename). It only deletes files listed in its own
-  manifest, and requires a marker file `.stillpress-target` in the target directory.
+  manifest, and requires a marker file `.glaciate-target` in the target directory.
 - ZIP is built from the cache and downloaded through an authenticated, nonce-checked admin endpoint (streamed). There's no public URL for it.
 - **Target settings.** A deployer that implements `ConfigurableDeployerInterface` declares `fields()` (text, secret, bool,
-  select; required, pattern, default, `restricted`). `TargetConfig` resolves each field from a `STILLPRESS_<TARGET>_<FIELD>`
+  select; required, pattern, default, `restricted`). `TargetConfig` resolves each field from a `GLACIATE_<TARGET>_<FIELD>`
   constant, then the environment, then the `targets` entry of the settings (secret fields: `Secrets`), then the default.
   Every write goes through the field's validation, including direct `Settings::update()` calls. `restricted` fields (hosts,
   endpoints) follow the filesystem-path rule: super admins only on multisite. `check_connection()` makes one cheap live
-  request. CLI: `wp stillpress target list|show|set|check`.
+  request. CLI: `wp glaciate target list|show|set|check`.
 - **Resumable deploys.** A deployer that implements `ResumableDeployerInterface` gets the slice deadline and may return with
   `done = false`; the runner keeps the build in `deploying`, adds up the counts in `deploy_progress`, and calls it again in the
   next slice. Progress lives in the deployer's own `target_files` records, so nothing is sent twice.
@@ -170,12 +170,12 @@ server) serve these files as `text/html`, which feed readers handle (D19).
   a distribution ID, the public paths of changed and deleted files (plus the folder of each `index.html`) are invalidated once
   the deploy finishes; more than 300 paths become a single `/*`. Custom endpoints (R2, MinIO, B2) are HTTPS only, and buckets
   with dots use path-style addressing because their virtual-host names don't match S3's certificate.
-- **SFTP** (phpseclib 3 under `Stillpress\Vendor\`, D14, D29) mirrors the build into a remote folder over one SSH
+- **SFTP** (phpseclib 3 under `Glaciate\Vendor\`, D14, D29) mirrors the build into a remote folder over one SSH
   connection per slice. The host key is pinned by its SHA-256 fingerprint and compared with `hash_equals` before login;
   there is no trust on first use, and
   `target check` shows the presented fingerprint while none is set. Login takes a private key (OpenSSH or PEM, optional
   passphrase) or a password. The remote folder follows the local folder's rules: never the server's root, empty or marked
-  with `.stillpress-target`, and only recorded files are deleted (never recursively). Every SFTP request is a network round
+  with `.glaciate-target`, and only recorded files are deleted (never recursively). Every SFTP request is a network round
   trip, so the deployer keeps them few: a deploy with no changes doesn't connect; the marker is checked with one request
   (the folder is listed only on a first deploy); folders that held files last time are assumed to exist (recreated if
   someone removed them), and new ones take one `MKDIR`. A file that replaces a published version is uploaded under a
@@ -185,11 +185,11 @@ server) serve these files as `text/html`, which feed readers handle (D19).
   from the records. `CountingSftp` in the tests pins the request counts.
 - **Git** (D15) commits the build to one branch it owns and pushes over Git's smart-HTTP protocol with a token, in pure
   PHP (`Deploy\Git`: object IDs, trees, version-2 packs of whole objects, pkt-lines, receive-pack with report-status).
-  Each publish is one commit whose tree is the whole site plus `.stillpress-target` and `.nojekyll`, with the branch head as
+  Each publish is one commit whose tree is the whole site plus `.glaciate-target` and `.nojekyll`, with the branch head as
   parent, so pushes are fast-forwards and history is kept. A branch with commits from elsewhere is refused unless "Replace
   the branch's contents" is on. Only new and changed blobs are sent, located through `target_files` records of each file's
   SHA-256 and blob ID; when the branch head isn't the commit we last pushed, everything is sent again. Deploys over 16 MB
-  push their blobs in batches to `refs/heads/stillpress-upload-<key>` (one commit per batch, so the server keeps them),
+  push their blobs in batches to `refs/heads/glaciate-upload-<key>` (one commit per batch, so the server keeps them),
   then a final push moves the branch; the upload branch is deleted in a push of its own, so a server that refuses
   (it might be the default branch) only costs a warning. In an empty repository the real branch is created first,
   with a commit holding only the marker files, because hosts such as GitHub make the first branch pushed the default
@@ -207,7 +207,7 @@ server) serve these files as `text/html`, which feed readers handle (D19).
   a manifest of path → {hash, size} (hash: first 32 hex characters of SHA-256 over the base64 contents plus the extension,
   as in Cloudflare's example), multipart uploads of the buckets Cloudflare asks for, then a Worker upload with only a
   metadata part (`assets.jwt`, `html_handling: auto-trailing-slash`, `not_found_handling: 404-page`). A Worker of that name
-  that Stillpress didn't create is refused unless replacing is on. Unchanged sites make no calls; the one-hour upload
+  that Glaciate didn't create is refused unless replacing is on. Unchanged sites make no calls; the one-hour upload
   session and its remaining buckets are saved so a deploy resumes. Cloudflare Pages projects publish through the Git
   deployer instead (Pages builds from the branch).
 - **TLS for remote targets.** `RequestsTransport` verifies certificates against WordPress's CA bundle (or a bundle passed
@@ -225,7 +225,7 @@ Built in by default (D20); Pagefind is an optional backend where the host's buil
 - **Shards**: terms group by their first two characters; a group over the posting limit splits by one more character
   (`Search\ShardKeys`, pure). Finalizing rewrites only shards whose terms changed, plus `meta.json` (shard keys,
   document count, format version) and the document chunks (`id → path, title, excerpt`, grouped by URL row ID).
-  Everything lives under `stillpress-search/` in the output and deploys like any generated file. The writer runs at
+  Everything lives under `glaciate-search/` in the output and deploys like any generated file. The writer runs at
   the start of finalizing, a group at a time within the slice budget; a full build marks every group dirty once, which
   restores any file that went missing. The `search` setting (`builtin`, `pagefind_host` or `off`) decides whether pages are indexed;
   `off` removes the files and empties the tables. Changing it triggers a full rebuild, like any settings change.
@@ -238,12 +238,12 @@ Built in by default (D20); Pagefind is an optional backend where the host's buil
   scores are the stored term scores weighted by inverse document frequency. The stylesheet loads on first open.
 - **Pagefind** (D21, D39): `search = pagefind_host` publishes no index and leaves the bundle to the host's build step
   (`npx pagefind --site .`). The client loads `pagefind.js` and uses Pagefind's API with `baseUrl` set to the public
-  path. The 404 page and redirect pages carry `data-pagefind-ignore="all"` in every mode. Stillpress runs no program
+  path. The 404 page and redirect pages carry `data-pagefind-ignore="all"` in every mode. Glaciate runs no program
   itself: `PagefindBundle` only removes a `pagefind/` bundle that the server-run mode of 1.1.0 and earlier published,
   and a stored `pagefind` setting reads, and is saved once, as `builtin`.
 - **What is indexed**: `TextExtractor` reads the page with core's `WP_HTML_Tag_Processor`; nav, forms, scripts, media,
-  hidden and screen-reader-only elements, and `data-stillpress-search-ignore` are skipped. The
-  `stillpress_search_document` filter can change or drop (null) what a page contributes.
+  hidden and screen-reader-only elements, and `data-glaciate-search-ignore` are skipped. The
+  `glaciate_search_document` filter can change or drop (null) what a page contributes.
 
 ## Forms (static)
 Forms on the static copy post to a **receiver** (D22). The `forms` setting chooses where: `off` (default: forms are
@@ -252,72 +252,72 @@ from the internet at its own address) or `receiver` (a receiver run elsewhere, a
 - **Adapters** (`Forms\Adapter\*`) recognize a kind of form in rendered HTML and process its submissions in WordPress:
   Contact Form 7 (`cf7:<id>`, through `WPCF7_ContactForm::submit()`), WPForms (`wpforms:<id>`, through
   `WPForms_Process::process()`), Gravity Forms (`gravityforms:<id>`, through `GFAPI::submit_form()`), the comment form
-  (`comments`, through `wp_handle_comment_submission()`) and any form marked `data-stillpress-form="<name>"`
-  (`form:<name>`, emailed to `forms_email`). `stillpress_form_adapters` adds more. Each runs the plugin with `$_POST`,
+  (`comments`, through `wp_handle_comment_submission()`) and any form marked `data-glaciate-form="<name>"`
+  (`form:<name>`, emailed to `forms_email`). `glaciate_form_adapters` adds more. Each runs the plugin with `$_POST`,
   the visitor's IP address and User-Agent set from the submission and no logged-in user (`Adapter\Request`).
 - **Rewriting** (`Forms\FormMarkup`) runs in the processor right after URL rewriting, so a receiver on the origin keeps
-  its address. A recognized form gets the receiver as `action`, `method="post"`, `data-stillpress-form`, and four fields
-  inserted after its start tag: `stillpress_form` (key), `stillpress_page` (public page address), an empty
-  `stillpress_t` and the `stillpress_hp` honeypot. Per-render tokens that adapters declare (WPForms' render-time tokens)
+  its address. A recognized form gets the receiver as `action`, `method="post"`, `data-glaciate-form`, and four fields
+  inserted after its start tag: `glaciate_form` (key), `glaciate_page` (public page address), an empty
+  `glaciate_t` and the `glaciate_hp` honeypot. Per-render tokens that adapters declare (WPForms' render-time tokens)
   are removed, so the markup is identical from build to build.
 - **Client** (`assets/js/forms.js`, enqueued only on render requests while forms are on): captures `submit` on the
-  document before form plugins' own handlers, fills in `stillpress_t` (seconds the page was open), sends `FormData`
+  document before form plugins' own handlers, fills in `glaciate_t` (seconds the page was open), sends `FormData`
   with `fetch()` asking for JSON, and shows the answer as text in the form, with a note beside each rejected field.
   With a captcha set up it loads the provider's script on pages that have forms. Without JavaScript the form posts
   normally and the receiver answers with a short HTML page (or a 303 to a plugin's confirmation page).
 - **Shared rules** (`Forms\Protocol`): at most 100 fields, 200-byte names, 20,000-byte values, 100,000 bytes in all; a
-  valid form key; an empty honeypot; and, when present, `stillpress_t` of at least 3 seconds. The standalone receivers
+  valid form key; an empty honeypot; and, when present, `glaciate_t` of at least 3 seconds. The standalone receivers
   repeat these rules, and all implementations are tested against `tests/fixtures/forms-cases.json`.
-- **WordPress receiver** (`Forms\Receiver`, routes in `Forms\Endpoint`): `POST stillpress/v1/forms/submit` (site mode)
+- **WordPress receiver** (`Forms\Receiver`, routes in `Forms\Endpoint`): `POST glaciate/v1/forms/submit` (site mode)
   checks the `Origin` header against the public site, the shared rules, the captcha (Turnstile or hCaptcha, opt-in)
-  and a rate limit (5 per 10 minutes per IP, `stillpress_form_rate_limit`), then calls the adapter. `POST
-  stillpress/v1/forms/relay` accepts a submission another receiver forwarded: JSON `{v, form, page, fields: [[name,
-  value], …], ip, user_agent}` signed with the forms secret (`X-Stillpress-Signature: t=<time>,v1=<HMAC-SHA256 of
+  and a rate limit (5 per 10 minutes per IP, `glaciate_form_rate_limit`), then calls the adapter. `POST
+  glaciate/v1/forms/relay` accepts a submission another receiver forwarded: JSON `{v, form, page, fields: [[name,
+  value], …], ip, user_agent}` signed with the forms secret (`X-Glaciate-Signature: t=<time>,v1=<HMAC-SHA256 of
   "<time>.<body>">`, five minutes either way, each signature accepted once). Accepted submissions fire
-  `stillpress_form_submitted` and, when `forms_webhook` and the secret are set, are sent on in the same signed format.
+  `glaciate_form_submitted` and, when `forms_webhook` and the secret are set, are sent on in the same signed format.
   Answers are `{ok, status: sent|invalid|spam|limited|error, message, errors, redirect}`; messages are plain text.
-- **Standalone receivers** (`receivers/`, written by `wp stillpress forms receiver`): a single PHP file for any PHP
+- **Standalone receivers** (`receivers/`, written by `wp glaciate forms receiver`): a single PHP file for any PHP
   host and a module for Cloudflare Workers or Netlify Functions. They apply the shared rules, an optional captcha and
   rate limit, and forward to the relay or any webhook (the PHP one can also email with `mail()`).
 
 ## Secrets
-`Security\Secrets` resolves `(deployer, field)` in this order: `STILLPRESS_<DEPLOYER>_<FIELD>` constant → environment variable of
-the same name → the `stillpress_secrets` option (autoload off), sealed by `Security\SecretBox` with sodium `secretbox`. Each slot's
+`Security\Secrets` resolves `(deployer, field)` in this order: `GLACIATE_<DEPLOYER>_<FIELD>` constant → environment variable of
+the same name → the `glaciate_secrets` option (autoload off), sealed by `Security\SecretBox` with sodium `secretbox`. Each slot's
 key is HKDF-SHA256 over `wp_salt('auth') . wp_salt('secure_auth')` with the site ID, deployer and field as context, so a
 ciphertext copied into another slot or site doesn't open. If the salts are rotated, stored secrets become unreadable;
 `source()` reports `unreadable` and Site Health names the fields to re-enter. Secret fields are write-only in forms and never
 appear in REST/CLI output, logs or exports. Every value `Secrets` returns is registered with the `Redactor`, which scrubs it
-from every log line. `wp stillpress secret list|set|delete` manages stored values; `set` reads from standard input or a hidden prompt.
+from every log line. `wp glaciate secret list|set|delete` manages stored values; `set` reads from standard input or a hidden prompt.
 
 ## WordPress-native UX
 - A top-level menu **Static Site**, with a *Publish* page (status, Publish / Full rebuild, history, log, and a changeset
   preview: the pending changes and the addresses the next publish rebuilds, from `Service\ChangesetService`, also at
-  `GET stillpress/v1/changes` and `wp stillpress changes preview`) and a
-  *Settings* page (Settings API; `option_page_capability_stillpress` lets `stillpress_manage` save it, not only `manage_options`).
+  `GET glaciate/v1/changes` and `wp glaciate changes preview`) and a
+  *Settings* page (Settings API; `option_page_capability_glaciate` lets `glaciate_manage` save it, not only `manage_options`).
   Every configurable deploy target gets a panel generated from its `fields()`; a script shows only the selected destination's
   panel (without JavaScript all panels show and the form still works). Fields merge one by one over the stored values, so
   disabled inputs and other targets keep theirs; an invalid value keeps the old one and adds a notice. Secret boxes are
   always empty: an empty box keeps the saved secret, "Remove the saved value" deletes it, and submitted secrets go straight
-  to `Secrets` (`stillpress_settings[secrets]` never reaches the option). Fields pinned by a constant or environment variable,
+  to `Secrets` (`glaciate_settings[secrets]` never reaches the option). Fields pinned by a constant or environment variable,
   and restricted fields for users who can't edit server paths, render disabled with a note. *Test connection* calls
-  `POST stillpress/v1/targets/<id>/check` (needs `stillpress_manage`), which runs `check_connection()` on the saved settings.
+  `POST glaciate/v1/targets/<id>/check` (needs `glaciate_manage`), which runs `check_connection()` on the saved settings.
 - Admin bar node: static status (up to date / N pending / building x%), refreshed through the Heartbeat API.
 - Editor integration: a pinned `PluginSidebar` header icon (beside Publish), a `PluginPostStatusInfo` row with status and a "Publish to static" button, and a `PluginPostPublishPanel`. Classic editor: `post_submitbox_misc_actions`. (The block editor has no SlotFill directly next to the Publish button.) REST through `apiFetch` with the `wp_rest` nonce.
-- Site Health tests (the same list `wp stillpress doctor` runs, `HealthChecks::DIRECT` plus the loopback): loopback
+- Site Health tests (the same list `wp glaciate doctor` runs, `HealthChecks::DIRECT` plus the loopback): loopback
   reachable, recorder header present (page-cache bypass), pretty permalinks, cache and target writable, queue running,
   stored secrets readable, search and forms set up, `zip`/`curl` extensions (curl is required when a connect-to
   address is set), and origin/public URL sanity (a public address visitors can't reach, an https site published over
   http, a WordPress address on another host that isn't an alias).
-- Capabilities: primitive caps `stillpress_manage` (settings, targets) and `stillpress_publish` (build/deploy). They're added to
+- Capabilities: primitive caps `glaciate_manage` (settings, targets) and `glaciate_publish` (build/deploy). They're added to
   administrator (both) and editor (publish) once per site: on activation, or on the first request if activation never
-  ran (the plugin was activated before `composer install`). They're removed on uninstall. Meta cap `stillpress_publish_post` is mapped in
-  `map_meta_cap` to `stillpress_publish` + `edit_post`. In multisite, filesystem paths are set **only by a super admin or a constant**.
-- Activation defaults: target = Local directory at `wp-content/stillpress/public/<site>/`, public URL = current home URL. The one
+  ran (the plugin was activated before `composer install`). They're removed on uninstall. Meta cap `glaciate_publish_post` is mapped in
+  `map_meta_cap` to `glaciate_publish` + `edit_post`. In multisite, filesystem paths are set **only by a super admin or a constant**.
+- Activation defaults: target = Local directory at `wp-content/glaciate/public/<site>/`, public URL = current home URL. The one
   onboarding choice: *where to deploy*.
-- WP-CLI: `wp stillpress build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--out]`,
+- WP-CLI: `wp glaciate build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--out]`,
   `urls list|add|remove`, `why <url>` (shows recorded deps), `changes list|preview|flush`, `settings get|set|list`, `secret list|set|delete`,
   `forms status|receiver`, `doctor` (Site Health checks), `clean`.
-- Extension API: every pipeline stage has actions/filters (`stillpress_exclude_patterns`, `stillpress_exclude_render`,
-  `stillpress_output`, `stillpress_output_path`, `stillpress_affected_url_ids`, `stillpress_manifest`,
-  `stillpress_register_deployers`, `stillpress_build_finished`, …). They're documented in `docs/HOOKS.md`, and a test fails if any `do_action`/`apply_filters` lacks a docblock.
+- Extension API: every pipeline stage has actions/filters (`glaciate_exclude_patterns`, `glaciate_exclude_render`,
+  `glaciate_output`, `glaciate_output_path`, `glaciate_affected_url_ids`, `glaciate_manifest`,
+  `glaciate_register_deployers`, `glaciate_build_finished`, …). They're documented in `docs/HOOKS.md`, and a test fails if any `do_action`/`apply_filters` lacks a docblock.
 

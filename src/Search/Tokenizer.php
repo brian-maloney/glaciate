@@ -2,10 +2,10 @@
 /**
  * Cuts text into search terms.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Search;
+namespace Glaciate\Search;
 
 /**
  * Turns text into the terms the search index stores. Pure: no WordPress calls.

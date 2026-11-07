@@ -2,10 +2,10 @@
 /**
  * Minimal Amazon S3 API client.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy\Aws;
+namespace Glaciate\Deploy\Aws;
 
 /**
  * Builds signed S3 requests and reads S3's XML answers. Only the calls a static-site deploy needs: HeadBucket,

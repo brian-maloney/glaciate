@@ -3,18 +3,18 @@
  * Multisite behavior (threat T13).
  *
  * @group ms-required
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Multisite;
+namespace Glaciate\Tests\Integration\Multisite;
 
-use Stillpress\Admin\SettingsPage;
-use Stillpress\Plugin;
-use Stillpress\Security\Capabilities;
-use Stillpress\Storage\Schema;
-use Stillpress\Storage\UrlRepository;
-use Stillpress\Support\Paths;
-use Stillpress\Support\Settings;
+use Glaciate\Admin\SettingsPage;
+use Glaciate\Plugin;
+use Glaciate\Security\Capabilities;
+use Glaciate\Storage\Schema;
+use Glaciate\Storage\UrlRepository;
+use Glaciate\Support\Paths;
+use Glaciate\Support\Settings;
 
 /**
  * @group ms-required
@@ -43,43 +43,43 @@ final class MultisiteTest extends \WP_UnitTestCase {
 	}
 
 	public function test_secret_copied_to_another_site_does_not_open(): void {
-		\Stillpress\Security\Secrets::set( 'sftp', 'password', 'site-one-password' );
-		$sealed = get_option( \Stillpress\Security\Secrets::OPTION );
+		\Glaciate\Security\Secrets::set( 'sftp', 'password', 'site-one-password' );
+		$sealed = get_option( \Glaciate\Security\Secrets::OPTION );
 		$site   = self::factory()->blog->create();
 		switch_to_blog( $site );
-		$this->assertNull( \Stillpress\Security\Secrets::get( 'sftp', 'password' ), 'Each site has its own secrets.' );
-		update_option( \Stillpress\Security\Secrets::OPTION, $sealed, false );
-		$this->assertNull( \Stillpress\Security\Secrets::get( 'sftp', 'password' ), 'A copied ciphertext is bound to its site.' );
+		$this->assertNull( \Glaciate\Security\Secrets::get( 'sftp', 'password' ), 'Each site has its own secrets.' );
+		update_option( \Glaciate\Security\Secrets::OPTION, $sealed, false );
+		$this->assertNull( \Glaciate\Security\Secrets::get( 'sftp', 'password' ), 'A copied ciphertext is bound to its site.' );
 		restore_current_blog();
-		$this->assertSame( 'site-one-password', \Stillpress\Security\Secrets::get( 'sftp', 'password' ) );
+		$this->assertSame( 'site-one-password', \Glaciate\Security\Secrets::get( 'sftp', 'password' ) );
 	}
 
 	public function test_site_admins_cannot_point_deploys_at_hosts(): void {
 		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		get_userdata( $admin )->add_cap( Capabilities::MANAGE );
 		wp_set_current_user( $admin );
-		$sftp = new \Stillpress\Deploy\Sftp();
+		$sftp = new \Glaciate\Deploy\Sftp();
 		foreach ( array(
 			'host'        => 'internal.example',
 			'remote_path' => '/srv/other-site',
 		) as $field => $value ) {
 			try {
-				\Stillpress\Deploy\TargetConfig::set( $sftp, $field, $value );
+				\Glaciate\Deploy\TargetConfig::set( $sftp, $field, $value );
 				$this->fail( "A site admin set {$field}." );
 			} catch ( \InvalidArgumentException $e ) {
-				$this->assertSame( '', \Stillpress\Deploy\TargetConfig::value( $sftp, $field ) );
+				$this->assertSame( '', \Glaciate\Deploy\TargetConfig::value( $sftp, $field ) );
 			}
 		}
-		\Stillpress\Deploy\TargetConfig::set( $sftp, 'username', 'deploy' );
-		$this->assertSame( 'deploy', \Stillpress\Deploy\TargetConfig::value( $sftp, 'username' ), 'Unrestricted fields stay editable.' );
+		\Glaciate\Deploy\TargetConfig::set( $sftp, 'username', 'deploy' );
+		$this->assertSame( 'deploy', \Glaciate\Deploy\TargetConfig::value( $sftp, 'username' ), 'Unrestricted fields stay editable.' );
 	}
 
 	public function test_site_admin_form_cannot_move_restricted_target_fields(): void {
 		$super = self::factory()->user->create();
 		grant_super_admin( $super );
 		wp_set_current_user( $super );
-		$sftp = \Stillpress\Deploy\Registry::instance()->get( 'sftp' );
-		\Stillpress\Deploy\TargetConfig::set( $sftp, 'host', 'deploy.example.org' );
+		$sftp = \Glaciate\Deploy\Registry::instance()->get( 'sftp' );
+		\Glaciate\Deploy\TargetConfig::set( $sftp, 'host', 'deploy.example.org' );
 
 		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		get_userdata( $admin )->add_cap( Capabilities::MANAGE );
@@ -95,13 +95,13 @@ final class MultisiteTest extends \WP_UnitTestCase {
 		);
 		update_option( Settings::OPTION, SettingsPage::sanitize( $input ) );
 		unset( $_POST['option_page'] );
-		$this->assertSame( 'deploy.example.org', \Stillpress\Deploy\TargetConfig::value( $sftp, 'host' ) );
-		$this->assertSame( 'deploy', \Stillpress\Deploy\TargetConfig::value( $sftp, 'username' ) );
+		$this->assertSame( 'deploy.example.org', \Glaciate\Deploy\TargetConfig::value( $sftp, 'host' ) );
+		$this->assertSame( 'deploy', \Glaciate\Deploy\TargetConfig::value( $sftp, 'username' ) );
 
 		ob_start();
 		SettingsPage::field_target_panel( array( 'deployer' => $sftp ) );
 		$html = (string) ob_get_clean();
-		$this->assertMatchesRegularExpression( '#id="stillpress-target-sftp-host"[^>]*disabled#', $html );
+		$this->assertMatchesRegularExpression( '#id="glaciate-target-sftp-host"[^>]*disabled#', $html );
 		$this->assertStringContainsString( 'Only a network administrator can change this.', $html );
 	}
 

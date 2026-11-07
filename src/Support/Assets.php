@@ -2,10 +2,10 @@
 /**
  * Version strings for the plugin's scripts and stylesheets.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Support;
+namespace Glaciate\Support;
 
 /**
  * Gives each asset the plugin version as its cache-busting `ver`. Development builds (a version ending in "-dev")
@@ -21,7 +21,7 @@ final class Assets {
 	 * @return string
 	 */
 	public static function url( string $relative ): string {
-		return plugins_url( $relative, STILLPRESS_FILE );
+		return plugins_url( $relative, GLACIATE_FILE );
 	}
 
 	/**
@@ -32,12 +32,12 @@ final class Assets {
 	 */
 	public static function version( string $relative ): string {
 		$mtime = null;
-		if ( self::is_dev( STILLPRESS_VERSION ) ) {
-			$file  = dirname( STILLPRESS_FILE ) . '/' . ltrim( $relative, '/' );
+		if ( self::is_dev( GLACIATE_VERSION ) ) {
+			$file  = dirname( GLACIATE_FILE ) . '/' . ltrim( $relative, '/' );
 			$time  = is_file( $file ) ? filemtime( $file ) : false;
 			$mtime = false === $time ? null : $time;
 		}
-		return self::compose( STILLPRESS_VERSION, $mtime );
+		return self::compose( GLACIATE_VERSION, $mtime );
 	}
 
 	/**

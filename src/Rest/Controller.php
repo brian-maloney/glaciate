@@ -2,22 +2,22 @@
 /**
  * REST API.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Rest;
+namespace Glaciate\Rest;
 
-use Stillpress\Build\BuildService;
-use Stillpress\Plugin;
-use Stillpress\Security\Capabilities;
-use Stillpress\Service\ChangesetService;
-use Stillpress\Service\HealthChecks;
-use Stillpress\Service\StatusService;
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Support\Logger;
+use Glaciate\Build\BuildService;
+use Glaciate\Plugin;
+use Glaciate\Security\Capabilities;
+use Glaciate\Service\ChangesetService;
+use Glaciate\Service\HealthChecks;
+use Glaciate\Service\StatusService;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Support\Logger;
 
 /**
- * Routes under stillpress/v1. Every route checks capabilities in its permission callback; the REST API's cookie
+ * Routes under glaciate/v1. Every route checks capabilities in its permission callback; the REST API's cookie
  * authentication supplies the nonce check for browser requests.
  *
  *     GET  /status                 Site status.
@@ -32,7 +32,7 @@ use Stillpress\Support\Logger;
  */
 final class Controller {
 
-	const NAMESPACE = 'stillpress/v1';
+	const NAMESPACE = 'glaciate/v1';
 
 	/**
 	 * Registers routes.
@@ -213,7 +213,7 @@ final class Controller {
 	 * @return \WP_REST_Response
 	 */
 	public function start( \WP_REST_Request $request ): \WP_REST_Response {
-		$kind = 'full' === $request['kind'] || ! get_option( 'stillpress_published_once' ) ? 'full' : 'incremental';
+		$kind = 'full' === $request['kind'] || ! get_option( 'glaciate_published_once' ) ? 'full' : 'incremental';
 		$id   = ( new BuildService() )->start( $kind, 'manual', get_current_user_id(), true );
 		return rest_ensure_response(
 			array(
@@ -261,13 +261,13 @@ final class Controller {
 	public function publish_post( \WP_REST_Request $request ) {
 		$post = get_post( (int) $request['id'] );
 		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) {
-			return new \WP_Error( 'stillpress_not_published', __( 'Publish the post first; only published content goes to the static site.', 'stillpress' ), array( 'status' => 400 ) );
+			return new \WP_Error( 'glaciate_not_published', __( 'Publish the post first; only published content goes to the static site.', 'glaciate' ), array( 'status' => 400 ) );
 		}
 		$listener = Plugin::instance()->changes();
 		if ( null !== $listener ) {
 			$listener->flush();
 		}
-		$kind = get_option( 'stillpress_published_once' ) ? 'incremental' : 'full';
+		$kind = get_option( 'glaciate_published_once' ) ? 'incremental' : 'full';
 		$id   = ( new BuildService() )->start( $kind, 'manual', get_current_user_id(), true, array( 'urls' => array( (string) get_permalink( $post ) ) ) );
 		return rest_ensure_response(
 			array(
@@ -283,7 +283,7 @@ final class Controller {
 	 * @return \WP_REST_Response
 	 */
 	public function health_loopback(): \WP_REST_Response {
-		return rest_ensure_response( \Stillpress\Admin\SiteHealth::format( 'stillpress_loopback', ( new HealthChecks() )->loopback() ) );
+		return rest_ensure_response( \Glaciate\Admin\SiteHealth::format( 'glaciate_loopback', ( new HealthChecks() )->loopback() ) );
 	}
 
 	/**
@@ -294,15 +294,15 @@ final class Controller {
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public function check_target( \WP_REST_Request $request ) {
-		$deployer = \Stillpress\Deploy\Registry::instance()->get( (string) $request['id'] );
+		$deployer = \Glaciate\Deploy\Registry::instance()->get( (string) $request['id'] );
 		if ( null === $deployer ) {
-			return new \WP_Error( 'stillpress_unknown_target', __( 'Unknown deploy target.', 'stillpress' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'glaciate_unknown_target', __( 'Unknown deploy target.', 'glaciate' ), array( 'status' => 404 ) );
 		}
-		$problem = $deployer instanceof \Stillpress\Deploy\ConfigurableDeployerInterface ? $deployer->check_connection() : $deployer->problem();
+		$problem = $deployer instanceof \Glaciate\Deploy\ConfigurableDeployerInterface ? $deployer->check_connection() : $deployer->problem();
 		return rest_ensure_response(
 			array(
 				'ok'      => null === $problem,
-				'message' => null === $problem ? __( 'Connected. Ready to publish here.', 'stillpress' ) : \Stillpress\Security\Redactor::scrub( $problem ),
+				'message' => null === $problem ? __( 'Connected. Ready to publish here.', 'glaciate' ) : \Glaciate\Security\Redactor::scrub( $problem ),
 			)
 		);
 	}

@@ -4,12 +4,12 @@
  *
  * Deployed static sites are never touched: they belong to the site owner now.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 if ( is_readable( __DIR__ . '/vendor/autoload.php' ) ) {
 	require_once __DIR__ . '/vendor/autoload.php';
-	\Stillpress\Uninstaller::run();
+	\Glaciate\Uninstaller::run();
 }

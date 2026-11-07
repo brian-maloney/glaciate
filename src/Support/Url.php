@@ -2,10 +2,10 @@
 /**
  * URL parsing and resolution helpers.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Support;
+namespace Glaciate\Support;
 
 /**
  * Pure functions for working with URLs (RFC 3986). No WordPress calls.

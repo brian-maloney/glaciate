@@ -2,12 +2,12 @@
 /**
  * Starting points for a full crawl.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Crawl;
+namespace Glaciate\Crawl;
 
-use Stillpress\Support\Settings;
+use Glaciate\Support\Settings;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Paged ID scans over core tables; caching would only waste memory.
 
@@ -21,7 +21,7 @@ final class Seeds {
 	const STAGES = array( 'core', 'posts', 'terms', 'authors', 'paged', 'done' );
 
 	/** Path probed to render the 404 page. */
-	const NOT_FOUND_PROBE = '/stillpress-404-probe-9f3c1e/';
+	const NOT_FOUND_PROBE = '/glaciate-404-probe-9f3c1e/';
 
 	/**
 	 * Returns the next batch of seeds.

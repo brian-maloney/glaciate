@@ -6,20 +6,20 @@
 
 	$( document )
 		.on( 'heartbeat-send', function ( event, data ) {
-			data.stillpress = 1;
+			data.glaciate = 1;
 		} )
 		.on( 'heartbeat-tick', function ( event, data ) {
-			if ( ! data.stillpress ) {
+			if ( ! data.glaciate ) {
 				return;
 			}
-			const node = document.getElementById( 'wp-admin-bar-stillpress' );
+			const node = document.getElementById( 'wp-admin-bar-glaciate' );
 			if ( ! node ) {
 				return;
 			}
-			node.className = node.className.replace( /stillpress-ab-[a-z-]+/, 'stillpress-ab-' + data.stillpress.state );
+			node.className = node.className.replace( /glaciate-ab-[a-z-]+/, 'glaciate-ab-' + data.glaciate.state );
 			const label = node.querySelector( '.ab-label' );
 			if ( label ) {
-				label.textContent = data.stillpress.label;
+				label.textContent = data.glaciate.label;
 			}
 		} );
 } )( window.jQuery );

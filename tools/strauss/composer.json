@@ -1,5 +1,5 @@
 {
-	"name": "brian-maloney/stillpress-strauss",
+	"name": "brian-maloney/glaciate-strauss",
 	"description": "Build-time tool that prefixes bundled libraries' namespaces (DECISIONS.md D29). Never shipped.",
 	"license": "GPL-2.0-or-later",
 	"require": {

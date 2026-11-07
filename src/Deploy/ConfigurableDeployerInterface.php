@@ -2,14 +2,14 @@
 /**
  * Contract for deployers with their own settings.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
 /**
  * A deployer that needs settings of its own (a bucket, a host, credentials). TargetConfig stores, validates and
- * resolves the values; the settings screen and `wp stillpress target` are generated from fields().
+ * resolves the values; the settings screen and `wp glaciate target` are generated from fields().
  *
  * Each field is an array with these keys (all but label optional):
  *
@@ -25,7 +25,7 @@ namespace Stillpress\Deploy;
  *                 change them (threat T13), like the local folder path.
  *
  * Field names use lowercase letters, digits and underscores. Every field can also be set with a constant or
- * environment variable named `STILLPRESS_<DEPLOYER>_<FIELD>` (see Secrets::name()).
+ * environment variable named `GLACIATE_<DEPLOYER>_<FIELD>` (see Secrets::name()).
  */
 interface ConfigurableDeployerInterface extends DeployerInterface {
 

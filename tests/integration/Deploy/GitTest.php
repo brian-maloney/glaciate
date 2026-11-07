@@ -4,19 +4,19 @@
  *
  * Start it with `npm run git:start`; these tests skip themselves when git.test isn't reachable.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deploy;
+namespace Glaciate\Tests\Integration\Deploy;
 
-use Stillpress\Deploy\Aws\RequestsTransport;
-use Stillpress\Deploy\Aws\Transport;
-use Stillpress\Deploy\Git;
-use Stillpress\Deploy\Git\RemoteClient;
-use Stillpress\Deploy\TargetConfig;
-use Stillpress\Security\Redactor;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Logger;
+use Glaciate\Deploy\Aws\RequestsTransport;
+use Glaciate\Deploy\Aws\Transport;
+use Glaciate\Deploy\Git;
+use Glaciate\Deploy\Git\RemoteClient;
+use Glaciate\Deploy\TargetConfig;
+use Glaciate\Security\Redactor;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Logger;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Test fixtures.
 
@@ -62,7 +62,7 @@ final class GitTest extends \WP_UnitTestCase {
 		file_put_contents( $this->cache . '/_redirects', '/old /new 301' );
 
 		// The repository address is a restricted field: an administrator sets it.
-		\Stillpress\Security\Capabilities::grant_defaults();
+		\Glaciate\Security\Capabilities::grant_defaults();
 		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		if ( is_multisite() ) {
 			grant_super_admin( $admin );
@@ -74,7 +74,7 @@ final class GitTest extends \WP_UnitTestCase {
 
 	public function tear_down(): void {
 		if ( $this->cache ) {
-			\Stillpress\Tests\Support\Fs::rmrf( $this->cache );
+			\Glaciate\Tests\Support\Fs::rmrf( $this->cache );
 		}
 		Redactor::reset();
 		parent::tear_down();
@@ -158,7 +158,7 @@ final class GitTest extends \WP_UnitTestCase {
 		return $out;
 	}
 
-	private function deploy( ?Git $deployer = null ): \Stillpress\Deploy\DeployResult {
+	private function deploy( ?Git $deployer = null ): \Glaciate\Deploy\DeployResult {
 		return ( $deployer ?? $this->deployer )->deploy( $this->manifest(), $this->cache, new Logger() );
 	}
 
@@ -167,7 +167,7 @@ final class GitTest extends \WP_UnitTestCase {
 		$result = $this->deploy();
 		$this->assertTrue( $result->done );
 		$this->assertSame( 3, $result->added );
-		$this->assertSame( array( '.nojekyll', '.stillpress-target', '_redirects', 'about/index.html', 'index.html' ), $this->tree() );
+		$this->assertSame( array( '.glaciate-target', '.nojekyll', '_redirects', 'about/index.html', 'index.html' ), $this->tree() );
 		$this->assertSame(
 			'about v1',
 			$this->inspect(
@@ -180,7 +180,7 @@ final class GitTest extends \WP_UnitTestCase {
 		);
 		$log = $this->log();
 		$this->assertCount( 1, $log );
-		$this->assertStringContainsString( '|Stillpress <stillpress@invalid>|Publish static site', $log[0] );
+		$this->assertStringContainsString( '|Glaciate <glaciate@invalid>|Publish static site', $log[0] );
 		$this->assertStringContainsString( 'exit=0', $this->inspect( 'fsck', array() ) );
 	}
 
@@ -197,7 +197,7 @@ final class GitTest extends \WP_UnitTestCase {
 		$result = $this->deploy();
 		$this->assertSame( 1, $result->modified );
 		$this->assertSame( 1, $result->deleted );
-		$this->assertSame( array( '.nojekyll', '.stillpress-target', '_redirects', 'index.html' ), $this->tree() );
+		$this->assertSame( array( '.glaciate-target', '.nojekyll', '_redirects', 'index.html' ), $this->tree() );
 		$this->assertSame(
 			'home v2',
 			$this->inspect(
@@ -232,7 +232,7 @@ final class GitTest extends \WP_UnitTestCase {
 		$this->assertNotContains( 'README.md', $this->tree( $theirs ) );
 		$log = $this->log( $theirs );
 		$this->assertCount( 2, $log, 'History is kept: our commit sits on top of theirs.' );
-		$this->assertStringContainsString( 'Not made by Stillpress', $log[1] );
+		$this->assertStringContainsString( 'Not made by Glaciate', $log[1] );
 	}
 
 	public function test_deleted_branch_is_published_again_in_full(): void {
@@ -256,15 +256,15 @@ final class GitTest extends \WP_UnitTestCase {
 		$deployer    = $this->deployer;
 		$this->after = static function ( $request ) use ( $deployer ) {
 			// Stop after the first upload batch (the push that names the temporary branch).
-			if ( 'POST' === $request['method'] && false !== strpos( $request['body'], 'refs/heads/stillpress-upload-' ) ) {
+			if ( 'POST' === $request['method'] && false !== strpos( $request['body'], 'refs/heads/glaciate-upload-' ) ) {
 				$deployer->set_deadline( microtime( true ) - 1 );
 			}
 		};
 		$result      = $this->deploy();
 		$this->assertFalse( $result->done );
 		$this->assertCount( 2, $this->pushes, 'The branch is created first (the repository was empty), then one batch.' );
-		$this->assertStringContainsString( 'refs/heads/stillpress-upload-', $this->inspect( 'refs', array() ) );
-		$this->assertSame( array( '.nojekyll', '.stillpress-target' ), $this->tree(), 'Only the marker files are on the branch so far.' );
+		$this->assertStringContainsString( 'refs/heads/glaciate-upload-', $this->inspect( 'refs', array() ) );
+		$this->assertSame( array( '.glaciate-target', '.nojekyll' ), $this->tree(), 'Only the marker files are on the branch so far.' );
 
 		$this->after  = null;
 		$this->pushes = array();
@@ -276,7 +276,7 @@ final class GitTest extends \WP_UnitTestCase {
 		$this->assertLessThan( 16 * 1048576, $this->pushes[0], 'Blobs from the first batch are not sent again.' );
 		$refs = $this->inspect( 'refs', array() );
 		$this->assertStringContainsString( 'refs/heads/gh-pages', $refs );
-		$this->assertStringNotContainsString( 'stillpress-upload-', $refs, 'The temporary branch is deleted.' );
+		$this->assertStringNotContainsString( 'glaciate-upload-', $refs, 'The temporary branch is deleted.' );
 		$this->assertContains( 'big3.bin', $this->tree() );
 		$this->assertCount( 2, $this->log(), 'The preparing commit, then the site.' );
 		$this->assertStringContainsString( 'exit=0', $this->inspect( 'fsck', array() ) );
@@ -291,7 +291,7 @@ final class GitTest extends \WP_UnitTestCase {
 		}
 		$this->assertTrue( $this->deploy()->done );
 		$this->assertSame( 'refs/heads/gh-pages', trim( $this->inspect( 'head', array() ) ) );
-		$this->assertStringNotContainsString( 'stillpress-upload-', $this->inspect( 'refs', array() ) );
+		$this->assertStringNotContainsString( 'glaciate-upload-', $this->inspect( 'refs', array() ) );
 	}
 
 	public function test_temporary_branch_the_server_keeps_only_warns(): void {
@@ -302,12 +302,12 @@ final class GitTest extends \WP_UnitTestCase {
 		$this->inspect( 'create', array() );
 		$deployer    = $this->deployer;
 		$this->after = static function ( $request ) use ( $deployer ) {
-			if ( 'POST' === $request['method'] && false !== strpos( $request['body'], 'refs/heads/stillpress-upload-' ) ) {
+			if ( 'POST' === $request['method'] && false !== strpos( $request['body'], 'refs/heads/glaciate-upload-' ) ) {
 				$deployer->set_deadline( microtime( true ) - 1 );
 			}
 		};
 		$this->deploy();
-		preg_match( '#refs/heads/(stillpress-upload-[0-9a-f]+)#', $this->inspect( 'refs', array() ), $m );
+		preg_match( '#refs/heads/(glaciate-upload-[0-9a-f]+)#', $this->inspect( 'refs', array() ), $m );
 		$this->assertSame( 'set', trim( $this->inspect( 'sethead', array( 'ref' => $m[1] ) ) ) );
 
 		$this->after = null;
@@ -381,7 +381,7 @@ final class GitTest extends \WP_UnitTestCase {
 			'lock suffix'      => array( 'site.lock', false ),
 			'hidden component' => array( 'a/.b', false ),
 			'trailing slash'   => array( 'a/', false ),
-			'our upload name'  => array( 'stillpress-upload-1234', false ),
+			'our upload name'  => array( 'glaciate-upload-1234', false ),
 		);
 	}
 

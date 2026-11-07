@@ -2,13 +2,13 @@
 /**
  * Secret scrubbing (threat T10).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Security;
+namespace Glaciate\Tests\Unit\Security;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Security\Redactor;
+use Glaciate\Security\Redactor;
 
 final class RedactorTest extends TestCase {
 

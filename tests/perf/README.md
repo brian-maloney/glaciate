@@ -10,7 +10,7 @@ npm run perf -- bench incremental
 npm run perf -- bench rebuild  # a full build over the site as it is published now (run after bench)
 ```
 
-`STILLPRESS_PERF_CONCURRENCY` sets the render concurrency (default 8).
+`GLACIATE_PERF_CONCURRENCY` sets the render concurrency (default 8).
 
 The site uses a one-file theme (`theme/`) that renders like a plain blog: posts with their categories, tags, author and
 neighbours, and paginated home, term and author archives, 10 posts a page. Posts are inserted with SQL, so seeding

@@ -2,10 +2,10 @@
 /**
  * The answer to a form submission.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
 /**
  * What the visitor is told. Messages are plain text: plugins' messages can contain HTML written for their own pages,
@@ -175,15 +175,15 @@ final class Result {
 	public static function default_message( string $status ): string {
 		switch ( $status ) {
 			case self::SENT:
-				return __( 'Thank you. Your message was sent.', 'stillpress' );
+				return __( 'Thank you. Your message was sent.', 'glaciate' );
 			case self::INVALID:
-				return __( 'Please check the fields marked below.', 'stillpress' );
+				return __( 'Please check the fields marked below.', 'glaciate' );
 			case self::LIMITED:
-				return __( 'Too many messages were sent from your connection. Please try again later.', 'stillpress' );
+				return __( 'Too many messages were sent from your connection. Please try again later.', 'glaciate' );
 			case self::SPAM:
-				return __( 'Your message couldn’t be sent.', 'stillpress' );
+				return __( 'Your message couldn’t be sent.', 'glaciate' );
 			default:
-				return __( 'Your message couldn’t be sent. Please try again later.', 'stillpress' );
+				return __( 'Your message couldn’t be sent. Please try again later.', 'glaciate' );
 		}
 	}
 }

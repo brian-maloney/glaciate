@@ -1,20 +1,20 @@
 <?php
 /**
- * Environment checks shared by Site Health and `wp stillpress doctor`.
+ * Environment checks shared by Site Health and `wp glaciate doctor`.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Service;
+namespace Glaciate\Service;
 
-use Stillpress\Build\Pipeline;
-use Stillpress\Build\Queue;
-use Stillpress\Deploy\Registry;
-use Stillpress\Render\LoopbackClient;
-use Stillpress\Security\Secrets;
-use Stillpress\Storage\Schema;
-use Stillpress\Support\Paths;
-use Stillpress\Support\Settings;
+use Glaciate\Build\Pipeline;
+use Glaciate\Build\Queue;
+use Glaciate\Deploy\Registry;
+use Glaciate\Render\LoopbackClient;
+use Glaciate\Security\Secrets;
+use Glaciate\Storage\Schema;
+use Glaciate\Support\Paths;
+use Glaciate\Support\Settings;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Reads our own tables and Action Scheduler's for diagnostics.
 
@@ -58,15 +58,15 @@ final class HealthChecks {
 		if ( '' === (string) get_option( 'permalink_structure' ) ) {
 			return array(
 				'status'      => 'critical',
-				'label'       => __( 'Static publishing needs pretty permalinks', 'stillpress' ),
-				'description' => __( 'Plain addresses like ?p=123 can\'t be served by a static host. Choose any other structure under Settings → Permalinks.', 'stillpress' ),
+				'label'       => __( 'Static publishing needs pretty permalinks', 'glaciate' ),
+				'description' => __( 'Plain addresses like ?p=123 can\'t be served by a static host. Choose any other structure under Settings → Permalinks.', 'glaciate' ),
 				'action'      => admin_url( 'options-permalink.php' ),
 			);
 		}
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'Permalinks work for static publishing', 'stillpress' ),
-			'description' => __( 'Every page has an address a static host can serve.', 'stillpress' ),
+			'label'       => __( 'Permalinks work for static publishing', 'glaciate' ),
+			'description' => __( 'Every page has an address a static host can serve.', 'glaciate' ),
 		);
 	}
 
@@ -86,20 +86,20 @@ final class HealthChecks {
 		$aliases   = array_map( 'strtolower', (array) ( $settings['origin_aliases'] ?? array() ) );
 		$problems  = array();
 
-		if ( \Stillpress\Support\Url::is_private_host( (string) ( $public['host'] ?? '' ) ) ) {
+		if ( \Glaciate\Support\Url::is_private_host( (string) ( $public['host'] ?? '' ) ) ) {
 			$problems[] = '' === (string) $settings['public_url']
 				/* translators: %s: host name, such as "localhost:8888". */
-				? sprintf( __( 'No public address is set, so the static site links to this site\'s own address, %s, which visitors can\'t reach. Enter the address the static site will be served from.', 'stillpress' ), $authority( $public ) )
+				? sprintf( __( 'No public address is set, so the static site links to this site\'s own address, %s, which visitors can\'t reach. Enter the address the static site will be served from.', 'glaciate' ), $authority( $public ) )
 				/* translators: %s: host name, such as "localhost:8888". */
-				: sprintf( __( 'The public address points at %s, which visitors can\'t reach. Links on the static site would lead there.', 'stillpress' ), $authority( $public ) );
+				: sprintf( __( 'The public address points at %s, which visitors can\'t reach. Links on the static site would lead there.', 'glaciate' ), $authority( $public ) );
 		}
 		if ( 'https' === ( $home['scheme'] ?? '' ) && 'http' === ( $public['scheme'] ?? '' ) ) {
-			$problems[] = __( 'The site uses https but the public address uses plain http, so the static site would load without encryption and browsers may block parts of it. Use an https public address.', 'stillpress' );
+			$problems[] = __( 'The site uses https but the public address uses plain http, so the static site would load without encryption and browsers may block parts of it. Use an https public address.', 'glaciate' );
 		}
 		if ( $authority( $wp ) !== $authority( $home ) && ! in_array( $authority( $wp ), $aliases, true ) ) {
 			$problems[] = sprintf(
 				/* translators: 1: WordPress address host, 2: site address host. */
-				__( 'The WordPress address (%1$s) is on a different host than the site address (%2$s). Files under it aren\'t published or rewritten. If %1$s serves the same files, add it under "Other addresses of this site".', 'stillpress' ),
+				__( 'The WordPress address (%1$s) is on a different host than the site address (%2$s). Files under it aren\'t published or rewritten. If %1$s serves the same files, add it under "Other addresses of this site".', 'glaciate' ),
 				$authority( $wp ),
 				$authority( $home )
 			);
@@ -108,16 +108,16 @@ final class HealthChecks {
 		if ( $problems ) {
 			return array(
 				'status'      => 'recommended',
-				'label'       => __( 'Check the static site\'s public address', 'stillpress' ),
+				'label'       => __( 'Check the static site\'s public address', 'glaciate' ),
 				'description' => implode( ' ', $problems ),
-				'action'      => admin_url( 'admin.php?page=stillpress-settings' ),
+				'action'      => admin_url( 'admin.php?page=glaciate-settings' ),
 			);
 		}
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'The static site\'s public address looks right', 'stillpress' ),
+			'label'       => __( 'The static site\'s public address looks right', 'glaciate' ),
 			/* translators: %s: public address. */
-			'description' => sprintf( __( 'Links on the static site point to %s.', 'stillpress' ), Pipeline::public_url( $settings ) ),
+			'description' => sprintf( __( 'Links on the static site point to %s.', 'glaciate' ), Pipeline::public_url( $settings ) ),
 		);
 	}
 
@@ -132,25 +132,25 @@ final class HealthChecks {
 		if ( ! function_exists( 'curl_multi_init' ) ) {
 			if ( '' !== Pipeline::connect_to( Settings::all() ) ) {
 				$critical  = true;
-				$missing[] = __( 'The curl extension is missing, and builds need it to reach the site at the "connect to" address that is set, so they can\'t render any page.', 'stillpress' );
+				$missing[] = __( 'The curl extension is missing, and builds need it to reach the site at the "connect to" address that is set, so they can\'t render any page.', 'glaciate' );
 			} else {
-				$missing[] = __( 'The curl extension is missing, so pages are rendered one at a time instead of several at once, and uploads to remote destinations are slower.', 'stillpress' );
+				$missing[] = __( 'The curl extension is missing, so pages are rendered one at a time instead of several at once, and uploads to remote destinations are slower.', 'glaciate' );
 			}
 		}
 		if ( ! class_exists( \ZipArchive::class ) ) {
-			$missing[] = __( 'The zip extension is missing, so the static site can\'t be downloaded as a ZIP file.', 'stillpress' );
+			$missing[] = __( 'The zip extension is missing, so the static site can\'t be downloaded as a ZIP file.', 'glaciate' );
 		}
 		if ( $missing ) {
 			return array(
 				'status'      => $critical ? 'critical' : 'recommended',
-				'label'       => __( 'Static publishing is missing PHP extensions', 'stillpress' ),
-				'description' => implode( ' ', $missing ) . ' ' . __( 'Ask your host to enable them.', 'stillpress' ),
+				'label'       => __( 'Static publishing is missing PHP extensions', 'glaciate' ),
+				'description' => implode( ' ', $missing ) . ' ' . __( 'Ask your host to enable them.', 'glaciate' ),
 			);
 		}
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'PHP has the extensions static publishing uses', 'stillpress' ),
-			'description' => __( 'The curl and zip extensions are available.', 'stillpress' ),
+			'label'       => __( 'PHP has the extensions static publishing uses', 'glaciate' ),
+			'description' => __( 'The curl and zip extensions are available.', 'glaciate' ),
 		);
 	}
 
@@ -162,20 +162,20 @@ final class HealthChecks {
 	public function target(): array {
 		$id       = (string) Settings::get( 'target' );
 		$deployer = Registry::instance()->get( $id );
-		$problem  = null === $deployer ? __( 'The configured deploy target is not available. Was the plugin that provides it deactivated?', 'stillpress' ) : $deployer->problem();
+		$problem  = null === $deployer ? __( 'The configured deploy target is not available. Was the plugin that provides it deactivated?', 'glaciate' ) : $deployer->problem();
 		if ( null !== $problem ) {
 			return array(
 				'status'      => 'critical',
-				'label'       => __( 'The static site can\'t be deployed', 'stillpress' ),
+				'label'       => __( 'The static site can\'t be deployed', 'glaciate' ),
 				'description' => $problem,
-				'action'      => admin_url( 'admin.php?page=stillpress-settings' ),
+				'action'      => admin_url( 'admin.php?page=glaciate-settings' ),
 			);
 		}
 		return array(
 			'status'      => 'good',
 			/* translators: %s: deploy target name. */
-			'label'       => sprintf( __( 'Static site deploy target is ready (%s)', 'stillpress' ), $deployer->label() ),
-			'description' => __( 'The deploy target is configured and reachable.', 'stillpress' ),
+			'label'       => sprintf( __( 'Static site deploy target is ready (%s)', 'glaciate' ), $deployer->label() ),
+			'description' => __( 'The deploy target is configured and reachable.', 'glaciate' ),
 		);
 	}
 
@@ -188,15 +188,15 @@ final class HealthChecks {
 		if ( ! Paths::ensure_private_dir( Paths::cache_dir() ) ) {
 			return array(
 				'status'      => 'critical',
-				'label'       => __( 'The static build folder is not writable', 'stillpress' ),
+				'label'       => __( 'The static build folder is not writable', 'glaciate' ),
 				/* translators: %s: directory path. */
-				'description' => sprintf( __( 'Make %s writable by the web server, or set STILLPRESS_DATA_DIR in wp-config.php to a writable folder.', 'stillpress' ), Paths::cache_dir() ),
+				'description' => sprintf( __( 'Make %s writable by the web server, or set GLACIATE_DATA_DIR in wp-config.php to a writable folder.', 'glaciate' ), Paths::cache_dir() ),
 			);
 		}
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'The static build folder is writable', 'stillpress' ),
-			'description' => __( 'Rendered pages can be stored between builds.', 'stillpress' ),
+			'label'       => __( 'The static build folder is writable', 'glaciate' ),
+			'description' => __( 'Rendered pages can be stored between builds.', 'glaciate' ),
 		);
 	}
 
@@ -213,18 +213,18 @@ final class HealthChecks {
 		if ( $unknown > 0 ) {
 			return array(
 				'status'      => 'recommended',
-				'label'       => __( 'A page cache is answering static builds', 'stillpress' ),
+				'label'       => __( 'A page cache is answering static builds', 'glaciate' ),
 				'description' => sprintf(
 					/* translators: %d: number of pages. */
-					_n( '%d page was served from a cache during the last build, so the plugin can\'t tell what it depends on and rebuilds it after every change. Exclude requests with the X-Stillpress-Render header from your page cache.', '%d pages were served from a cache during the last build, so the plugin can\'t tell what they depend on and rebuilds them after every change. Exclude requests with the X-Stillpress-Render header from your page cache.', $unknown, 'stillpress' ),
+					_n( '%d page was served from a cache during the last build, so the plugin can\'t tell what it depends on and rebuilds it after every change. Exclude requests with the X-Glaciate-Render header from your page cache.', '%d pages were served from a cache during the last build, so the plugin can\'t tell what they depend on and rebuilds them after every change. Exclude requests with the X-Glaciate-Render header from your page cache.', $unknown, 'glaciate' ),
 					$unknown
 				),
 			);
 		}
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'Static builds see live pages', 'stillpress' ),
-			'description' => __( 'Pages are rendered by WordPress, so changes rebuild only the pages they affect.', 'stillpress' ),
+			'label'       => __( 'Static builds see live pages', 'glaciate' ),
+			'description' => __( 'Pages are rendered by WordPress, so changes rebuild only the pages they affect.', 'glaciate' ),
 		);
 	}
 
@@ -251,15 +251,15 @@ final class HealthChecks {
 		if ( $late > 0 ) {
 			return array(
 				'status'      => 'recommended',
-				'label'       => __( 'Background publishing is falling behind', 'stillpress' ),
-				'description' => __( 'Scheduled static builds are more than 15 minutes late. WP-Cron may be disabled; run "wp action-scheduler run" from a system cron job, or enable WP-Cron.', 'stillpress' ),
+				'label'       => __( 'Background publishing is falling behind', 'glaciate' ),
+				'description' => __( 'Scheduled static builds are more than 15 minutes late. WP-Cron may be disabled; run "wp action-scheduler run" from a system cron job, or enable WP-Cron.', 'glaciate' ),
 				'action'      => admin_url( 'tools.php?page=action-scheduler&status=past-due' ),
 			);
 		}
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'Background publishing is running', 'stillpress' ),
-			'description' => __( 'Scheduled and automatic builds run on time.', 'stillpress' ),
+			'label'       => __( 'Background publishing is running', 'glaciate' ),
+			'description' => __( 'Scheduled and automatic builds run on time.', 'glaciate' ),
 		);
 	}
 
@@ -278,15 +278,15 @@ final class HealthChecks {
 		if ( $lost ) {
 			return array(
 				'status'      => 'critical',
-				'label'       => __( 'Saved deploy credentials can no longer be read', 'stillpress' ),
+				'label'       => __( 'Saved deploy credentials can no longer be read', 'glaciate' ),
 				/* translators: %s: comma-separated list of deploy target fields. */
-				'description' => sprintf( __( 'Saved credentials are encrypted with the security keys in wp-config.php, and those keys have changed. Enter these again: %s.', 'stillpress' ), implode( ', ', $lost ) ),
+				'description' => sprintf( __( 'Saved credentials are encrypted with the security keys in wp-config.php, and those keys have changed. Enter these again: %s.', 'glaciate' ), implode( ', ', $lost ) ),
 			);
 		}
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'Saved deploy credentials are readable', 'stillpress' ),
-			'description' => __( 'Credentials saved in the database decrypt with this site\'s security keys.', 'stillpress' ),
+			'label'       => __( 'Saved deploy credentials are readable', 'glaciate' ),
+			'description' => __( 'Credentials saved in the database decrypt with this site\'s security keys.', 'glaciate' ),
 		);
 	}
 
@@ -297,13 +297,13 @@ final class HealthChecks {
 	 */
 	public function search(): array {
 		$descriptions = array(
-			'builtin'       => __( 'An index of every published page is built with the site and searched in the browser.', 'stillpress' ),
-			'pagefind_host' => __( 'Search forms use Pagefind files that your host\'s build step creates in /pagefind/. Static search shows an error if they are missing.', 'stillpress' ),
-			'off'           => __( 'Search is off, so search forms on the static site do nothing.', 'stillpress' ),
+			'builtin'       => __( 'An index of every published page is built with the site and searched in the browser.', 'glaciate' ),
+			'pagefind_host' => __( 'Search forms use Pagefind files that your host\'s build step creates in /pagefind/. Static search shows an error if they are missing.', 'glaciate' ),
+			'off'           => __( 'Search is off, so search forms on the static site do nothing.', 'glaciate' ),
 		);
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'Static search needs nothing from this server', 'stillpress' ),
+			'label'       => __( 'Static search needs nothing from this server', 'glaciate' ),
 			'description' => $descriptions[ (string) Settings::get( 'search' ) ] ?? '',
 		);
 	}
@@ -314,47 +314,47 @@ final class HealthChecks {
 	 * @return array<string,string>
 	 */
 	public function forms(): array {
-		$config   = new \Stillpress\Forms\Config();
-		$settings = admin_url( 'admin.php?page=stillpress-settings' );
+		$config   = new \Glaciate\Forms\Config();
+		$settings = admin_url( 'admin.php?page=glaciate-settings' );
 		$mode     = $config->mode();
 		if ( 'off' === $mode ) {
 			return array(
 				'status'      => 'good',
-				'label'       => __( 'Forms on the static site are off', 'stillpress' ),
-				'description' => __( 'Forms are published as they are and can\'t be sent from the static site. Turn on Forms in the settings to receive them.', 'stillpress' ),
+				'label'       => __( 'Forms on the static site are off', 'glaciate' ),
+				'description' => __( 'Forms are published as they are and can\'t be sent from the static site. Turn on Forms in the settings to receive them.', 'glaciate' ),
 			);
 		}
 		$problems = array();
 		$critical = false;
 		if ( 'receiver' === $mode && '' === $config->endpoint() ) {
 			$critical   = true;
-			$problems[] = __( 'Enter the address of your receiver; until then forms are published unchanged.', 'stillpress' );
+			$problems[] = __( 'Enter the address of your receiver; until then forms are published unchanged.', 'glaciate' );
 		}
-		if ( 'site' === $mode && \Stillpress\Forms\Config::origin_of( home_url( '/' ) ) === $config->allowed_origin() ) {
-			$problems[] = __( 'The static site uses this site\'s own address, so forms would post to the static host. Send them to a receiver elsewhere, or publish the static site at another address.', 'stillpress' );
+		if ( 'site' === $mode && \Glaciate\Forms\Config::origin_of( home_url( '/' ) ) === $config->allowed_origin() ) {
+			$problems[] = __( 'The static site uses this site\'s own address, so forms would post to the static host. Send them to a receiver elsewhere, or publish the static site at another address.', 'glaciate' );
 		}
 		if ( null === $config->secret() && ( 'receiver' === $mode || '' !== $config->webhook() ) ) {
 			$problems[] = 'receiver' === $mode
-				? __( 'Set the shared secret, here and where the receiver runs: without it this site refuses every submission the receiver forwards.', 'stillpress' )
-				: __( 'Set the shared secret: the webhook gets nothing without it.', 'stillpress' );
+				? __( 'Set the shared secret, here and where the receiver runs: without it this site refuses every submission the receiver forwards.', 'glaciate' )
+				: __( 'Set the shared secret: the webhook gets nothing without it.', 'glaciate' );
 		}
 		if ( 'none' !== $config->captcha() && 'site' === $mode && null === $config->captcha_secret() ) {
 			$critical   = true;
-			$problems[] = __( 'Enter the captcha\'s secret key: without it every submission is refused.', 'stillpress' );
+			$problems[] = __( 'Enter the captcha\'s secret key: without it every submission is refused.', 'glaciate' );
 		}
 		if ( $problems ) {
 			return array(
 				'status'      => $critical ? 'critical' : 'recommended',
-				'label'       => __( 'Forms on the static site need attention', 'stillpress' ),
+				'label'       => __( 'Forms on the static site need attention', 'glaciate' ),
 				'description' => implode( ' ', $problems ),
 				'action'      => $settings,
 			);
 		}
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'Forms on the static site are received', 'stillpress' ),
+			'label'       => __( 'Forms on the static site are received', 'glaciate' ),
 			/* translators: %s: receiver address. */
-			'description' => sprintf( __( 'Forms on the static site post to %s.', 'stillpress' ), $config->endpoint() ),
+			'description' => sprintf( __( 'Forms on the static site post to %s.', 'glaciate' ), $config->endpoint() ),
 		);
 	}
 
@@ -370,18 +370,18 @@ final class HealthChecks {
 		if ( null !== $result->error || $result->status >= 500 || 0 === $result->status ) {
 			return array(
 				'status'      => 'critical',
-				'label'       => __( 'The site can\'t load its own pages', 'stillpress' ),
+				'label'       => __( 'The site can\'t load its own pages', 'glaciate' ),
 				'description' => sprintf(
 					/* translators: %s: error message. */
-					__( 'Static builds request each page from this server. The request failed: %s. If the site address doesn\'t resolve from inside the server (common with containers and proxies), set STILLPRESS_CONNECT_TO in wp-config.php to an address that reaches this web server, such as "127.0.0.1:80".', 'stillpress' ),
+					__( 'Static builds request each page from this server. The request failed: %s. If the site address doesn\'t resolve from inside the server (common with containers and proxies), set GLACIATE_CONNECT_TO in wp-config.php to an address that reaches this web server, such as "127.0.0.1:80".', 'glaciate' ),
 					null !== $result->error ? $result->error : 'HTTP ' . $result->status
 				),
 			);
 		}
 		return array(
 			'status'      => 'good',
-			'label'       => __( 'The site can load its own pages', 'stillpress' ),
-			'description' => __( 'Static builds can render every page the way a visitor sees it.', 'stillpress' ),
+			'label'       => __( 'The site can load its own pages', 'glaciate' ),
+			'description' => __( 'Static builds can render every page the way a visitor sees it.', 'glaciate' ),
 		);
 	}
 }

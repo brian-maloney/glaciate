@@ -2,26 +2,26 @@
 /**
  * Turns a fetched or copied URL into a file in the build cache.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
-use Stillpress\Crawl\AssetCopier;
-use Stillpress\Crawl\LinkExtractor;
-use Stillpress\Crawl\Seeds;
-use Stillpress\Crawl\UrlClassifier;
-use Stillpress\Forms\FormMarkup;
-use Stillpress\Output\Cache;
-use Stillpress\Output\UnsafePathException;
-use Stillpress\Render\RenderResult;
-use Stillpress\Render\RenderToken;
-use Stillpress\Rewrite\NonceStripper;
-use Stillpress\Rewrite\OriginSet;
-use Stillpress\Rewrite\UrlRewriter;
-use Stillpress\Search\PageIndexer;
-use Stillpress\Storage\UrlRepository;
-use Stillpress\Support\Logger;
+use Glaciate\Crawl\AssetCopier;
+use Glaciate\Crawl\LinkExtractor;
+use Glaciate\Crawl\Seeds;
+use Glaciate\Crawl\UrlClassifier;
+use Glaciate\Forms\FormMarkup;
+use Glaciate\Output\Cache;
+use Glaciate\Output\UnsafePathException;
+use Glaciate\Render\RenderResult;
+use Glaciate\Render\RenderToken;
+use Glaciate\Rewrite\NonceStripper;
+use Glaciate\Rewrite\OriginSet;
+use Glaciate\Rewrite\UrlRewriter;
+use Glaciate\Search\PageIndexer;
+use Glaciate\Storage\UrlRepository;
+use Glaciate\Support\Logger;
 
 /**
  * Handles one URL's response: decides what file (if any) it becomes, rewrites it, writes it to the cache,
@@ -169,7 +169,7 @@ final class Processor {
 			$hash = $this->cache->copy( $source, $relative );
 		} catch ( UnsafePathException $e ) {
 			/* translators: %s: the reason the path was refused. */
-			$this->fail( $row, sprintf( __( 'Unsafe output path: %s', 'stillpress' ), $e->getMessage() ) );
+			$this->fail( $row, sprintf( __( 'Unsafe output path: %s', 'glaciate' ), $e->getMessage() ) );
 			return self::outcome( 'refused' );
 		}
 		$this->publish( $row, 'asset', 200, $mime, $relative, $hash, (int) filesize( $source ), 'static' );
@@ -199,7 +199,7 @@ final class Processor {
 
 		if ( null !== $result->error ) {
 			/* translators: %s: error message. */
-			$this->fail( $row, sprintf( __( 'Request failed: %s', 'stillpress' ), $result->error ) );
+			$this->fail( $row, sprintf( __( 'Request failed: %s', 'glaciate' ), $result->error ) );
 			return self::outcome( 'failed' );
 		}
 
@@ -211,7 +211,7 @@ final class Processor {
 			$deps_state = self::is_text( $result->mime_type() ) && 'text/css' !== $result->mime_type() && 'application/javascript' !== $result->mime_type() ? 'unknown' : 'static';
 			if ( 'unknown' === $deps_state && 'page' === $row['kind'] ) {
 				/* translators: %s: address. */
-				$this->logger->warning( sprintf( __( 'No dependency data for %s; a page cache may have answered. It will be rebuilt on every change.', 'stillpress' ), $row['url'] ) );
+				$this->logger->warning( sprintf( __( 'No dependency data for %s; a page cache may have answered. It will be rebuilt on every change.', 'glaciate' ), $row['url'] ) );
 			}
 		}
 
@@ -222,7 +222,7 @@ final class Processor {
 		if ( $is_probe ) {
 			if ( 404 !== $result->status ) {
 				/* translators: %d: HTTP status code. */
-				$this->logger->warning( sprintf( __( 'The 404 probe returned HTTP %d instead of 404.', 'stillpress' ), $result->status ) );
+				$this->logger->warning( sprintf( __( 'The 404 probe returned HTTP %d instead of 404.', 'glaciate' ), $result->status ) );
 			}
 			return $this->write_document( $row, $result, '404.html', '404', $deps_state );
 		}
@@ -235,14 +235,14 @@ final class Processor {
 		$exclude = $result->recorded ? ( $result->headers[ strtolower( RenderToken::EXCLUDE_HEADER ) ] ?? '' ) : '';
 		if ( '' !== $exclude ) {
 			/* translators: 1: address, 2: reason. */
-			$this->logger->info( sprintf( __( 'Left out %1$s (%2$s).', 'stillpress' ), $row['url'], $exclude ) );
+			$this->logger->info( sprintf( __( 'Left out %1$s (%2$s).', 'glaciate' ), $row['url'], $exclude ) );
 			$this->remove( $row, $result->status );
 			return self::outcome( 'gone' );
 		}
 
 		if ( 200 !== $result->status ) {
 			/* translators: %d: HTTP status code. */
-			$this->fail( $row, sprintf( __( 'HTTP %d', 'stillpress' ), $result->status ) );
+			$this->fail( $row, sprintf( __( 'HTTP %d', 'glaciate' ), $result->status ) );
 			return self::outcome( 'failed' );
 		}
 
@@ -250,7 +250,7 @@ final class Processor {
 			$relative = $this->relative_path_for( $row['url'], $result->headers['content-type'] ?? 'text/html' );
 		} catch ( UnsafePathException $e ) {
 			/* translators: %s: the reason the path was refused. */
-			$this->fail( $row, sprintf( __( 'Unsafe output path: %s', 'stillpress' ), $e->getMessage() ) );
+			$this->fail( $row, sprintf( __( 'Unsafe output path: %s', 'glaciate' ), $e->getMessage() ) );
 			return self::outcome( 'refused' );
 		}
 		return $this->write_document( $row, $result, $relative, 'asset' === $row['kind'] ? 'asset' : 'page', $deps_state );
@@ -271,7 +271,7 @@ final class Processor {
 		$body = $result->body;
 
 		if ( 'text/html' === $mime && preg_match( '#<body[^>]*\sclass=["\'][^"\']*\blogged-in\b#i', $body ) ) {
-			$this->fail( $row, __( 'The page rendered for a logged-in user; refusing to publish it.', 'stillpress' ) );
+			$this->fail( $row, __( 'The page rendered for a logged-in user; refusing to publish it.', 'glaciate' ) );
 			return self::outcome( 'refused' );
 		}
 
@@ -302,7 +302,7 @@ final class Processor {
 			 * @param bool   $strip Default true.
 			 * @param string $url   Origin URL.
 			 */
-			if ( 'text/html' === $mime && apply_filters( 'stillpress_strip_nonces', true, $row['url'] ) ) {
+			if ( 'text/html' === $mime && apply_filters( 'glaciate_strip_nonces', true, $row['url'] ) ) {
 				$body = NonceStripper::strip( $body );
 			}
 
@@ -318,7 +318,7 @@ final class Processor {
 			 * @param string $mime Content type.
 			 * @param string $url  Origin URL.
 			 */
-			$body = (string) apply_filters( 'stillpress_output', $body, $mime, $row['url'] );
+			$body = (string) apply_filters( 'glaciate_output', $body, $mime, $row['url'] );
 
 			if ( '404' === $kind && 'text/html' === $mime ) {
 				$body = self::exclude_from_pagefind( $body );
@@ -332,7 +332,7 @@ final class Processor {
 			$hash = $this->cache->write( $relative, $body );
 		} catch ( UnsafePathException $e ) {
 			/* translators: %s: error message. */
-			$this->fail( $row, sprintf( __( 'Could not write the file: %s', 'stillpress' ), $e->getMessage() ) );
+			$this->fail( $row, sprintf( __( 'Could not write the file: %s', 'glaciate' ), $e->getMessage() ) );
 			return self::outcome( 'refused' );
 		}
 
@@ -355,10 +355,10 @@ final class Processor {
 	 * @return array{outcome:string,discovered:array<int,array{url:string,kind:string}>}
 	 */
 	private function handle_redirect( array $row, RenderResult $result, ?string $deps_state ): array {
-		$location   = \Stillpress\Support\Url::resolve( $result->url, $result->headers['location'] );
+		$location   = \Glaciate\Support\Url::resolve( $result->url, $result->headers['location'] );
 		$discovered = array();
 		if ( null === $location ) {
-			$this->fail( $row, __( 'Redirect without a usable Location header.', 'stillpress' ) );
+			$this->fail( $row, __( 'Redirect without a usable Location header.', 'glaciate' ) );
 			return self::outcome( 'failed' );
 		}
 		$target = $this->classifier->classify( $location );
@@ -432,7 +432,7 @@ final class Processor {
 			return true;
 		}
 		/* translators: 1: file path, 2: address that produces it. */
-		$this->fail( $row, sprintf( __( 'Output file %1$s is already produced by %2$s.', 'stillpress' ), $relative, $owner['url'] ) );
+		$this->fail( $row, sprintf( __( 'Output file %1$s is already produced by %2$s.', 'glaciate' ), $relative, $owner['url'] ) );
 		return false;
 	}
 
@@ -492,7 +492,7 @@ final class Processor {
 				'error'         => null,
 			)
 		);
-		( new \Stillpress\Deps\DependencyStore() )->forget( (int) $row['id'] );
+		( new \Glaciate\Deps\DependencyStore() )->forget( (int) $row['id'] );
 	}
 
 	/**
@@ -558,9 +558,9 @@ final class Processor {
 		 * @param string $url          Origin URL.
 		 * @param string $content_type Response Content-Type.
 		 */
-		$filtered = (string) apply_filters( 'stillpress_output_path', $relative, $url, $content_type );
+		$filtered = (string) apply_filters( 'glaciate_output_path', $relative, $url, $content_type );
 		if ( $filtered !== $relative ) {
-			\Stillpress\Output\PathMapper::assert_safe_relative( $filtered );
+			\Glaciate\Output\PathMapper::assert_safe_relative( $filtered );
 		}
 		return $filtered;
 	}
@@ -573,7 +573,7 @@ final class Processor {
 	 */
 	public static function redirect_page( string $target ): string {
 		$url = esc_url( $target );
-		return '<!doctype html><html><head><meta charset="utf-8"><title>' . esc_html__( 'Redirecting…', 'stillpress' ) . '</title>'
+		return '<!doctype html><html><head><meta charset="utf-8"><title>' . esc_html__( 'Redirecting…', 'glaciate' ) . '</title>'
 			. '<meta name="robots" content="noindex"><link rel="canonical" href="' . $url . '">'
 			. '<meta http-equiv="refresh" content="0; url=' . $url . '"></head>'
 			. '<body data-pagefind-ignore="all"><p><a href="' . $url . '">' . esc_html( $target ) . '</a></p></body></html>' . "\n";

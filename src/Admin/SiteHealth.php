@@ -2,12 +2,12 @@
 /**
  * Site Health tests.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Admin;
+namespace Glaciate\Admin;
 
-use Stillpress\Service\HealthChecks;
+use Glaciate\Service\HealthChecks;
 
 /**
  * Adds the plugin's checks to Tools → Site Health. The loopback check runs asynchronously through the REST API so
@@ -33,16 +33,16 @@ final class SiteHealth {
 	public static function tests( $tests ) {
 		$checks = new HealthChecks();
 		foreach ( HealthChecks::DIRECT as $id ) {
-			$tests['direct'][ 'stillpress_' . $id ] = array(
-				'label' => __( 'Static publishing', 'stillpress' ),
+			$tests['direct'][ 'glaciate_' . $id ] = array(
+				'label' => __( 'Static publishing', 'glaciate' ),
 				'test'  => static function () use ( $checks, $id ) {
-					return self::format( 'stillpress_' . $id, $checks->$id() );
+					return self::format( 'glaciate_' . $id, $checks->$id() );
 				},
 			);
 		}
-		$tests['async']['stillpress_loopback'] = array(
-			'label'    => __( 'Static publishing loopback', 'stillpress' ),
-			'test'     => rest_url( 'stillpress/v1/health/loopback' ),
+		$tests['async']['glaciate_loopback'] = array(
+			'label'    => __( 'Static publishing loopback', 'glaciate' ),
+			'test'     => rest_url( 'glaciate/v1/health/loopback' ),
 			'has_rest' => true,
 		);
 		return $tests;
@@ -58,13 +58,13 @@ final class SiteHealth {
 	public static function format( string $id, array $check ): array {
 		$actions = '';
 		if ( ! empty( $check['action'] ) ) {
-			$actions = '<p><a href="' . esc_url( $check['action'] ) . '">' . esc_html__( 'Fix this', 'stillpress' ) . '</a></p>';
+			$actions = '<p><a href="' . esc_url( $check['action'] ) . '">' . esc_html__( 'Fix this', 'glaciate' ) . '</a></p>';
 		}
 		return array(
 			'label'       => $check['label'],
 			'status'      => $check['status'],
 			'badge'       => array(
-				'label' => __( 'Static publishing', 'stillpress' ),
+				'label' => __( 'Static publishing', 'glaciate' ),
 				'color' => 'blue',
 			),
 			'description' => '<p>' . esc_html( $check['description'] ) . '</p>',

@@ -2,10 +2,10 @@
 /**
  * Result of one loopback request.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Render;
+namespace Glaciate\Render;
 
 /**
  * Plain data holder.

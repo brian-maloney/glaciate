@@ -2,15 +2,15 @@
 /**
  * Removing a Pagefind bundle published by the server-run mode that 1.1.0 and earlier had.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Search;
+namespace Glaciate\Tests\Integration\Search;
 
-use Stillpress\Build\Generated;
-use Stillpress\Build\Pipeline;
-use Stillpress\Search\PagefindBundle;
-use Stillpress\Storage\UrlRepository;
+use Glaciate\Build\Generated;
+use Glaciate\Build\Pipeline;
+use Glaciate\Search\PagefindBundle;
+use Glaciate\Storage\UrlRepository;
 
 final class PagefindBundleTest extends \WP_UnitTestCase {
 
@@ -28,7 +28,7 @@ final class PagefindBundleTest extends \WP_UnitTestCase {
 
 	private function published(): array {
 		global $wpdb;
-		return $wpdb->get_col( $wpdb->prepare( 'SELECT path FROM %i WHERE url LIKE %s AND content_hash IS NOT NULL ORDER BY path', \Stillpress\Storage\Schema::table( 'urls' ), $wpdb->esc_like( PagefindBundle::PSEUDO ) . '%' ) );
+		return $wpdb->get_col( $wpdb->prepare( 'SELECT path FROM %i WHERE url LIKE %s AND content_hash IS NOT NULL ORDER BY path', \Glaciate\Storage\Schema::table( 'urls' ), $wpdb->esc_like( PagefindBundle::PSEUDO ) . '%' ) );
 	}
 
 	public function test_a_bundle_left_by_an_earlier_version_is_unpublished_and_deleted(): void {

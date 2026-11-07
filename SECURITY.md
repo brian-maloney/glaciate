@@ -1,6 +1,6 @@
 # Security policy
 
-Stillpress makes HTTP requests from the server, writes files to disk and holds deploy credentials, so security reports
+Glaciate makes HTTP requests from the server, writes files to disk and holds deploy credentials, so security reports
 are welcome. [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) describes what it protects and how.
 
 ## Reporting a vulnerability

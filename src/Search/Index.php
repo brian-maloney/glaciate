@@ -2,12 +2,12 @@
 /**
  * The search index's tables.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Search;
+namespace Glaciate\Search;
 
-use Stillpress\Storage\Schema;
+use Glaciate\Storage\Schema;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom tables.
 

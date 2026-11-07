@@ -19,7 +19,7 @@ export const CACHE = join( process.cwd(), 'tests/e2e/.cache' );
  */
 export function wp( args, { ignore = false } = {} ) {
 	try {
-		return execFileSync( 'npx', [ 'wp-env', 'run', 'tests-cli', '--env-cwd=wp-content/plugins/stillpress', '--', 'wp', ...args ], {
+		return execFileSync( 'npx', [ 'wp-env', 'run', 'tests-cli', '--env-cwd=wp-content/plugins/glaciate', '--', 'wp', ...args ], {
 			encoding: 'utf8',
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
 		} );
@@ -62,7 +62,7 @@ export const PAGES = [ '/', '/fixture-story-1/', '/fixture-story-2/', '/about/',
 export function prepare( name, { search = 'builtin', forms = 'off' } = {} ) {
 	const setup = THEMES[ name ];
 	wp( [ 'plugin', 'deactivate', 'elementor', 'contact-form-7' ], { ignore: true } );
-	wp( [ 'plugin', 'activate', 'stillpress' ] );
+	wp( [ 'plugin', 'activate', 'glaciate' ] );
 	if ( ! wp( [ 'theme', 'is-installed', setup.theme ], { ignore: true } ) && setup.theme !== 'twentytwentyfive' ) {
 		wp( [ 'theme', 'install', setup.theme ], { ignore: true } );
 	}
@@ -86,21 +86,21 @@ export function prepare( name, { search = 'builtin', forms = 'off' } = {} ) {
 		wp( [ 'transient', 'delete', '--all' ] );
 	}
 
-	wp( [ 'stillpress', 'settings', 'set', 'public_url', STATIC ] );
-	wp( [ 'stillpress', 'settings', 'set', 'target', 'zip' ] );
-	wp( [ 'stillpress', 'settings', 'set', 'publish_mode', 'manual' ] );
-	wp( [ 'stillpress', 'settings', 'set', 'search', search ] );
-	wp( [ 'stillpress', 'settings', 'set', 'forms', forms ] );
-	wp( [ 'stillpress', 'clean', '--yes' ] );
+	wp( [ 'glaciate', 'settings', 'set', 'public_url', STATIC ] );
+	wp( [ 'glaciate', 'settings', 'set', 'target', 'zip' ] );
+	wp( [ 'glaciate', 'settings', 'set', 'publish_mode', 'manual' ] );
+	wp( [ 'glaciate', 'settings', 'set', 'search', search ] );
+	wp( [ 'glaciate', 'settings', 'set', 'forms', forms ] );
+	wp( [ 'glaciate', 'clean', '--yes' ] );
 
 	// Visit pages once so plugins that generate files on first view (page builders) have done so.
 	for ( const path of PAGES.concat( setup.extraPages || [] ) ) {
 		wp( [ 'eval', `wp_remote_get( home_url( '${ path }' ), array( 'timeout' => 30 ) );` ], { ignore: true } );
 	}
 
-	wp( [ 'stillpress', 'build', '--full', '--sync' ] );
+	wp( [ 'glaciate', 'build', '--full', '--sync' ] );
 	mkdirSync( CACHE, { recursive: true } );
-	wp( [ 'stillpress', 'zip', '--out=tests/e2e/.cache/site.zip' ] );
+	wp( [ 'glaciate', 'zip', '--out=tests/e2e/.cache/site.zip' ] );
 	rmSync( join( CACHE, 'site' ), { recursive: true, force: true } );
 	execFileSync( 'unzip', [ '-q', '-o', join( CACHE, 'site.zip' ), '-d', join( CACHE, 'site' ) ] );
 	if ( 'pagefind_host' === search ) {

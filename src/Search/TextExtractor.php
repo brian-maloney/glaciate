@@ -2,22 +2,22 @@
 /**
  * Finds the searchable text of a rendered page.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Search;
+namespace Glaciate\Search;
 
 /**
  * Reads a page's title, text and excerpt with core's WP_HTML_Tag_Processor.
  *
  * Where the text comes from, first match wins (D20):
  *
- * 1. Elements marked `data-stillpress-search`, for themes that want to choose.
+ * 1. Elements marked `data-glaciate-search`, for themes that want to choose.
  * 2. The `<main>` element.
  * 3. The body, without header, footer and aside, which hold the same site-wide text on every page.
  *
  * Navigation, forms, scripts, embedded media, hidden elements, screen-reader-only text and anything marked
- * `data-stillpress-search-ignore` are always skipped. The title is the first `<h1>` in that text, else `<title>`; the
+ * `data-glaciate-search-ignore` are always skipped. The title is the first `<h1>` in that text, else `<title>`; the
  * excerpt is the meta description, else the start of the text.
  *
  * The tag processor doesn't build a tree, so a region ends when the closer that balances its opener is seen. Badly
@@ -53,7 +53,7 @@ final class TextExtractor {
 	 * @return array{title:string,text:string,excerpt:string}
 	 */
 	public function extract( string $html ): array {
-		if ( false !== stripos( $html, 'data-stillpress-search' ) && preg_match( '/\sdata-stillpress-search(?=[\s=>\/])/i', $html ) ) {
+		if ( false !== stripos( $html, 'data-glaciate-search' ) && preg_match( '/\sdata-glaciate-search(?=[\s=>\/])/i', $html ) ) {
 			$region = 'marked';
 		} elseif ( preg_match( '/<main[\s>]/i', $html ) ) {
 			$region = 'MAIN';
@@ -179,7 +179,7 @@ final class TextExtractor {
 	 */
 	private function starts_region( \WP_HTML_Tag_Processor $processor, string $tag, string $region ): bool {
 		if ( 'marked' === $region ) {
-			return ! in_array( $tag, self::VOID, true ) && null !== $processor->get_attribute( 'data-stillpress-search' );
+			return ! in_array( $tag, self::VOID, true ) && null !== $processor->get_attribute( 'data-glaciate-search' );
 		}
 		return $tag === $region;
 	}
@@ -195,7 +195,7 @@ final class TextExtractor {
 	private function skips( \WP_HTML_Tag_Processor $processor, string $tag, bool $body ): bool {
 		return in_array( $tag, self::SKIP, true )
 			|| ( $body && in_array( $tag, self::SKIP_IN_BODY, true ) )
-			|| null !== $processor->get_attribute( 'data-stillpress-search-ignore' )
+			|| null !== $processor->get_attribute( 'data-glaciate-search-ignore' )
 			|| null !== $processor->get_attribute( 'hidden' )
 			|| 'true' === $processor->get_attribute( 'aria-hidden' )
 			|| true === $processor->has_class( 'screen-reader-text' );

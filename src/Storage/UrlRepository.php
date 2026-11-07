@@ -2,10 +2,10 @@
 /**
  * Known URLs and what was last produced for each.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Storage;
+namespace Glaciate\Storage;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom tables; crawl state must always be read fresh.
 

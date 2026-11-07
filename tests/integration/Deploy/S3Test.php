@@ -2,18 +2,18 @@
 /**
  * S3 deploys and CloudFront invalidations, against an in-memory S3 (threats T5, T10).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deploy;
+namespace Glaciate\Tests\Integration\Deploy;
 
-use Stillpress\Deploy\S3;
-use Stillpress\Deploy\TargetConfig;
-use Stillpress\Security\Redactor;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Settings;
-use Stillpress\Tests\Support\FakeS3;
+use Glaciate\Deploy\S3;
+use Glaciate\Deploy\TargetConfig;
+use Glaciate\Security\Redactor;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Settings;
+use Glaciate\Tests\Support\FakeS3;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions, WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Test fixtures; checks S3's Content-MD5.
 
@@ -49,7 +49,7 @@ final class S3Test extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
-		\Stillpress\Tests\Support\Fs::rmrf( $this->cache );
+		\Glaciate\Tests\Support\Fs::rmrf( $this->cache );
 		Redactor::reset();
 		parent::tear_down();
 	}
@@ -64,7 +64,7 @@ final class S3Test extends \WP_UnitTestCase {
 		return $out;
 	}
 
-	private function deploy(): \Stillpress\Deploy\DeployResult {
+	private function deploy(): \Glaciate\Deploy\DeployResult {
 		return $this->deployer->deploy( $this->manifest(), $this->cache, new Logger() );
 	}
 

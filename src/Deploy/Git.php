@@ -2,25 +2,25 @@
 /**
  * Deploys to a branch of a Git repository over HTTPS.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Deploy\Aws\RequestsTransport;
-use Stillpress\Deploy\Aws\Transport;
-use Stillpress\Deploy\Git\Objects;
-use Stillpress\Deploy\Git\Pack;
-use Stillpress\Deploy\Git\RemoteClient;
-use Stillpress\Output\PathMapper;
-use Stillpress\Output\UnsafePathException;
-use Stillpress\Security\TargetPolicy;
-use Stillpress\Support\Logger;
+use Glaciate\Deploy\Aws\RequestsTransport;
+use Glaciate\Deploy\Aws\Transport;
+use Glaciate\Deploy\Git\Objects;
+use Glaciate\Deploy\Git\Pack;
+use Glaciate\Deploy\Git\RemoteClient;
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
+use Glaciate\Security\TargetPolicy;
+use Glaciate\Support\Logger;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Reads files from the build cache (see DECISIONS.md D9).
 
 /**
- * Commits the build to one branch that Stillpress owns, for hosts that publish from Git (GitHub Pages, GitLab
+ * Commits the build to one branch that Glaciate owns, for hosts that publish from Git (GitHub Pages, GitLab
  * Pages, Codeberg Pages, or any CI). Pure PHP: objects and packs are built here and pushed over Git's smart-HTTP
  * protocol with a token, so no `git` binary or `proc_open` is needed (DECISIONS.md D15).
  *
@@ -41,7 +41,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 	const MAX_FILE = 104857600;
 
 	/** Option holding per-target state: target key => {head, upload_ref, upload_head}. */
-	const STATE_OPTION = 'stillpress_git_state';
+	const STATE_OPTION = 'glaciate_git_state';
 
 	/**
 	 * Transport (injected by tests; RequestsTransport otherwise).
@@ -77,7 +77,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 	 * {@inheritDoc}
 	 */
 	public function label(): string {
-		return __( 'A Git repository (GitHub Pages, GitLab Pages and others)', 'stillpress' );
+		return __( 'A Git repository (GitHub Pages, GitLab Pages and others)', 'glaciate' );
 	}
 
 	/**
@@ -88,52 +88,52 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 	public function fields(): array {
 		return array(
 			'repository_url'   => array(
-				'label'       => __( 'Repository address', 'stillpress' ),
+				'label'       => __( 'Repository address', 'glaciate' ),
 				'required'    => true,
 				'restricted'  => true,
 				'pattern'     => 'https://[A-Za-z0-9.\-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~\-]+)+/?',
-				'description' => __( 'The HTTPS clone address, for example https://github.com/example/site.git.', 'stillpress' ),
+				'description' => __( 'The HTTPS clone address, for example https://github.com/example/site.git.', 'glaciate' ),
 			),
 			'branch'           => array(
-				'label'       => __( 'Branch', 'stillpress' ),
+				'label'       => __( 'Branch', 'glaciate' ),
 				'required'    => true,
 				'default'     => 'gh-pages',
 				'pattern'     => '[A-Za-z0-9._\-/]{1,100}',
-				'description' => __( 'Stillpress owns this branch and replaces its files on every publish. Other branches are never touched.', 'stillpress' ),
+				'description' => __( 'Glaciate owns this branch and replaces its files on every publish. Other branches are never touched.', 'glaciate' ),
 			),
 			'username'         => array(
-				'label'       => __( 'User name', 'stillpress' ),
+				'label'       => __( 'User name', 'glaciate' ),
 				'default'     => 'x-access-token',
 				'pattern'     => '[A-Za-z0-9._@\-]{1,100}',
-				'description' => __( 'Most hosts accept any name with a token. GitLab uses "oauth2" for OAuth tokens.', 'stillpress' ),
+				'description' => __( 'Most hosts accept any name with a token. GitLab uses "oauth2" for OAuth tokens.', 'glaciate' ),
 			),
 			'token'            => array(
-				'label'       => __( 'Access token', 'stillpress' ),
+				'label'       => __( 'Access token', 'glaciate' ),
 				'type'        => 'secret',
 				'required'    => true,
-				'description' => __( 'A token that may push to this repository, for example a fine-grained GitHub token with "Contents: read and write".', 'stillpress' ),
+				'description' => __( 'A token that may push to this repository, for example a fine-grained GitHub token with "Contents: read and write".', 'glaciate' ),
 			),
 			'author_name'      => array(
-				'label'   => __( 'Commit author name', 'stillpress' ),
-				'default' => 'Stillpress',
+				'label'   => __( 'Commit author name', 'glaciate' ),
+				'default' => 'Glaciate',
 				'pattern' => '[^<>\n\r\x00]{1,100}',
 			),
 			'author_email'     => array(
-				'label'       => __( 'Commit author email', 'stillpress' ),
-				'default'     => 'stillpress@invalid',
+				'label'       => __( 'Commit author email', 'glaciate' ),
+				'default'     => 'glaciate@invalid',
 				'pattern'     => '[^<>\s@]{1,64}@[^<>\s@]{1,255}',
-				'description' => __( 'Shown in the public commit history. The default reveals no address.', 'stillpress' ),
+				'description' => __( 'Shown in the public commit history. The default reveals no address.', 'glaciate' ),
 			),
 			'commit_message'   => array(
-				'label'   => __( 'Commit message', 'stillpress' ),
+				'label'   => __( 'Commit message', 'glaciate' ),
 				'default' => 'Publish static site',
 				'pattern' => '[^\x00\r\n]{1,200}',
 			),
 			'replace_existing' => array(
-				'label'       => __( 'Replace the branch\'s contents', 'stillpress' ),
+				'label'       => __( 'Replace the branch\'s contents', 'glaciate' ),
 				'type'        => 'bool',
 				'default'     => false,
-				'description' => __( 'Allow publishing to a branch that already has commits Stillpress didn\'t make. Its files are replaced in a new commit; its history is kept.', 'stillpress' ),
+				'description' => __( 'Allow publishing to a branch that already has commits Glaciate didn\'t make. Its files are replaced in a new commit; its history is kept.', 'glaciate' ),
 			),
 		);
 	}
@@ -145,14 +145,14 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 		$missing = TargetConfig::missing( $this );
 		if ( $missing ) {
 			/* translators: %s: comma-separated field names. */
-			return sprintf( __( 'Git needs these settings: %s.', 'stillpress' ), implode( ', ', $missing ) );
+			return sprintf( __( 'Git needs these settings: %s.', 'glaciate' ), implode( ', ', $missing ) );
 		}
 		if ( ! function_exists( 'gzcompress' ) ) {
-			return __( 'Publishing to Git needs the PHP zlib extension.', 'stillpress' );
+			return __( 'Publishing to Git needs the PHP zlib extension.', 'glaciate' );
 		}
 		$branch = (string) TargetConfig::value( $this, 'branch' );
 		if ( ! self::valid_branch( $branch ) ) {
-			return __( 'That branch name is not valid in Git.', 'stillpress' );
+			return __( 'That branch name is not valid in Git.', 'glaciate' );
 		}
 		return null;
 	}
@@ -218,7 +218,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 				throw new \RuntimeException( $this->foreign_branch_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 			}
 			if ( '' !== $state['head'] ) {
-				$logger->info( '' === $head ? __( 'The Git branch was deleted; publishing every file again.', 'stillpress' ) : __( 'The Git branch changed outside Stillpress; publishing every file again.', 'stillpress' ) );
+				$logger->info( '' === $head ? __( 'The Git branch was deleted; publishing every file again.', 'glaciate' ) : __( 'The Git branch changed outside Glaciate; publishing every file again.', 'glaciate' ) );
 			}
 			// We can't tell which objects the server has, so forget what we sent and send everything.
 			$files->clear();
@@ -230,7 +230,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 		$uploaded   = '' !== $upload_ref && ( $info['refs'][ $upload_ref ] ?? '' ) === $state['upload_head'] && '' !== $state['upload_head'];
 		if ( ! $uploaded ) {
 			$queue->clear();
-			$state['upload_ref']  = 'refs/heads/stillpress-upload-' . substr( $this->target_key(), 0, 8 );
+			$state['upload_ref']  = 'refs/heads/glaciate-upload-' . substr( $this->target_key(), 0, 8 );
 			$state['upload_head'] = $info['refs'][ $state['upload_ref'] ] ?? '';
 		}
 
@@ -253,14 +253,14 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 			} catch ( UnsafePathException $e ) {
 				$file = '';
 				/* translators: 1: file path, 2: error message. */
-				$logger->error( sprintf( __( 'Could not publish %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
+				$logger->error( sprintf( __( 'Could not publish %1$s: %2$s', 'glaciate' ), $path, $e->getMessage() ) );
 			}
 			$size = '' === $file ? false : filesize( $file );
 			$blob = false === $size ? null : Objects::blob_id_of_file( $file );
 			if ( null === $blob || $size > self::MAX_FILE ) {
 				if ( null !== $blob ) {
 					/* translators: %s: file path. */
-					$logger->error( sprintf( __( 'Could not publish %s: Git hosts refuse files over 100 MB.', 'stillpress' ), $path ) );
+					$logger->error( sprintf( __( 'Could not publish %s: Git hosts refuse files over 100 MB.', 'glaciate' ), $path ) );
 				}
 				++$result->failed;
 				if ( isset( $known[ $path ] ) ) {
@@ -339,7 +339,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 		unset( $objects );
 		if ( 'ok' !== ( $answer[ $ref ] ?? '' ) ) {
 			/* translators: 1: branch, 2: reason from the Git server. */
-			throw new \RuntimeException( sprintf( __( 'The Git server refused to update %1$s: %2$s', 'stillpress' ), $ref, $answer[ $ref ] ?? __( 'no answer', 'stillpress' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'The Git server refused to update %1$s: %2$s', 'glaciate' ), $ref, $answer[ $ref ] ?? __( 'no answer', 'glaciate' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		// The temporary branch goes in a push of its own: if the server refuses to delete it, the site is still out.
 		if ( '' !== $state['upload_head'] ) {
@@ -350,7 +350,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 			}
 			if ( 'ok' !== ( $gone[ $state['upload_ref'] ] ?? '' ) ) {
 				/* translators: 1: branch, 2: reason from the Git server. */
-				$logger->warning( sprintf( __( 'Published, but the Git server refused to delete the temporary branch %1$s (%2$s). Delete it by hand.', 'stillpress' ), $state['upload_ref'], $gone[ $state['upload_ref'] ] ?? __( 'no answer', 'stillpress' ) ) );
+				$logger->warning( sprintf( __( 'Published, but the Git server refused to delete the temporary branch %1$s (%2$s). Delete it by hand.', 'glaciate' ), $state['upload_ref'], $gone[ $state['upload_ref'] ] ?? __( 'no answer', 'glaciate' ) ) );
 			}
 		}
 
@@ -377,7 +377,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 			)
 		);
 		/* translators: 1: Git commit ID, 2: Git branch. */
-		$logger->info( sprintf( __( 'Pushed commit %1$s to %2$s.', 'stillpress' ), substr( $id, 0, 12 ), $ref ) );
+		$logger->info( sprintf( __( 'Pushed commit %1$s to %2$s.', 'glaciate' ), substr( $id, 0, 12 ), $ref ) );
 		return $result;
 	}
 
@@ -400,7 +400,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 		}
 		$tree    = Objects::tree( $entries );
 		$parents = '' === $state['upload_head'] ? array() : array( $state['upload_head'] );
-		$commit  = Objects::commit( Objects::id( 'tree', $tree ), $parents, 'Stillpress <stillpress@invalid>', time(), 'Upload in progress' );
+		$commit  = Objects::commit( Objects::id( 'tree', $tree ), $parents, 'Glaciate <glaciate@invalid>', time(), 'Upload in progress' );
 		$id      = Objects::id( 'commit', $commit );
 		$objects = $this->blob_objects( $batch );
 
@@ -411,7 +411,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 		$answer = $client->push( array( array( $old, $id, $state['upload_ref'] ) ), Pack::build( $objects ), $caps );
 		if ( 'ok' !== ( $answer[ $state['upload_ref'] ] ?? '' ) ) {
 			/* translators: 1: branch, 2: reason from the Git server. */
-			throw new \RuntimeException( sprintf( __( 'The Git server refused the upload branch %1$s: %2$s', 'stillpress' ), $state['upload_ref'], $answer[ $state['upload_ref'] ] ?? __( 'no answer', 'stillpress' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'The Git server refused the upload branch %1$s: %2$s', 'glaciate' ), $state['upload_ref'], $answer[ $state['upload_ref'] ] ?? __( 'no answer', 'glaciate' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$state['upload_head'] = $id;
 		$this->save_state( $state );
@@ -438,7 +438,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 		}
 		$root   = Objects::trees( $files );
 		$author = TargetConfig::value( $this, 'author_name' ) . ' <' . TargetConfig::value( $this, 'author_email' ) . '>';
-		$commit = Objects::commit( $root['root'], array(), $author, time(), 'Prepare branch for Stillpress' );
+		$commit = Objects::commit( $root['root'], array(), $author, time(), 'Prepare branch for Glaciate' );
 		foreach ( $root['trees'] as $body ) {
 			$objects[] = array( 'tree', $body );
 		}
@@ -447,7 +447,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 		$answer    = $client->push( array( array( RemoteClient::ZERO, $id, $ref ) ), Pack::build( $objects ), $caps );
 		if ( 'ok' !== ( $answer[ $ref ] ?? '' ) ) {
 			/* translators: 1: branch, 2: reason from the Git server. */
-			throw new \RuntimeException( sprintf( __( 'The Git server refused to create %1$s: %2$s', 'stillpress' ), $ref, $answer[ $ref ] ?? __( 'no answer', 'stillpress' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'The Git server refused to create %1$s: %2$s', 'glaciate' ), $ref, $answer[ $ref ] ?? __( 'no answer', 'glaciate' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		return $id;
 	}
@@ -488,7 +488,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 			$contents = file_get_contents( $item['file'] );
 			if ( false === $contents ) {
 				/* translators: %s: file path. */
-				throw new \RuntimeException( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $path ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+				throw new \RuntimeException( sprintf( __( 'Could not read %s from the build cache.', 'glaciate' ), $path ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 			}
 			$seen[ $item['blob'] ] = true;
 			$out[]                 = array( 'blob', $contents );
@@ -504,7 +504,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 	 */
 	private static function extras(): array {
 		return array(
-			TargetPolicy::MARKER => "This branch is managed by Stillpress. Each publish replaces its files in a new commit.\n",
+			TargetPolicy::MARKER => "This branch is managed by Glaciate. Each publish replaces its files in a new commit.\n",
 			'.nojekyll'          => '',
 		);
 	}
@@ -516,7 +516,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 	 */
 	private function foreign_branch_message(): string {
 		/* translators: %s: branch name. */
-		return sprintf( __( 'The branch %s already has commits that Stillpress didn\'t make. Choose a new branch name, or turn on "Replace the branch\'s contents" if this branch may be overwritten.', 'stillpress' ), (string) TargetConfig::value( $this, 'branch' ) );
+		return sprintf( __( 'The branch %s already has commits that Glaciate didn\'t make. Choose a new branch name, or turn on "Replace the branch\'s contents" if this branch may be overwritten.', 'glaciate' ), (string) TargetConfig::value( $this, 'branch' ) );
 	}
 
 	/**
@@ -537,7 +537,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 				return false;
 			}
 		}
-		return 1 === preg_match( '#^[A-Za-z0-9._\-/]+$#', $branch ) && 0 !== strpos( $branch, 'stillpress-upload-' );
+		return 1 === preg_match( '#^[A-Za-z0-9._\-/]+$#', $branch ) && 0 !== strpos( $branch, 'glaciate-upload-' );
 	}
 
 	/**

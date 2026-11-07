@@ -2,17 +2,17 @@
 /**
  * The settings form's handling of deploy target fields (threats T6, T10, T17).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Admin;
+namespace Glaciate\Tests\Integration\Admin;
 
-use Stillpress\Admin\SettingsPage;
-use Stillpress\Deploy\Registry;
-use Stillpress\Deploy\TargetConfig;
-use Stillpress\Security\Capabilities;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Settings;
+use Glaciate\Admin\SettingsPage;
+use Glaciate\Deploy\Registry;
+use Glaciate\Deploy\TargetConfig;
+use Glaciate\Security\Capabilities;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Settings;
 
 // phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.PHP.DiscouragedPHPFunctions.runtime_configuration_putenv -- Simulates a verified options.php submission; tests the environment source.
 
@@ -29,14 +29,14 @@ final class SettingsPageTest extends \WP_UnitTestCase {
 
 	public function tear_down(): void {
 		unset( $_POST['option_page'] );
-		putenv( 'STILLPRESS_S3_REGION' );
+		putenv( 'GLACIATE_S3_REGION' );
 		parent::tear_down();
 	}
 
 	/**
 	 * Submits the form the way options.php does: the sanitize callback runs inside update_option().
 	 *
-	 * @param array<string,mixed> $input Submitted stillpress_settings.
+	 * @param array<string,mixed> $input Submitted glaciate_settings.
 	 */
 	private function submit( array $input ): void {
 		update_option( Settings::OPTION, SettingsPage::sanitize( $input ) );
@@ -104,16 +104,16 @@ final class SettingsPageTest extends \WP_UnitTestCase {
 		$this->submit( array( 'targets' => array( 's3' => array( 'bucket' => 'Not A Bucket!' ) ) ) );
 		$this->assertSame( 'good-bucket', TargetConfig::value( $s3, 'bucket' ) );
 		$codes = wp_list_pluck( get_settings_errors( Settings::OPTION ), 'code' );
-		$this->assertContains( 'stillpress_s3_bucket', $codes );
+		$this->assertContains( 'glaciate_s3_bucket', $codes );
 	}
 
 	public function test_environment_pinned_field_is_locked(): void {
-		putenv( 'STILLPRESS_S3_REGION=ap-south-1' );
+		putenv( 'GLACIATE_S3_REGION=ap-south-1' );
 		$this->submit( array( 'targets' => array( 's3' => array( 'region' => 'eu-west-1' ) ) ) );
 		$this->assertSame( 'ap-south-1', TargetConfig::value( Registry::instance()->get( 's3' ), 'region' ) );
 		$html = $this->panel( 's3' );
-		$this->assertMatchesRegularExpression( '#id="stillpress-target-s3-region"[^>]*disabled#', $html );
-		$this->assertStringContainsString( 'STILLPRESS_S3_REGION environment variable', $html );
+		$this->assertMatchesRegularExpression( '#id="glaciate-target-s3-region"[^>]*disabled#', $html );
+		$this->assertStringContainsString( 'GLACIATE_S3_REGION environment variable', $html );
 	}
 
 	public function test_panel_never_contains_a_saved_secret(): void {
@@ -121,8 +121,8 @@ final class SettingsPageTest extends \WP_UnitTestCase {
 		Secrets::set( 'sftp', 'private_key', "-----BEGIN KEY-----\nmust-not-render-key\n-----END KEY-----\n" );
 		$html = $this->panel( 's3' ) . $this->panel( 'sftp' );
 		$this->assertStringNotContainsString( 'must-not-render', $html );
-		$this->assertMatchesRegularExpression( '#<input type="password"[^>]*name="stillpress_settings\[secrets\]\[s3\]\[secret_access_key\]"#', $html );
-		$this->assertMatchesRegularExpression( '#<textarea[^>]*name="stillpress_settings\[secrets\]\[sftp\]\[private_key\]"[^>]*></textarea>#', $html );
+		$this->assertMatchesRegularExpression( '#<input type="password"[^>]*name="glaciate_settings\[secrets\]\[s3\]\[secret_access_key\]"#', $html );
+		$this->assertMatchesRegularExpression( '#<textarea[^>]*name="glaciate_settings\[secrets\]\[sftp\]\[private_key\]"[^>]*></textarea>#', $html );
 		$this->assertStringContainsString( 'Saved. Leave empty to keep it.', $html );
 		$this->assertStringContainsString( 'Remove the saved value', $html );
 	}
@@ -141,6 +141,6 @@ final class SettingsPageTest extends \WP_UnitTestCase {
 			$this->markTestSkipped( 'On multisite only super admins may edit them (MultisiteTest).' );
 		}
 		$html = $this->panel( 'sftp' );
-		$this->assertDoesNotMatchRegularExpression( '#id="stillpress-target-sftp-host"[^>]*disabled#', $html );
+		$this->assertDoesNotMatchRegularExpression( '#id="glaciate-target-sftp-host"[^>]*disabled#', $html );
 	}
 }

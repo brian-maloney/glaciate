@@ -2,27 +2,27 @@
 /**
  * Secret resolution and storage (threat T10).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Security;
+namespace Glaciate\Tests\Integration\Security;
 
-use Stillpress\Security\Redactor;
-use Stillpress\Security\Secrets;
+use Glaciate\Security\Redactor;
+use Glaciate\Security\Secrets;
 
 // phpcs:disable WordPress.PHP.DiscouragedPHPFunctions.runtime_configuration_putenv -- Tests the environment-variable source.
 
 final class SecretsTest extends \WP_UnitTestCase {
 
 	public function tear_down(): void {
-		putenv( 'STILLPRESS_TESTDEP_ENV_FIELD' );
+		putenv( 'GLACIATE_TESTDEP_ENV_FIELD' );
 		Redactor::reset();
 		parent::tear_down();
 	}
 
 	public function test_name_maps_to_constant_style(): void {
-		$this->assertSame( 'STILLPRESS_S3_SECRET_KEY', Secrets::name( 's3', 'secret_key' ) );
-		$this->assertSame( 'STILLPRESS_CLOUDFLARE_PAGES_API_TOKEN', Secrets::name( 'cloudflare-pages', 'api_token' ) );
+		$this->assertSame( 'GLACIATE_S3_SECRET_KEY', Secrets::name( 's3', 'secret_key' ) );
+		$this->assertSame( 'GLACIATE_CLOUDFLARE_PAGES_API_TOKEN', Secrets::name( 'cloudflare-pages', 'api_token' ) );
 	}
 
 	/**
@@ -72,14 +72,14 @@ final class SecretsTest extends \WP_UnitTestCase {
 
 	public function test_environment_wins_over_stored(): void {
 		Secrets::set( 'testdep', 'env_field', 'from-option' );
-		putenv( 'STILLPRESS_TESTDEP_ENV_FIELD=from-env' );
+		putenv( 'GLACIATE_TESTDEP_ENV_FIELD=from-env' );
 		$this->assertSame( 'from-env', Secrets::get( 'testdep', 'env_field' ) );
 		$this->assertSame( Secrets::SOURCE_ENVIRONMENT, Secrets::source( 'testdep', 'env_field' ) );
 	}
 
 	public function test_empty_environment_variable_falls_through(): void {
 		Secrets::set( 'testdep', 'env_field', 'from-option' );
-		putenv( 'STILLPRESS_TESTDEP_ENV_FIELD=' );
+		putenv( 'GLACIATE_TESTDEP_ENV_FIELD=' );
 		$this->assertSame( 'from-option', Secrets::get( 'testdep', 'env_field' ) );
 	}
 
@@ -88,8 +88,8 @@ final class SecretsTest extends \WP_UnitTestCase {
 	 * @preserveGlobalState disabled
 	 */
 	public function test_constant_wins_and_blocks_storing(): void {
-		define( 'STILLPRESS_TESTDEP_PINNED', 'from-constant' );
-		putenv( 'STILLPRESS_TESTDEP_PINNED=from-env' );
+		define( 'GLACIATE_TESTDEP_PINNED', 'from-constant' );
+		putenv( 'GLACIATE_TESTDEP_PINNED=from-env' );
 		$this->assertSame( 'from-constant', Secrets::get( 'testdep', 'pinned' ) );
 		$this->assertSame( Secrets::SOURCE_CONSTANT, Secrets::source( 'testdep', 'pinned' ) );
 		$this->expectException( \LogicException::class );
@@ -109,7 +109,7 @@ final class SecretsTest extends \WP_UnitTestCase {
 	}
 
 	public function test_health_check_names_unreadable_secrets(): void {
-		$checks = new \Stillpress\Service\HealthChecks();
+		$checks = new \Glaciate\Service\HealthChecks();
 		Secrets::set( 'testdep', 'token', 'value-5678' );
 		$this->assertSame( 'good', $checks->secrets()['status'] );
 		add_filter(

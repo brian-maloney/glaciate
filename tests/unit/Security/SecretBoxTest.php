@@ -2,13 +2,13 @@
 /**
  * Sealing stored secrets (threat T10).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Security;
+namespace Glaciate\Tests\Unit\Security;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Security\SecretBox;
+use Glaciate\Security\SecretBox;
 
 // phpcs:disable WordPress.PHP.DiscouragedPHPFunctions -- Builds malformed sealed values by hand.
 

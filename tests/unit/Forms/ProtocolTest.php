@@ -2,14 +2,14 @@
 /**
  * Form submission rules and signatures, against the table the standalone receivers share.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Forms;
+namespace Glaciate\Tests\Unit\Forms;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Forms\Protocol;
-use Stillpress\Forms\Signature;
+use Glaciate\Forms\Protocol;
+use Glaciate\Forms\Signature;
 
 final class ProtocolTest extends TestCase {
 
@@ -103,10 +103,10 @@ final class ProtocolTest extends TestCase {
 
 	public function test_strip_and_pairs(): void {
 		$pairs = array(
-			array( 'stillpress_form', 'cf7:1' ),
-			array( 'stillpress_page', 'https://example.org/' ),
-			array( 'stillpress_hp', '' ),
-			array( 'stillpress_t', '5' ),
+			array( 'glaciate_form', 'cf7:1' ),
+			array( 'glaciate_page', 'https://example.org/' ),
+			array( 'glaciate_hp', '' ),
+			array( 'glaciate_t', '5' ),
 			array( 'cf-turnstile-response', 'tok' ),
 			array( 'your-name', 'Ada' ),
 		);

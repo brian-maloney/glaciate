@@ -2,10 +2,10 @@
 /**
  * CloudFront invalidations.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy\Aws;
+namespace Glaciate\Deploy\Aws;
 
 /**
  * Builds signed CreateInvalidation requests. CloudFront is a global service: the API lives at

@@ -2,17 +2,17 @@
 /**
  * Records what a render request read from WordPress.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Render;
+namespace Glaciate\Render;
 
-use Stillpress\Deps\DependencyStore;
-use Stillpress\Deps\OptionRules;
-use Stillpress\Deps\QuerySignature;
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Storage\Schema;
-use Stillpress\Support\Settings;
+use Glaciate\Deps\DependencyStore;
+use Glaciate\Deps\OptionRules;
+use Glaciate\Deps\QuerySignature;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Storage\Schema;
+use Glaciate\Support\Settings;
 
 /**
  * Runs inside a loopback render request (identified by a valid render token) and records the posts, terms,
@@ -75,10 +75,10 @@ final class Recorder {
 	 * @return void
 	 */
 	public static function maybe_start(): void {
-		if ( null !== self::$active || empty( $_SERVER['HTTP_X_STILLPRESS_RENDER'] ) ) {
+		if ( null !== self::$active || empty( $_SERVER['HTTP_X_GLACIATE_RENDER'] ) ) {
 			return;
 		}
-		$header = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_STILLPRESS_RENDER'] ) );
+		$header = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_GLACIATE_RENDER'] ) );
 		$claims = RenderToken::for_site()->verify( $header );
 		if ( null === $claims ) {
 			return;
@@ -111,7 +111,7 @@ final class Recorder {
 	}
 
 	/**
-	 * Adds a dependency manually. Extensions can call this through the stillpress_record_dependency action.
+	 * Adds a dependency manually. Extensions can call this through the glaciate_record_dependency action.
 	 *
 	 * @param string     $type Dependency type (see DependencyStore).
 	 * @param string|int $key  Key.
@@ -140,7 +140,7 @@ final class Recorder {
 		$this->observe();
 
 		add_action(
-			'stillpress_record_dependency',
+			'glaciate_record_dependency',
 			function ( $type, $key ) {
 				$this->add( (string) $type, $key );
 			},
@@ -164,7 +164,7 @@ final class Recorder {
 		 *
 		 * @param bool $clean Default true.
 		 */
-		if ( ! apply_filters( 'stillpress_clean_head', true ) ) {
+		if ( ! apply_filters( 'glaciate_clean_head', true ) ) {
 			return;
 		}
 		remove_action( 'wp_head', 'rsd_link' );
@@ -413,7 +413,7 @@ final class Recorder {
 		 * @param array<string,string[]> $deps   Keys by type (post, term, user, option, query, tq, uq, cq, lastmod).
 		 * @param int                    $url_id URL ID.
 		 */
-		$deps = (array) apply_filters( 'stillpress_dependencies_for_url', $deps, $this->url_id );
+		$deps = (array) apply_filters( 'glaciate_dependencies_for_url', $deps, $this->url_id );
 
 		$stored = ( new DependencyStore() )->replace( $this->url_id, $deps, $sigs );
 		$this->set_deps_state( $stored ? 'recorded' : 'unknown' );
@@ -448,7 +448,7 @@ final class Recorder {
 		 *
 		 * @param string $reason Default "password-protected" for posts behind a password, otherwise "".
 		 */
-		$reason = (string) apply_filters( 'stillpress_exclude_render', $reason );
+		$reason = (string) apply_filters( 'glaciate_exclude_render', $reason );
 		return (string) preg_replace( '/[^a-z0-9\-]/', '', strtolower( $reason ) );
 	}
 

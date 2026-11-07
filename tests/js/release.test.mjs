@@ -1,7 +1,7 @@
 /**
  * Release helpers: version agreement, changelog extraction and the Plugin Check gate (bin/release.mjs).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 import { test } from 'node:test';
@@ -9,9 +9,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { changelogSection, parseReport, unexpectedErrors, versionProblems } from '../../bin/release.mjs';
 
-const plugin = ( version, constant = version ) => ` * Plugin Name: Stillpress\n * Version:           ${ version }\n */\ndefine( 'STILLPRESS_VERSION', '${ constant }' );\n`;
+const plugin = ( version, constant = version ) => ` * Plugin Name: Glaciate\n * Version:           ${ version }\n */\ndefine( 'GLACIATE_VERSION', '${ constant }' );\n`;
 const readme = ( stable, entries ) =>
-	`=== Stillpress ===\nStable tag: ${ stable }\n\n== Changelog ==\n\n${ entries }\n\n== Privacy ==\n\n= 9.9.9 =\nNot a changelog.\n`;
+	`=== Glaciate ===\nStable tag: ${ stable }\n\n== Changelog ==\n\n${ entries }\n\n== Privacy ==\n\n= 9.9.9 =\nNot a changelog.\n`;
 
 test( 'a tag releases when every version agrees and it has a changelog entry', () => {
 	assert.deepEqual( versionProblems( '1.2.3', plugin( '1.2.3' ), readme( '1.2.3', '= 1.2.3 =\n* Fix: x.' ) ), [] );
@@ -20,7 +20,7 @@ test( 'a tag releases when every version agrees and it has a changelog entry', (
 test( 'each disagreeing version is named', () => {
 	const problems = versionProblems( '1.2.3', plugin( '1.2.3', '1.2.2' ), readme( '1.2.2', '= 1.2.2 =\n* Old.' ) );
 	assert.equal( problems.length, 3 );
-	assert.match( problems[ 0 ], /STILLPRESS_VERSION is 1\.2\.2/ );
+	assert.match( problems[ 0 ], /GLACIATE_VERSION is 1\.2\.2/ );
 	assert.match( problems[ 1 ], /Stable tag in readme\.txt is 1\.2\.2/ );
 	assert.match( problems[ 2 ], /no changelog entry "= 1\.2\.3 ="/ );
 } );

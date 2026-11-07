@@ -2,13 +2,13 @@
 /**
  * The comment form.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms\Adapter;
+namespace Glaciate\Forms\Adapter;
 
-use Stillpress\Forms\Result;
-use Stillpress\Forms\Submission;
+use Glaciate\Forms\Result;
+use Glaciate\Forms\Submission;
 
 /**
  * Recognizes WordPress's comment form (it posts to wp-comments-post.php with a `comment_post_ID`) and submits comments
@@ -87,8 +87,8 @@ final class Comments implements AdapterInterface {
 			return Result::refused();
 		}
 		if ( '1' === (string) $comment->comment_approved ) {
-			return Result::sent( __( 'Thank you. Your comment will appear on the site after the next update.', 'stillpress' ) );
+			return Result::sent( __( 'Thank you. Your comment will appear on the site after the next update.', 'glaciate' ) );
 		}
-		return Result::sent( __( 'Thank you. Your comment is awaiting moderation.', 'stillpress' ) );
+		return Result::sent( __( 'Thank you. Your comment is awaiting moderation.', 'glaciate' ) );
 	}
 }

@@ -2,13 +2,13 @@
 /**
  * Finds static files on disk so they can be copied instead of fetched.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Crawl;
+namespace Glaciate\Crawl;
 
-use Stillpress\Output\PathMapper;
-use Stillpress\Output\UnsafePathException;
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
 
 /**
  * Maps asset URLs to files on disk, but only inside allowed roots and only for allowed file types (threat T3).
@@ -130,7 +130,7 @@ final class AssetCopier {
 		 *
 		 * @param array<string,string> $roots URL path prefix => absolute directory.
 		 */
-		return new self( (array) apply_filters( 'stillpress_asset_roots', $roots ) );
+		return new self( (array) apply_filters( 'glaciate_asset_roots', $roots ) );
 	}
 
 	/**

@@ -2,20 +2,20 @@
 /**
  * The Static Site → Settings screen (Settings API).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Admin;
+namespace Glaciate\Admin;
 
-use Stillpress\Deploy\ConfigurableDeployerInterface;
-use Stillpress\Deploy\DeployerInterface;
-use Stillpress\Deploy\LocalDirectory;
-use Stillpress\Deploy\Registry;
-use Stillpress\Deploy\TargetConfig;
-use Stillpress\Security\Capabilities;
-use Stillpress\Security\Secrets;
-use Stillpress\Security\TargetPolicy;
-use Stillpress\Support\Settings;
+use Glaciate\Deploy\ConfigurableDeployerInterface;
+use Glaciate\Deploy\DeployerInterface;
+use Glaciate\Deploy\LocalDirectory;
+use Glaciate\Deploy\Registry;
+use Glaciate\Deploy\TargetConfig;
+use Glaciate\Security\Capabilities;
+use Glaciate\Security\Secrets;
+use Glaciate\Security\TargetPolicy;
+use Glaciate\Support\Settings;
 
 /**
  * Registers the settings with the Settings API and renders the form.
@@ -29,7 +29,7 @@ use Stillpress\Support\Settings;
  */
 final class SettingsPage {
 
-	const GROUP = 'stillpress';
+	const GROUP = 'glaciate';
 
 	/** Secret fields of the forms settings (Secrets slot "forms"). */
 	const FORM_SECRETS = array( 'secret', 'captcha_secret' );
@@ -41,7 +41,7 @@ final class SettingsPage {
 	 */
 	public static function register(): void {
 		add_action( 'admin_init', array( self::class, 'settings' ) );
-		// options.php asks for manage_options unless told otherwise; the screen itself needs stillpress_manage.
+		// options.php asks for manage_options unless told otherwise; the screen itself needs glaciate_manage.
 		add_filter(
 			'option_page_capability_' . self::GROUP,
 			static function () {
@@ -77,48 +77,48 @@ final class SettingsPage {
 		);
 
 		$page = Admin::SETTINGS_PAGE;
-		add_settings_section( 'stillpress_deploy', __( 'Where to publish', 'stillpress' ), '__return_null', $page );
-		add_settings_section( 'stillpress_publishing', __( 'When to publish', 'stillpress' ), '__return_null', $page );
-		add_settings_section( 'stillpress_content', __( 'What to publish', 'stillpress' ), '__return_null', $page );
-		add_settings_section( 'stillpress_forms', __( 'Forms', 'stillpress' ), array( self::class, 'forms_intro' ), $page );
-		add_settings_section( 'stillpress_advanced', __( 'Advanced', 'stillpress' ), '__return_null', $page );
+		add_settings_section( 'glaciate_deploy', __( 'Where to publish', 'glaciate' ), '__return_null', $page );
+		add_settings_section( 'glaciate_publishing', __( 'When to publish', 'glaciate' ), '__return_null', $page );
+		add_settings_section( 'glaciate_content', __( 'What to publish', 'glaciate' ), '__return_null', $page );
+		add_settings_section( 'glaciate_forms', __( 'Forms', 'glaciate' ), array( self::class, 'forms_intro' ), $page );
+		add_settings_section( 'glaciate_advanced', __( 'Advanced', 'glaciate' ), '__return_null', $page );
 
-		self::field( 'target', __( 'Destination', 'stillpress' ), 'stillpress_deploy', array( self::class, 'field_target' ) );
-		self::field( 'local_path', __( 'Folder', 'stillpress' ), 'stillpress_deploy', array( self::class, 'field_local_path' ) );
+		self::field( 'target', __( 'Destination', 'glaciate' ), 'glaciate_deploy', array( self::class, 'field_target' ) );
+		self::field( 'local_path', __( 'Folder', 'glaciate' ), 'glaciate_deploy', array( self::class, 'field_local_path' ) );
 		foreach ( Registry::instance()->all() as $id => $deployer ) {
 			if ( $deployer instanceof ConfigurableDeployerInterface ) {
 				add_settings_field(
-					'stillpress_target_' . $id,
+					'glaciate_target_' . $id,
 					esc_html( $deployer->label() ),
 					array( self::class, 'field_target_panel' ),
 					Admin::SETTINGS_PAGE,
-					'stillpress_deploy',
+					'glaciate_deploy',
 					array(
 						'deployer' => $deployer,
-						'class'    => 'stillpress-target-row stillpress-target-row-' . $id,
+						'class'    => 'glaciate-target-row glaciate-target-row-' . $id,
 					)
 				);
 			}
 		}
-		self::field( 'public_url', __( 'Public address', 'stillpress' ), 'stillpress_deploy', array( self::class, 'field_public_url' ) );
-		self::field( 'publish_mode', __( 'Publish changes', 'stillpress' ), 'stillpress_publishing', array( self::class, 'field_publish_mode' ), false );
-		self::field( 'full_rebuild', __( 'Full rebuild', 'stillpress' ), 'stillpress_publishing', array( self::class, 'field_full_rebuild' ) );
-		self::field( 'additional_urls', __( 'Extra addresses', 'stillpress' ), 'stillpress_content', array( self::class, 'field_additional_urls' ) );
-		self::field( 'origin_aliases', __( 'Other addresses of this site', 'stillpress' ), 'stillpress_content', array( self::class, 'field_origin_aliases' ) );
-		self::field( 'exclude', __( 'Leave out', 'stillpress' ), 'stillpress_content', array( self::class, 'field_exclude' ) );
-		self::field( 'redirects', __( 'Redirects', 'stillpress' ), 'stillpress_content', array( self::class, 'field_redirects' ) );
-		self::field( 'feeds', __( 'Feeds', 'stillpress' ), 'stillpress_content', array( self::class, 'field_feeds' ) );
-		self::field( 'search', __( 'Search', 'stillpress' ), 'stillpress_content', array( self::class, 'field_search' ) );
-		self::field( 'forms', __( 'Receive forms', 'stillpress' ), 'stillpress_forms', array( self::class, 'field_forms' ) );
-		self::field( 'forms_endpoint', __( 'Receiver address', 'stillpress' ), 'stillpress_forms', array( self::class, 'field_forms_endpoint' ) );
-		self::field( 'forms_secret', __( 'Shared secret', 'stillpress' ), 'stillpress_forms', array( self::class, 'field_forms_secret' ) );
-		self::field( 'forms_email', __( 'Email for marked forms', 'stillpress' ), 'stillpress_forms', array( self::class, 'field_forms_email' ) );
-		self::field( 'forms_webhook', __( 'Webhook', 'stillpress' ), 'stillpress_forms', array( self::class, 'field_forms_webhook' ) );
-		self::field( 'forms_captcha', __( 'Captcha', 'stillpress' ), 'stillpress_forms', array( self::class, 'field_forms_captcha' ) );
-		self::field( 'concurrency', __( 'Parallel requests', 'stillpress' ), 'stillpress_advanced', array( self::class, 'field_concurrency' ) );
-		self::field( 'connect_to', __( 'Loopback address', 'stillpress' ), 'stillpress_advanced', array( self::class, 'field_connect_to' ) );
-		self::field( 'max_urls', __( 'Address limit', 'stillpress' ), 'stillpress_advanced', array( self::class, 'field_max_urls' ) );
-		self::field( 'max_depth', __( 'Link depth limit', 'stillpress' ), 'stillpress_advanced', array( self::class, 'field_max_depth' ) );
+		self::field( 'public_url', __( 'Public address', 'glaciate' ), 'glaciate_deploy', array( self::class, 'field_public_url' ) );
+		self::field( 'publish_mode', __( 'Publish changes', 'glaciate' ), 'glaciate_publishing', array( self::class, 'field_publish_mode' ), false );
+		self::field( 'full_rebuild', __( 'Full rebuild', 'glaciate' ), 'glaciate_publishing', array( self::class, 'field_full_rebuild' ) );
+		self::field( 'additional_urls', __( 'Extra addresses', 'glaciate' ), 'glaciate_content', array( self::class, 'field_additional_urls' ) );
+		self::field( 'origin_aliases', __( 'Other addresses of this site', 'glaciate' ), 'glaciate_content', array( self::class, 'field_origin_aliases' ) );
+		self::field( 'exclude', __( 'Leave out', 'glaciate' ), 'glaciate_content', array( self::class, 'field_exclude' ) );
+		self::field( 'redirects', __( 'Redirects', 'glaciate' ), 'glaciate_content', array( self::class, 'field_redirects' ) );
+		self::field( 'feeds', __( 'Feeds', 'glaciate' ), 'glaciate_content', array( self::class, 'field_feeds' ) );
+		self::field( 'search', __( 'Search', 'glaciate' ), 'glaciate_content', array( self::class, 'field_search' ) );
+		self::field( 'forms', __( 'Receive forms', 'glaciate' ), 'glaciate_forms', array( self::class, 'field_forms' ) );
+		self::field( 'forms_endpoint', __( 'Receiver address', 'glaciate' ), 'glaciate_forms', array( self::class, 'field_forms_endpoint' ) );
+		self::field( 'forms_secret', __( 'Shared secret', 'glaciate' ), 'glaciate_forms', array( self::class, 'field_forms_secret' ) );
+		self::field( 'forms_email', __( 'Email for marked forms', 'glaciate' ), 'glaciate_forms', array( self::class, 'field_forms_email' ) );
+		self::field( 'forms_webhook', __( 'Webhook', 'glaciate' ), 'glaciate_forms', array( self::class, 'field_forms_webhook' ) );
+		self::field( 'forms_captcha', __( 'Captcha', 'glaciate' ), 'glaciate_forms', array( self::class, 'field_forms_captcha' ) );
+		self::field( 'concurrency', __( 'Parallel requests', 'glaciate' ), 'glaciate_advanced', array( self::class, 'field_concurrency' ) );
+		self::field( 'connect_to', __( 'Loopback address', 'glaciate' ), 'glaciate_advanced', array( self::class, 'field_connect_to' ) );
+		self::field( 'max_urls', __( 'Address limit', 'glaciate' ), 'glaciate_advanced', array( self::class, 'field_max_urls' ) );
+		self::field( 'max_depth', __( 'Link depth limit', 'glaciate' ), 'glaciate_advanced', array( self::class, 'field_max_depth' ) );
 	}
 
 	/**
@@ -132,7 +132,7 @@ final class SettingsPage {
 	 * @return void
 	 */
 	private static function field( string $key, string $title, string $section, callable $callback, bool $label = true ): void {
-		add_settings_field( 'stillpress_' . $key, $title, $callback, Admin::SETTINGS_PAGE, $section, $label ? array( 'label_for' => 'stillpress-' . str_replace( '_', '-', $key ) ) : array() );
+		add_settings_field( 'glaciate_' . $key, $title, $callback, Admin::SETTINGS_PAGE, $section, $label ? array( 'label_for' => 'glaciate-' . str_replace( '_', '-', $key ) ) : array() );
 	}
 
 	/**
@@ -184,7 +184,7 @@ final class SettingsPage {
 		if ( 'local' === $clean['target'] && '' !== $clean['local_path'] ) {
 			$problem = TargetPolicy::for_wordpress()->problem( $clean['local_path'] );
 			if ( null !== $problem ) {
-				add_settings_error( Settings::OPTION, 'stillpress_local_path', $problem );
+				add_settings_error( Settings::OPTION, 'glaciate_local_path', $problem );
 				$clean['local_path'] = $current['local_path'] ?? '';
 			}
 		}
@@ -228,7 +228,7 @@ final class SettingsPage {
 				$clean = TargetConfig::clean( $def, $raw );
 				if ( null === $clean ) {
 					/* translators: 1: target name, 2: field label. */
-					add_settings_error( Settings::OPTION, 'stillpress_' . $id . '_' . $name, sprintf( __( '%1$s: that is not a valid %2$s. The previous value was kept.', 'stillpress' ), $deployer->label(), $def['label'] ) );
+					add_settings_error( Settings::OPTION, 'glaciate_' . $id . '_' . $name, sprintf( __( '%1$s: that is not a valid %2$s. The previous value was kept.', 'glaciate' ), $deployer->label(), $def['label'] ) );
 					continue;
 				}
 				$out[ $id ][ $name ] = $clean;
@@ -250,17 +250,17 @@ final class SettingsPage {
 		if ( ! array_key_exists( 'publish_mode', $input ) ) {
 			return $input;
 		}
-		$times = \Stillpress\Build\Schedule::parse_times( $input['publish_times'] ?? '' );
-		$days  = \Stillpress\Build\Schedule::parse_days( $input['publish_days'] ?? array() );
+		$times = \Glaciate\Build\Schedule::parse_times( $input['publish_times'] ?? '' );
+		$days  = \Glaciate\Build\Schedule::parse_days( $input['publish_days'] ?? array() );
 		if ( ! $times ) {
 			if ( 'scheduled' === $input['publish_mode'] ) {
-				add_settings_error( Settings::OPTION, 'stillpress_publish_times', __( 'Enter at least one publishing time, such as 09:00.', 'stillpress' ) );
+				add_settings_error( Settings::OPTION, 'glaciate_publish_times', __( 'Enter at least one publishing time, such as 09:00.', 'glaciate' ) );
 			}
 			$times = $current['publish_times'] ?? $defaults['publish_times'];
 		}
 		if ( ! $days ) {
 			if ( 'scheduled' === $input['publish_mode'] ) {
-				add_settings_error( Settings::OPTION, 'stillpress_publish_days', __( 'Choose at least one day to publish on.', 'stillpress' ) );
+				add_settings_error( Settings::OPTION, 'glaciate_publish_days', __( 'Choose at least one day to publish on.', 'glaciate' ) );
 			}
 			$days = $current['publish_days'] ?? $defaults['publish_days'];
 		}
@@ -308,7 +308,7 @@ final class SettingsPage {
 			}
 		}
 		foreach ( self::FORM_SECRETS as $name ) {
-			$slots[] = array( \Stillpress\Forms\Config::SECRETS, $name, array( 'multiline' => false ) );
+			$slots[] = array( \Glaciate\Forms\Config::SECRETS, $name, array( 'multiline' => false ) );
 		}
 		foreach ( $slots as list( $id, $name, $def ) ) {
 			if ( Secrets::SOURCE_NONE !== Secrets::pinned( $id, $name )[0] ) {
@@ -333,7 +333,7 @@ final class SettingsPage {
 		if ( ! current_user_can( Capabilities::MANAGE ) ) {
 			return;
 		}
-		echo '<div class="wrap stillpress-settings"><h1>' . esc_html__( 'Static Site Settings', 'stillpress' ) . '</h1>';
+		echo '<div class="wrap glaciate-settings"><h1>' . esc_html__( 'Static Site Settings', 'glaciate' ) . '</h1>';
 		// Pages outside the Settings menu must print the Settings API notices themselves.
 		settings_errors();
 		echo '<form method="post" action="options.php">';
@@ -364,7 +364,7 @@ final class SettingsPage {
 			return false;
 		}
 		/* translators: %s: constant name. */
-		self::description( 'stillpress-' . str_replace( '_', '-', $key ), array( sprintf( __( 'Set by %s in wp-config.php.', 'stillpress' ), Settings::CONSTANTS[ $key ] ) ) );
+		self::description( 'glaciate-' . str_replace( '_', '-', $key ), array( sprintf( __( 'Set by %s in wp-config.php.', 'glaciate' ), Settings::CONSTANTS[ $key ] ) ) );
 		return true;
 	}
 
@@ -375,7 +375,7 @@ final class SettingsPage {
 	 */
 	public static function field_target(): void {
 		$current = (string) Settings::get( 'target' );
-		echo '<select id="stillpress-target" name="' . esc_attr( self::name( 'target' ) ) . '">';
+		echo '<select id="glaciate-target" name="' . esc_attr( self::name( 'target' ) ) . '">';
 		foreach ( Registry::instance()->all() as $id => $deployer ) {
 			echo '<option value="' . esc_attr( $id ) . '"' . selected( $current, $id, false ) . '>' . esc_html( $deployer->label() ) . '</option>';
 		}
@@ -393,18 +393,18 @@ final class SettingsPage {
 		$value   = (string) Settings::get( 'local_path' );
 		$locked  = Settings::is_pinned( 'local_path' ) || ! self::can_edit_paths();
 		printf(
-			'<input type="text" class="large-text code" id="stillpress-local-path" name="%s" value="%s" placeholder="%s" aria-describedby="stillpress-local-path-description" %s>',
+			'<input type="text" class="large-text code" id="glaciate-local-path" name="%s" value="%s" placeholder="%s" aria-describedby="glaciate-local-path-description" %s>',
 			esc_attr( self::name( 'local_path' ) ),
 			esc_attr( $value ),
 			esc_attr( $default ),
 			disabled( $locked, true, false )
 		);
 		if ( ! self::pinned_note( 'local_path' ) ) {
-			$texts = array( __( 'Used when the destination is a folder. Leave empty for the default. The folder must be empty or already used by this plugin; files this plugin did not create are never deleted.', 'stillpress' ) );
+			$texts = array( __( 'Used when the destination is a folder. Leave empty for the default. The folder must be empty or already used by this plugin; files this plugin did not create are never deleted.', 'glaciate' ) );
 			if ( ! self::can_edit_paths() ) {
-				$texts[] = __( 'Only a network administrator can change this.', 'stillpress' );
+				$texts[] = __( 'Only a network administrator can change this.', 'glaciate' );
 			}
-			self::description( 'stillpress-local-path', $texts );
+			self::description( 'glaciate-local-path', $texts );
 		}
 	}
 
@@ -415,14 +415,14 @@ final class SettingsPage {
 	 */
 	public static function field_public_url(): void {
 		printf(
-			'<input type="url" class="regular-text code" id="stillpress-public-url" name="%s" value="%s" placeholder="%s" aria-describedby="stillpress-public-url-description" %s>',
+			'<input type="url" class="regular-text code" id="glaciate-public-url" name="%s" value="%s" placeholder="%s" aria-describedby="glaciate-public-url-description" %s>',
 			esc_attr( self::name( 'public_url' ) ),
 			esc_attr( (string) Settings::get( 'public_url' ) ),
 			esc_attr( home_url() ),
 			disabled( Settings::is_pinned( 'public_url' ), true, false )
 		);
 		if ( ! self::pinned_note( 'public_url' ) ) {
-			self::description( 'stillpress-public-url', array( __( 'The address visitors will use. Leave empty to keep this site\'s address.', 'stillpress' ) ) );
+			self::description( 'glaciate-public-url', array( __( 'The address visitors will use. Leave empty to keep this site\'s address.', 'glaciate' ) ) );
 		}
 	}
 
@@ -434,11 +434,11 @@ final class SettingsPage {
 	public static function field_publish_mode(): void {
 		$mode    = (string) Settings::get( 'publish_mode' );
 		$options = array(
-			'immediate' => __( 'Right after they are saved (a minute later, so a burst of edits goes out together)', 'stillpress' ),
-			'scheduled' => __( 'At set times', 'stillpress' ),
-			'manual'    => __( 'Only when I click Publish', 'stillpress' ),
+			'immediate' => __( 'Right after they are saved (a minute later, so a burst of edits goes out together)', 'glaciate' ),
+			'scheduled' => __( 'At set times', 'glaciate' ),
+			'manual'    => __( 'Only when I click Publish', 'glaciate' ),
 		);
-		echo '<fieldset id="stillpress-publish-mode" aria-describedby="stillpress-publish-mode-description"><legend class="screen-reader-text">' . esc_html__( 'Publish changes', 'stillpress' ) . '</legend>';
+		echo '<fieldset id="glaciate-publish-mode" aria-describedby="glaciate-publish-mode-description"><legend class="screen-reader-text">' . esc_html__( 'Publish changes', 'glaciate' ) . '</legend>';
 		foreach ( $options as $value => $label ) {
 			printf(
 				'<label><input type="radio" name="%s" value="%s" %s> %s</label><br>',
@@ -450,20 +450,20 @@ final class SettingsPage {
 		}
 		echo '</fieldset>';
 
-		echo '<div class="stillpress-indent" data-stillpress-schedule>';
+		echo '<div class="glaciate-indent" data-glaciate-schedule>';
 		printf(
-			'<p><label for="stillpress-publish-times">%s</label><br><input type="text" class="regular-text code" id="stillpress-publish-times" name="%s" value="%s" placeholder="09:00, 17:00" aria-describedby="stillpress-publish-times-description"></p>',
-			esc_html__( 'Times', 'stillpress' ),
+			'<p><label for="glaciate-publish-times">%s</label><br><input type="text" class="regular-text code" id="glaciate-publish-times" name="%s" value="%s" placeholder="09:00, 17:00" aria-describedby="glaciate-publish-times-description"></p>',
+			esc_html__( 'Times', 'glaciate' ),
 			esc_attr( self::name( 'publish_times' ) ),
 			esc_attr( implode( ', ', (array) Settings::get( 'publish_times' ) ) )
 		);
 		/* translators: %s: timezone name. */
-		echo '<p class="description" id="stillpress-publish-times-description">' . esc_html( sprintf( __( '24-hour times, separated by commas, in the site\'s timezone (%s). Changes saved in between wait for the next time.', 'stillpress' ), wp_timezone_string() ) ) . '</p>';
-		echo '<fieldset><legend>' . esc_html__( 'Days', 'stillpress' ) . '</legend>';
+		echo '<p class="description" id="glaciate-publish-times-description">' . esc_html( sprintf( __( '24-hour times, separated by commas, in the site\'s timezone (%s). Changes saved in between wait for the next time.', 'glaciate' ), wp_timezone_string() ) ) . '</p>';
+		echo '<fieldset><legend>' . esc_html__( 'Days', 'glaciate' ) . '</legend>';
 		$days = (array) Settings::get( 'publish_days' );
 		foreach ( self::weekdays() as $code => $label ) {
 			printf(
-				'<label class="stillpress-day"><input type="checkbox" name="%s[]" value="%s" %s> %s</label> ',
+				'<label class="glaciate-day"><input type="checkbox" name="%s[]" value="%s" %s> %s</label> ',
 				esc_attr( self::name( 'publish_days' ) ),
 				esc_attr( $code ),
 				checked( in_array( $code, $days, true ), true, false ),
@@ -471,7 +471,7 @@ final class SettingsPage {
 			);
 		}
 		echo '</fieldset></div>';
-		self::description( 'stillpress-publish-mode', array( __( 'Only the pages affected by a change are rebuilt.', 'stillpress' ) ) );
+		self::description( 'glaciate-publish-mode', array( __( 'Only the pages affected by a change are rebuilt.', 'glaciate' ) ) );
 	}
 
 	/**
@@ -481,7 +481,7 @@ final class SettingsPage {
 	 */
 	private static function weekdays(): array {
 		global $wp_locale;
-		$codes = \Stillpress\Build\Schedule::DAYS;
+		$codes = \Glaciate\Build\Schedule::DAYS;
 		$out   = array();
 		// WP_Locale numbers weekdays from Sunday (0); our codes start on Monday.
 		foreach ( $codes as $i => $code ) {
@@ -500,11 +500,11 @@ final class SettingsPage {
 	 */
 	public static function field_full_rebuild(): void {
 		$options = array(
-			'daily'  => __( 'Every day', 'stillpress' ),
-			'weekly' => __( 'Every week', 'stillpress' ),
-			'off'    => __( 'Never', 'stillpress' ),
+			'daily'  => __( 'Every day', 'glaciate' ),
+			'weekly' => __( 'Every week', 'glaciate' ),
+			'off'    => __( 'Never', 'glaciate' ),
 		);
-		echo '<select id="stillpress-full-rebuild" name="' . esc_attr( self::name( 'full_rebuild' ) ) . '" aria-describedby="stillpress-full-rebuild-description">';
+		echo '<select id="glaciate-full-rebuild" name="' . esc_attr( self::name( 'full_rebuild' ) ) . '" aria-describedby="glaciate-full-rebuild-description">';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'full_rebuild' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
@@ -512,8 +512,8 @@ final class SettingsPage {
 		// The hidden words complete the names screen readers announce ("Weekly rebuild on", "Full rebuild at").
 		printf(
 			'<label><span class="screen-reader-text">%s</span> %s <select name="%s">',
-			esc_html__( 'Weekly rebuild', 'stillpress' ),
-			esc_html__( 'on', 'stillpress' ),
+			esc_html__( 'Weekly rebuild', 'glaciate' ),
+			esc_html__( 'on', 'glaciate' ),
 			esc_attr( self::name( 'full_rebuild_day' ) )
 		);
 		foreach ( self::weekdays() as $code => $label ) {
@@ -522,13 +522,13 @@ final class SettingsPage {
 		echo '</select></label> ';
 		printf(
 			'<label><span class="screen-reader-text">%s</span> %s <input type="time" name="%s" value="%s" step="60"></label>',
-			esc_html__( 'Full rebuild', 'stillpress' ),
-			esc_html__( 'at', 'stillpress' ),
+			esc_html__( 'Full rebuild', 'glaciate' ),
+			esc_html__( 'at', 'glaciate' ),
 			esc_attr( self::name( 'full_rebuild_time' ) ),
 			esc_attr( (string) Settings::get( 'full_rebuild_time' ) )
 		);
 		/* translators: %s: timezone name. */
-		self::description( 'stillpress-full-rebuild', array( sprintf( __( 'A full rebuild catches changes no plugin announces, such as content from external services. Pick a quiet time; the day applies to weekly rebuilds. Times are in the site\'s timezone (%s).', 'stillpress' ), wp_timezone_string() ) ) );
+		self::description( 'glaciate-full-rebuild', array( sprintf( __( 'A full rebuild catches changes no plugin announces, such as content from external services. Pick a quiet time; the day applies to weekly rebuilds. Times are in the site\'s timezone (%s).', 'glaciate' ), wp_timezone_string() ) ) );
 	}
 
 	/**
@@ -550,13 +550,13 @@ final class SettingsPage {
 			);
 		}
 		printf(
-			'<textarea class="large-text code" rows="4" id="stillpress-%1$s" name="%2$s" placeholder="%3$s" aria-describedby="stillpress-%1$s-description">%4$s</textarea>',
+			'<textarea class="large-text code" rows="4" id="glaciate-%1$s" name="%2$s" placeholder="%3$s" aria-describedby="glaciate-%1$s-description">%4$s</textarea>',
 			esc_attr( str_replace( '_', '-', $key ) ),
 			esc_attr( self::name( $key ) ),
 			esc_attr( $placeholder ),
 			esc_textarea( implode( "\n", $value ) )
 		);
-		self::description( 'stillpress-' . str_replace( '_', '-', $key ), array( $description ) );
+		self::description( 'glaciate-' . str_replace( '_', '-', $key ), array( $description ) );
 	}
 
 	/**
@@ -565,7 +565,7 @@ final class SettingsPage {
 	 * @return void
 	 */
 	public static function field_additional_urls(): void {
-		self::lines( 'additional_urls', __( 'Addresses the crawler can\'t find through links, one per line.', 'stillpress' ), "/landing-page/\n/wp-content/uploads/press-kit.zip" );
+		self::lines( 'additional_urls', __( 'Addresses the crawler can\'t find through links, one per line.', 'glaciate' ), "/landing-page/\n/wp-content/uploads/press-kit.zip" );
 	}
 
 	/**
@@ -574,7 +574,7 @@ final class SettingsPage {
 	 * @return void
 	 */
 	public static function field_origin_aliases(): void {
-		self::lines( 'origin_aliases', __( 'Other hosts that serve this same site, one per line, such as its live address when you edit it somewhere else. Links to them count as links to this site: the files they point to are published, and the links point to the public address. Nothing is fetched from these hosts.', 'stillpress' ), 'www.example.org' );
+		self::lines( 'origin_aliases', __( 'Other hosts that serve this same site, one per line, such as its live address when you edit it somewhere else. Links to them count as links to this site: the files they point to are published, and the links point to the public address. Nothing is fetched from these hosts.', 'glaciate' ), 'www.example.org' );
 	}
 
 	/**
@@ -583,7 +583,7 @@ final class SettingsPage {
 	 * @return void
 	 */
 	public static function field_exclude(): void {
-		self::lines( 'exclude', __( 'Addresses to leave out, one per line. Use * as a wildcard, or start a line with ~ for a regular expression.', 'stillpress' ), "/members/*\n/shop/cart/" );
+		self::lines( 'exclude', __( 'Addresses to leave out, one per line. Use * as a wildcard, or start a line with ~ for a regular expression.', 'glaciate' ), "/members/*\n/shop/cart/" );
 	}
 
 	/**
@@ -592,7 +592,7 @@ final class SettingsPage {
 	 * @return void
 	 */
 	public static function field_redirects(): void {
-		self::lines( 'redirects', __( 'One per line: old address, new address and an optional status code (301 by default). Written to a _redirects file and as redirect pages.', 'stillpress' ), "/old-page/ /new-page/\n/promo https://example.org/sale 302" );
+		self::lines( 'redirects', __( 'One per line: old address, new address and an optional status code (301 by default). Written to a _redirects file and as redirect pages.', 'glaciate' ), "/old-page/ /new-page/\n/promo https://example.org/sale 302" );
 	}
 
 	/**
@@ -602,16 +602,16 @@ final class SettingsPage {
 	 */
 	public static function field_feeds(): void {
 		$options = array(
-			'main' => __( 'Main site feed only', 'stillpress' ),
-			'all'  => __( 'All feeds (categories, tags, comments)', 'stillpress' ),
-			'none' => __( 'No feeds', 'stillpress' ),
+			'main' => __( 'Main site feed only', 'glaciate' ),
+			'all'  => __( 'All feeds (categories, tags, comments)', 'glaciate' ),
+			'none' => __( 'No feeds', 'glaciate' ),
 		);
-		echo '<select id="stillpress-feeds" name="' . esc_attr( self::name( 'feeds' ) ) . '">';
+		echo '<select id="glaciate-feeds" name="' . esc_attr( self::name( 'feeds' ) ) . '">';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'feeds' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		echo '</select>';
-		self::description( 'stillpress-feeds', array( __( 'Pages only link to the feeds that are published.', 'stillpress' ) ) );
+		self::description( 'glaciate-feeds', array( __( 'Pages only link to the feeds that are published.', 'glaciate' ) ) );
 	}
 
 	/**
@@ -621,22 +621,22 @@ final class SettingsPage {
 	 */
 	public static function field_search(): void {
 		$options = array(
-			'builtin'       => __( 'Search the static site in the browser', 'stillpress' ),
-			'pagefind_host' => __( 'Pagefind, run by your host\'s build step', 'stillpress' ),
-			'off'           => __( 'Off', 'stillpress' ),
+			'builtin'       => __( 'Search the static site in the browser', 'glaciate' ),
+			'pagefind_host' => __( 'Pagefind, run by your host\'s build step', 'glaciate' ),
+			'off'           => __( 'Off', 'glaciate' ),
 		);
-		echo '<select id="stillpress-search" name="' . esc_attr( self::name( 'search' ) ) . '" aria-describedby="stillpress-search-description">';
+		echo '<select id="glaciate-search" name="' . esc_attr( self::name( 'search' ) ) . '" aria-describedby="glaciate-search-description">';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'search' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		echo '</select>';
 		self::description(
-			'stillpress-search',
+			'glaciate-search',
 			array(
-				__( 'Publishes an index of your pages with the site, so search forms work without a server. Changing this rebuilds the whole site.', 'stillpress' ),
+				__( 'Publishes an index of your pages with the site, so search forms work without a server. Changing this rebuilds the whole site.', 'glaciate' ),
 				sprintf(
 					/* translators: %s: command. */
-					__( 'Pagefind is a separate program that Stillpress doesn\'t include. If your host builds the site (a GitHub Actions workflow, Netlify or Cloudflare Pages), add "%s" to that build and choose the Pagefind option.', 'stillpress' ),
+					__( 'Pagefind is a separate program that Glaciate doesn\'t include. If your host builds the site (a GitHub Actions workflow, Netlify or Cloudflare Pages), add "%s" to that build and choose the Pagefind option.', 'glaciate' ),
 					'npx pagefind --site .'
 				),
 			)
@@ -649,7 +649,7 @@ final class SettingsPage {
 	 * @return void
 	 */
 	public static function forms_intro(): void {
-		echo '<p>' . esc_html__( 'A static host can\'t run forms. Stillpress can send them somewhere that can: this site, or a small receiver you run elsewhere, which hands each submission back to this site. Contact Form 7, WPForms, Gravity Forms, comments and any form marked with data-stillpress-form are supported. Changing these settings rebuilds the whole site.', 'stillpress' ) . '</p>';
+		echo '<p>' . esc_html__( 'A static host can\'t run forms. Glaciate can send them somewhere that can: this site, or a small receiver you run elsewhere, which hands each submission back to this site. Contact Form 7, WPForms, Gravity Forms, comments and any form marked with data-glaciate-form are supported. Changing these settings rebuilds the whole site.', 'glaciate' ) . '</p>';
 	}
 
 	/**
@@ -659,22 +659,22 @@ final class SettingsPage {
 	 */
 	public static function field_forms(): void {
 		$options = array(
-			'off'      => __( 'Off: forms are published as they are and don\'t work', 'stillpress' ),
-			'site'     => __( 'This site receives them', 'stillpress' ),
-			'receiver' => __( 'A receiver I run elsewhere', 'stillpress' ),
+			'off'      => __( 'Off: forms are published as they are and don\'t work', 'glaciate' ),
+			'site'     => __( 'This site receives them', 'glaciate' ),
+			'receiver' => __( 'A receiver I run elsewhere', 'glaciate' ),
 		);
-		echo '<select id="stillpress-forms" name="' . esc_attr( self::name( 'forms' ) ) . '" aria-describedby="stillpress-forms-description">';
+		echo '<select id="glaciate-forms" name="' . esc_attr( self::name( 'forms' ) ) . '" aria-describedby="glaciate-forms-description">';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'forms' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		echo '</select>';
 		self::description(
-			'stillpress-forms',
+			'glaciate-forms',
 			array(
 				sprintf(
 					/* translators: %s: address of the REST route. */
-					__( '"This site" needs this WordPress site to be reachable from the internet at its own address: forms post to %s.', 'stillpress' ),
-					rest_url( 'stillpress/v1/forms/submit' )
+					__( '"This site" needs this WordPress site to be reachable from the internet at its own address: forms post to %s.', 'glaciate' ),
+					rest_url( 'glaciate/v1/forms/submit' )
 				),
 			)
 		);
@@ -687,21 +687,21 @@ final class SettingsPage {
 	 */
 	public static function field_forms_endpoint(): void {
 		printf(
-			'<input type="url" class="regular-text code" id="stillpress-forms-endpoint" name="%s" value="%s" placeholder="https://forms.example.org/stillpress-form.php" aria-describedby="stillpress-forms-endpoint-description">',
+			'<input type="url" class="regular-text code" id="glaciate-forms-endpoint" name="%s" value="%s" placeholder="https://forms.example.org/glaciate-form.php" aria-describedby="glaciate-forms-endpoint-description">',
 			esc_attr( self::name( 'forms_endpoint' ) ),
 			esc_attr( (string) Settings::get( 'forms_endpoint' ) )
 		);
-		self::description( 'stillpress-forms-endpoint', array( __( 'Only for "A receiver I run elsewhere". Download one with this site\'s settings filled in, put it online, and enter its address here. It forwards each submission it accepts to this site, signed with the shared secret.', 'stillpress' ) ) );
+		self::description( 'glaciate-forms-endpoint', array( __( 'Only for "A receiver I run elsewhere". Download one with this site\'s settings filled in, put it online, and enter its address here. It forwards each submission it accepts to this site, signed with the shared secret.', 'glaciate' ) ) );
 		$downloads = array(
-			'php'        => __( 'PHP file (any PHP host)', 'stillpress' ),
-			'cloudflare' => __( 'Cloudflare Worker', 'stillpress' ),
-			'netlify'    => __( 'Netlify Function', 'stillpress' ),
+			'php'        => __( 'PHP file (any PHP host)', 'glaciate' ),
+			'cloudflare' => __( 'Cloudflare Worker', 'glaciate' ),
+			'netlify'    => __( 'Netlify Function', 'glaciate' ),
 		);
 		$links     = array();
 		foreach ( $downloads as $kind => $label ) {
 			$links[] = '<a href="' . esc_url( Admin::action_url( 'form_receiver', array( 'kind' => $kind ) ) ) . '">' . esc_html( $label ) . '</a>';
 		}
-		echo '<p>' . esc_html__( 'Download a receiver:', 'stillpress' ) . ' ' . implode( ' · ', $links ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+		echo '<p>' . esc_html__( 'Download a receiver:', 'glaciate' ) . ' ' . implode( ' · ', $links ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
 	}
 
 	/**
@@ -710,7 +710,7 @@ final class SettingsPage {
 	 * @return void
 	 */
 	public static function field_forms_secret(): void {
-		self::secret_box( 'secret', 'stillpress-forms-secret', __( 'Signs submissions a receiver forwards to this site, and copies sent to the webhook. Use a long random value (for example from "openssl rand -hex 32") and set the same value as STILLPRESS_FORMS_SECRET where the receiver runs.', 'stillpress' ) );
+		self::secret_box( 'secret', 'glaciate-forms-secret', __( 'Signs submissions a receiver forwards to this site, and copies sent to the webhook. Use a long random value (for example from "openssl rand -hex 32") and set the same value as GLACIATE_FORMS_SECRET where the receiver runs.', 'glaciate' ) );
 	}
 
 	/**
@@ -720,12 +720,12 @@ final class SettingsPage {
 	 */
 	public static function field_forms_email(): void {
 		printf(
-			'<input type="email" class="regular-text" id="stillpress-forms-email" name="%s" value="%s" placeholder="%s" aria-describedby="stillpress-forms-email-description">',
+			'<input type="email" class="regular-text" id="glaciate-forms-email" name="%s" value="%s" placeholder="%s" aria-describedby="glaciate-forms-email-description">',
 			esc_attr( self::name( 'forms_email' ) ),
 			esc_attr( (string) Settings::get( 'forms_email' ) ),
 			esc_attr( (string) get_option( 'admin_email' ) )
 		);
-		self::description( 'stillpress-forms-email', array( __( 'Gets the submissions of forms your theme marks with data-stillpress-form. Form plugins send their own email, as set up in each form.', 'stillpress' ) ) );
+		self::description( 'glaciate-forms-email', array( __( 'Gets the submissions of forms your theme marks with data-glaciate-form. Form plugins send their own email, as set up in each form.', 'glaciate' ) ) );
 	}
 
 	/**
@@ -735,13 +735,13 @@ final class SettingsPage {
 	 */
 	public static function field_forms_webhook(): void {
 		printf(
-			'<input type="url" class="regular-text code" id="stillpress-forms-webhook" name="%s" value="%s" placeholder="https://hooks.example.org/forms" aria-describedby="stillpress-forms-webhook-description" %s>',
+			'<input type="url" class="regular-text code" id="glaciate-forms-webhook" name="%s" value="%s" placeholder="https://hooks.example.org/forms" aria-describedby="glaciate-forms-webhook-description" %s>',
 			esc_attr( self::name( 'forms_webhook' ) ),
 			esc_attr( (string) Settings::get( 'forms_webhook' ) ),
 			disabled( ! self::can_edit_paths(), true, false )
 		);
-		$note = self::can_edit_paths() ? '' : __( 'Only a network administrator can change this.', 'stillpress' ) . ' ';
-		self::description( 'stillpress-forms-webhook', array( $note . __( 'Optional, https only. Gets a signed JSON copy of every accepted submission (needs the shared secret).', 'stillpress' ) ) );
+		$note = self::can_edit_paths() ? '' : __( 'Only a network administrator can change this.', 'glaciate' ) . ' ';
+		self::description( 'glaciate-forms-webhook', array( $note . __( 'Optional, https only. Gets a signed JSON copy of every accepted submission (needs the shared secret).', 'glaciate' ) ) );
 	}
 
 	/**
@@ -751,24 +751,24 @@ final class SettingsPage {
 	 */
 	public static function field_forms_captcha(): void {
 		$options = array(
-			'none'      => __( 'None', 'stillpress' ),
-			'turnstile' => __( 'Cloudflare Turnstile', 'stillpress' ),
-			'hcaptcha'  => __( 'hCaptcha', 'stillpress' ),
+			'none'      => __( 'None', 'glaciate' ),
+			'turnstile' => __( 'Cloudflare Turnstile', 'glaciate' ),
+			'hcaptcha'  => __( 'hCaptcha', 'glaciate' ),
 		);
-		echo '<select id="stillpress-forms-captcha" name="' . esc_attr( self::name( 'forms_captcha' ) ) . '" aria-describedby="stillpress-forms-captcha-description">';
+		echo '<select id="glaciate-forms-captcha" name="' . esc_attr( self::name( 'forms_captcha' ) ) . '" aria-describedby="glaciate-forms-captcha-description">';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '"' . selected( (string) Settings::get( 'forms_captcha' ), $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		echo '</select>';
-		self::description( 'stillpress-forms-captcha', array( __( 'Optional. These are outside services: visitors\' browsers load the provider\'s script on pages with forms, and each answer is checked with the provider, along with the visitor\'s IP address. Without one, forms are protected by a hidden field, the time the page was open and a limit per visitor.', 'stillpress' ) ) );
+		self::description( 'glaciate-forms-captcha', array( __( 'Optional. These are outside services: visitors\' browsers load the provider\'s script on pages with forms, and each answer is checked with the provider, along with the visitor\'s IP address. Without one, forms are protected by a hidden field, the time the page was open and a limit per visitor.', 'glaciate' ) ) );
 		printf(
-			'<p><label for="stillpress-forms-captcha-site-key">%s</label><br><input type="text" class="regular-text code" id="stillpress-forms-captcha-site-key" name="%s" value="%s"></p>',
-			esc_html__( 'Site key', 'stillpress' ),
+			'<p><label for="glaciate-forms-captcha-site-key">%s</label><br><input type="text" class="regular-text code" id="glaciate-forms-captcha-site-key" name="%s" value="%s"></p>',
+			esc_html__( 'Site key', 'glaciate' ),
 			esc_attr( self::name( 'forms_captcha_site_key' ) ),
 			esc_attr( (string) Settings::get( 'forms_captcha_site_key' ) )
 		);
-		echo '<p><label for="stillpress-forms-captcha-secret">' . esc_html__( 'Secret key', 'stillpress' ) . '</label><br>';
-		self::secret_box( 'captcha_secret', 'stillpress-forms-captcha-secret', __( 'With a receiver elsewhere, set it there as STILLPRESS_FORMS_CAPTCHA_SECRET instead.', 'stillpress' ) );
+		echo '<p><label for="glaciate-forms-captcha-secret">' . esc_html__( 'Secret key', 'glaciate' ) . '</label><br>';
+		self::secret_box( 'captcha_secret', 'glaciate-forms-captcha-secret', __( 'With a receiver elsewhere, set it there as GLACIATE_FORMS_CAPTCHA_SECRET instead.', 'glaciate' ) );
 		echo '</p>';
 	}
 
@@ -781,7 +781,7 @@ final class SettingsPage {
 	 * @return void
 	 */
 	private static function secret_box( string $field, string $input_id, string $description ): void {
-		$slot   = \Stillpress\Forms\Config::SECRETS;
+		$slot   = \Glaciate\Forms\Config::SECRETS;
 		$source = Secrets::source( $slot, $field );
 		$pinned = in_array( $source, array( Secrets::SOURCE_CONSTANT, Secrets::SOURCE_ENVIRONMENT ), true );
 		$saved  = Secrets::SOURCE_STORED === $source;
@@ -790,7 +790,7 @@ final class SettingsPage {
 			esc_attr( $input_id ),
 			esc_attr( Settings::OPTION . '[secrets][' . $slot . '][' . $field . ']' ),
 			esc_attr( $input_id . '-description' ),
-			esc_attr( $saved ? __( 'Saved. Leave empty to keep it.', 'stillpress' ) : '' ),
+			esc_attr( $saved ? __( 'Saved. Leave empty to keep it.', 'glaciate' ) : '' ),
 			disabled( $pinned, true, false )
 		);
 		echo '<span class="description" id="' . esc_attr( $input_id . '-description' ) . '"> ' . esc_html( self::source_note( $slot, $field, $source ) . ' ' . $description ) . '</span>';
@@ -798,7 +798,7 @@ final class SettingsPage {
 			printf(
 				'<br><label><input type="checkbox" name="%s" value="1"> %s</label>',
 				esc_attr( Settings::OPTION . '[secrets_clear][' . $slot . '][' . $field . ']' ),
-				esc_html__( 'Remove the saved value', 'stillpress' )
+				esc_html__( 'Remove the saved value', 'glaciate' )
 			);
 		}
 	}
@@ -810,11 +810,11 @@ final class SettingsPage {
 	 */
 	public static function field_concurrency(): void {
 		printf(
-			'<input type="number" min="1" max="16" class="small-text" id="stillpress-concurrency" name="%s" value="%d" aria-describedby="stillpress-concurrency-description">',
+			'<input type="number" min="1" max="16" class="small-text" id="glaciate-concurrency" name="%s" value="%d" aria-describedby="glaciate-concurrency-description">',
 			esc_attr( self::name( 'concurrency' ) ),
 			(int) Settings::get( 'concurrency' )
 		);
-		self::description( 'stillpress-concurrency', array( __( 'How many pages are rendered at once. Lower this on small hosting plans.', 'stillpress' ) ) );
+		self::description( 'glaciate-concurrency', array( __( 'How many pages are rendered at once. Lower this on small hosting plans.', 'glaciate' ) ) );
 	}
 
 	/**
@@ -824,13 +824,13 @@ final class SettingsPage {
 	 */
 	public static function field_connect_to(): void {
 		printf(
-			'<input type="text" class="regular-text code" id="stillpress-connect-to" name="%s" value="%s" placeholder="127.0.0.1:80" aria-describedby="stillpress-connect-to-description" %s>',
+			'<input type="text" class="regular-text code" id="glaciate-connect-to" name="%s" value="%s" placeholder="127.0.0.1:80" aria-describedby="glaciate-connect-to-description" %s>',
 			esc_attr( self::name( 'connect_to' ) ),
 			esc_attr( (string) Settings::get( 'connect_to' ) ),
 			disabled( Settings::is_pinned( 'connect_to' ) || ! self::can_edit_paths(), true, false )
 		);
 		if ( ! self::pinned_note( 'connect_to' ) ) {
-			self::description( 'stillpress-connect-to', array( __( 'Only needed when this server can\'t reach its own public address (common behind proxies and in containers). Pages are still requested with the site\'s address; only the network connection goes here.', 'stillpress' ) ) );
+			self::description( 'glaciate-connect-to', array( __( 'Only needed when this server can\'t reach its own public address (common behind proxies and in containers). Pages are still requested with the site\'s address; only the network connection goes here.', 'glaciate' ) ) );
 		}
 	}
 
@@ -841,11 +841,11 @@ final class SettingsPage {
 	 */
 	public static function field_max_urls(): void {
 		printf(
-			'<input type="number" min="1" class="small-text" id="stillpress-max-urls" name="%s" value="%d" aria-describedby="stillpress-max-urls-description">',
+			'<input type="number" min="1" class="small-text" id="glaciate-max-urls" name="%s" value="%d" aria-describedby="glaciate-max-urls-description">',
 			esc_attr( self::name( 'max_urls' ) ),
 			(int) Settings::get( 'max_urls' )
 		);
-		self::description( 'stillpress-max-urls', array( __( 'How many pages the crawler may find by following links, beyond the posts, pages, terms, authors and archive pages it lists from the database. Files such as images don\'t count. Stops it from following links forever, for example on infinite calendars.', 'stillpress' ) ) );
+		self::description( 'glaciate-max-urls', array( __( 'How many pages the crawler may find by following links, beyond the posts, pages, terms, authors and archive pages it lists from the database. Files such as images don\'t count. Stops it from following links forever, for example on infinite calendars.', 'glaciate' ) ) );
 	}
 
 	/**
@@ -855,11 +855,11 @@ final class SettingsPage {
 	 */
 	public static function field_max_depth(): void {
 		printf(
-			'<input type="number" min="0" class="small-text" id="stillpress-max-depth" name="%s" value="%d" aria-describedby="stillpress-max-depth-description">',
+			'<input type="number" min="0" class="small-text" id="glaciate-max-depth" name="%s" value="%d" aria-describedby="glaciate-max-depth-description">',
 			esc_attr( self::name( 'max_depth' ) ),
 			(int) Settings::get( 'max_depth' )
 		);
-		self::description( 'stillpress-max-depth', array( __( 'How many links in a row the crawler follows from the pages it lists from the database before it stops. A crawler trap such as a calendar with a "next month" link on every page ends here, long before the address limit. 0 means no limit.', 'stillpress' ) ) );
+		self::description( 'glaciate-max-depth', array( __( 'How many links in a row the crawler follows from the pages it lists from the database before it stops. A crawler trap such as a calendar with a "next month" link on every page ends here, long before the address limit. 0 means no limit.', 'glaciate' ) ) );
 	}
 
 	/**
@@ -871,13 +871,13 @@ final class SettingsPage {
 	public static function field_target_panel( array $args ): void {
 		$deployer = $args['deployer'];
 		$id       = $deployer->id();
-		echo '<div class="stillpress-target-panel" data-stillpress-target="' . esc_attr( $id ) . '">';
-		echo '<table class="form-table stillpress-target-fields" role="presentation"><tbody>';
+		echo '<div class="glaciate-target-panel" data-glaciate-target="' . esc_attr( $id ) . '">';
+		echo '<table class="form-table glaciate-target-fields" role="presentation"><tbody>';
 		foreach ( TargetConfig::fields( $deployer ) as $name => $def ) {
-			$input_id = 'stillpress-target-' . $id . '-' . str_replace( '_', '-', $name );
+			$input_id = 'glaciate-target-' . $id . '-' . str_replace( '_', '-', $name );
 			echo '<tr><th scope="row"><label for="' . esc_attr( $input_id ) . '">' . esc_html( $def['label'] ) . '</label>';
 			if ( $def['required'] ) {
-				echo ' <span class="stillpress-required">' . esc_html__( '(required)', 'stillpress' ) . '</span>';
+				echo ' <span class="glaciate-required">' . esc_html__( '(required)', 'glaciate' ) . '</span>';
 			}
 			echo '</th><td>';
 			self::target_input( $deployer, $name, $def, $input_id );
@@ -885,12 +885,12 @@ final class SettingsPage {
 		}
 		echo '</tbody></table>';
 		printf(
-			'<p><button type="button" class="button" data-stillpress-check="%s">%s</button> <span class="stillpress-check-result" data-stillpress-check-result="%s" role="status" aria-live="polite"></span></p>',
+			'<p><button type="button" class="button" data-glaciate-check="%s">%s</button> <span class="glaciate-check-result" data-glaciate-check-result="%s" role="status" aria-live="polite"></span></p>',
 			esc_attr( $id ),
-			esc_html__( 'Test connection', 'stillpress' ),
+			esc_html__( 'Test connection', 'glaciate' ),
 			esc_attr( $id )
 		);
-		echo '<p class="description">' . esc_html__( 'The test uses the saved settings. Save your changes first.', 'stillpress' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'The test uses the saved settings. Save your changes first.', 'glaciate' ) . '</p>';
 		echo '</div>';
 	}
 
@@ -921,7 +921,7 @@ final class SettingsPage {
 					esc_attr( $input_id ),
 					esc_attr( $field ),
 					esc_attr( $describe ),
-					esc_attr( $saved ? __( 'Saved. Leave empty to keep it.', 'stillpress' ) : '' ),
+					esc_attr( $saved ? __( 'Saved. Leave empty to keep it.', 'glaciate' ) : '' ),
 					$disabled // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- disabled() returns a fixed attribute.
 				);
 			} else {
@@ -930,7 +930,7 @@ final class SettingsPage {
 					esc_attr( $input_id ),
 					esc_attr( $field ),
 					esc_attr( $describe ),
-					esc_attr( $saved ? __( 'Saved. Leave empty to keep it.', 'stillpress' ) : '' ),
+					esc_attr( $saved ? __( 'Saved. Leave empty to keep it.', 'glaciate' ) : '' ),
 					$disabled // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- disabled() returns a fixed attribute.
 				);
 			}
@@ -944,7 +944,7 @@ final class SettingsPage {
 				printf(
 					'<label><input type="checkbox" name="%s" value="1"> %s</label>',
 					esc_attr( Settings::OPTION . '[secrets_clear][' . $id . '][' . $name . ']' ),
-					esc_html__( 'Remove the saved value', 'stillpress' )
+					esc_html__( 'Remove the saved value', 'glaciate' )
 				);
 			}
 			return;
@@ -988,7 +988,7 @@ final class SettingsPage {
 		if ( $pinned ) {
 			$notes[] = self::source_note( $id, $name, $source );
 		} elseif ( $def['restricted'] && ! self::can_edit_paths() ) {
-			$notes[] = __( 'Only a network administrator can change this.', 'stillpress' );
+			$notes[] = __( 'Only a network administrator can change this.', 'glaciate' );
 		}
 		if ( '' !== $def['description'] ) {
 			$notes[] = $def['description'];
@@ -1011,16 +1011,16 @@ final class SettingsPage {
 		switch ( $source ) {
 			case Secrets::SOURCE_CONSTANT:
 				/* translators: %s: constant name. */
-				return sprintf( __( 'Set by %s in wp-config.php.', 'stillpress' ), $constant );
+				return sprintf( __( 'Set by %s in wp-config.php.', 'glaciate' ), $constant );
 			case Secrets::SOURCE_ENVIRONMENT:
 				/* translators: %s: environment variable name. */
-				return sprintf( __( 'Set by the %s environment variable.', 'stillpress' ), $constant );
+				return sprintf( __( 'Set by the %s environment variable.', 'glaciate' ), $constant );
 			case Secrets::SOURCE_STORED:
-				return __( 'A value is saved (encrypted).', 'stillpress' );
+				return __( 'A value is saved (encrypted).', 'glaciate' );
 			case Secrets::SOURCE_UNREADABLE:
-				return __( 'The saved value can no longer be read because the security keys in wp-config.php changed. Enter it again.', 'stillpress' );
+				return __( 'The saved value can no longer be read because the security keys in wp-config.php changed. Enter it again.', 'glaciate' );
 			default:
-				return __( 'Not set.', 'stillpress' );
+				return __( 'Not set.', 'glaciate' );
 		}
 	}
 }

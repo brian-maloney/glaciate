@@ -2,13 +2,13 @@
 /**
  * "Publish to static" in the post editors.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Admin;
+namespace Glaciate\Admin;
 
-use Stillpress\Security\Capabilities;
-use Stillpress\Service\StatusService;
+use Glaciate\Security\Capabilities;
+use Glaciate\Service\StatusService;
 
 /**
  * Block editor: a status row with a "Publish to static" button in the post summary panel, a pinned sidebar in the
@@ -51,13 +51,13 @@ final class Editor {
 			return;
 		}
 		wp_enqueue_script(
-			'stillpress-editor',
-			\Stillpress\Support\Assets::url( 'assets/js/editor.js' ),
+			'glaciate-editor',
+			\Glaciate\Support\Assets::url( 'assets/js/editor.js' ),
 			array( 'wp-plugins', 'wp-editor', 'wp-element', 'wp-components', 'wp-data', 'wp-api-fetch', 'wp-i18n', 'wp-notices', 'wp-dom-ready', 'wp-preferences' ),
-			\Stillpress\Support\Assets::version( 'assets/js/editor.js' ),
+			\Glaciate\Support\Assets::version( 'assets/js/editor.js' ),
 			true
 		);
-		wp_set_script_translations( 'stillpress-editor', 'stillpress' );
+		wp_set_script_translations( 'glaciate-editor', 'glaciate' );
 	}
 
 	/**
@@ -71,13 +71,13 @@ final class Editor {
 			return;
 		}
 		$status = ( new StatusService() )->post( $post->ID );
-		echo '<div class="misc-pub-section stillpress-misc"><span class="dashicons dashicons-cloud-upload" aria-hidden="true"></span> ';
-		echo esc_html__( 'Static site:', 'stillpress' ) . ' <strong>' . esc_html( $status['label'] ) . '</strong>';
+		echo '<div class="misc-pub-section glaciate-misc"><span class="dashicons dashicons-cloud-upload" aria-hidden="true"></span> ';
+		echo esc_html__( 'Static site:', 'glaciate' ) . ' <strong>' . esc_html( $status['label'] ) . '</strong>';
 		if ( in_array( $status['state'], array( 'pending', 'not-published' ), true ) ) {
-			echo ' <a class="button button-small" href="' . esc_url( Admin::action_url( 'publish_post', array( 'post' => (string) $post->ID ) ) ) . '">' . esc_html__( 'Publish to static', 'stillpress' ) . '</a>';
+			echo ' <a class="button button-small" href="' . esc_url( Admin::action_url( 'publish_post', array( 'post' => (string) $post->ID ) ) ) . '">' . esc_html__( 'Publish to static', 'glaciate' ) . '</a>';
 		}
 		if ( ! empty( $status['public_url'] ) && 'up-to-date' === $status['state'] ) {
-			echo ' <a href="' . esc_url( $status['public_url'] ) . '" target="_blank" rel="noopener">' . esc_html__( 'View', 'stillpress' ) . '</a>';
+			echo ' <a href="' . esc_url( $status['public_url'] ) . '" target="_blank" rel="noopener">' . esc_html__( 'View', 'glaciate' ) . '</a>';
 		}
 		echo '</div>';
 	}

@@ -2,17 +2,17 @@
 /**
  * Plugin wiring.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress;
+namespace Glaciate;
 
-use Stillpress\Build\Queue;
-use Stillpress\Deps\ChangeListener;
-use Stillpress\Render\Recorder;
-use Stillpress\Security\Capabilities;
-use Stillpress\Storage\Schema;
-use Stillpress\Support\Settings;
+use Glaciate\Build\Queue;
+use Glaciate\Deps\ChangeListener;
+use Glaciate\Render\Recorder;
+use Glaciate\Security\Capabilities;
+use Glaciate\Storage\Schema;
+use Glaciate\Support\Settings;
 
 /**
  * Creates the plugin's services and attaches them to WordPress.
@@ -83,7 +83,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'stillpress', Cli\Command::class );
+			\WP_CLI::add_command( 'glaciate', Cli\Command::class );
 		}
 
 		add_action( 'init', array( self::class, 'maybe_set_up' ), 1 );
@@ -132,7 +132,7 @@ final class Plugin {
 		if ( ! function_exists( 'is_plugin_active_for_network' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
-		if ( ! is_plugin_active_for_network( plugin_basename( STILLPRESS_FILE ) ) ) {
+		if ( ! is_plugin_active_for_network( plugin_basename( GLACIATE_FILE ) ) ) {
 			return;
 		}
 		switch_to_blog( (int) $site->blog_id );

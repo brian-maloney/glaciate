@@ -2,10 +2,10 @@
 /**
  * HTTP transport seam for remote deployers.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy\Aws;
+namespace Glaciate\Deploy\Aws;
 
 /**
  * Sends a batch of fully built (already signed) requests and returns their responses.

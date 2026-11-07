@@ -2,23 +2,23 @@
 /**
  * Adds the forms client to rendered pages.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
-use Stillpress\Render\Recorder;
-use Stillpress\Support\Assets;
+use Glaciate\Render\Recorder;
+use Glaciate\Support\Assets;
 
 /**
  * Enqueues assets/js/forms.js on pages rendered for the static copy when forms are on; the live site is untouched.
- * The script sends forms that carry `data-stillpress-form` (added by FormMarkup) to their action and shows the
+ * The script sends forms that carry `data-glaciate-form` (added by FormMarkup) to their action and shows the
  * answer in the form, and loads the captcha widget when one is set up. It does nothing on pages without such forms.
  */
 final class Frontend {
 
 	/** Script handle. */
-	const HANDLE = 'stillpress-forms';
+	const HANDLE = 'glaciate-forms';
 
 	/**
 	 * Hooks in when this request is a render.
@@ -53,7 +53,7 @@ final class Frontend {
 				'in_footer' => true,
 			)
 		);
-		wp_add_inline_script( self::HANDLE, 'window.stillpressFormSettings = ' . wp_json_encode( self::settings( $config ) ) . ';', 'before' );
+		wp_add_inline_script( self::HANDLE, 'window.glaciateFormSettings = ' . wp_json_encode( self::settings( $config ) ) . ';', 'before' );
 	}
 
 	/**
@@ -69,9 +69,9 @@ final class Frontend {
 				'siteKey'  => $config->captcha_site_key(),
 			),
 			'labels'  => array(
-				'sending' => __( 'Sending…', 'stillpress' ),
+				'sending' => __( 'Sending…', 'glaciate' ),
 				'error'   => Result::default_message( Result::ERROR ),
-				'captcha' => __( 'Please complete the check that you\'re not a robot.', 'stillpress' ),
+				'captcha' => __( 'Please complete the check that you\'re not a robot.', 'glaciate' ),
 			),
 		);
 
@@ -82,6 +82,6 @@ final class Frontend {
 		 *
 		 * @param array<string,mixed> $settings Settings printed for assets/js/forms.js.
 		 */
-		return (array) apply_filters( 'stillpress_form_settings', $settings );
+		return (array) apply_filters( 'glaciate_form_settings', $settings );
 	}
 }

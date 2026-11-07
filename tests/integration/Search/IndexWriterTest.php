@@ -2,18 +2,18 @@
 /**
  * Writing the static search index files.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Search;
+namespace Glaciate\Tests\Integration\Search;
 
-use Stillpress\Build\Pipeline;
-use Stillpress\Search\Index;
-use Stillpress\Search\IndexWriter;
-use Stillpress\Search\PageIndexer;
-use Stillpress\Search\TextExtractor;
-use Stillpress\Search\Tokenizer;
-use Stillpress\Storage\UrlRepository;
+use Glaciate\Build\Pipeline;
+use Glaciate\Search\Index;
+use Glaciate\Search\IndexWriter;
+use Glaciate\Search\PageIndexer;
+use Glaciate\Search\TextExtractor;
+use Glaciate\Search\Tokenizer;
+use Glaciate\Storage\UrlRepository;
 
 final class IndexWriterTest extends \WP_UnitTestCase {
 
@@ -86,7 +86,7 @@ final class IndexWriterTest extends \WP_UnitTestCase {
 	 */
 	private function written_by( int $build_id ): array {
 		global $wpdb;
-		return $wpdb->get_col( $wpdb->prepare( 'SELECT url FROM %i WHERE url LIKE %s AND last_build_id = %d AND content_hash IS NOT NULL ORDER BY url', \Stillpress\Storage\Schema::table( 'urls' ), $wpdb->esc_like( 'stillpress:search/' ) . '%', $build_id ) );
+		return $wpdb->get_col( $wpdb->prepare( 'SELECT url FROM %i WHERE url LIKE %s AND last_build_id = %d AND content_hash IS NOT NULL ORDER BY url', \Glaciate\Storage\Schema::table( 'urls' ), $wpdb->esc_like( 'glaciate:search/' ) . '%', $build_id ) );
 	}
 
 	public function test_writes_shards_documents_and_meta(): void {
@@ -94,17 +94,17 @@ final class IndexWriterTest extends \WP_UnitTestCase {
 		$about = $this->page( '/about/', 'About', 'Fast and simple.' );
 		$this->write( 1 );
 
-		$meta = $this->read( 'stillpress-search/meta.json' );
+		$meta = $this->read( 'glaciate-search/meta.json' );
 		$this->assertSame( 1, $meta['version'] );
 		$this->assertSame( 2, $meta['docs'] );
 		$this->assertSame( array( 'ab', 'an', 'ar', 'fa', 'he', 'si', 'st' ), $meta['keys'] );
 
-		$this->assertSame( array( 'static' => array( $hello, 7 ) ), $this->read( 'stillpress-search/terms/7374.json' ) );
-		$fast = $this->read( 'stillpress-search/terms/6661.json' );
+		$this->assertSame( array( 'static' => array( $hello, 7 ) ), $this->read( 'glaciate-search/terms/7374.json' ) );
+		$fast = $this->read( 'glaciate-search/terms/6661.json' );
 		$this->assertSame( array( 'fast' ), array_keys( $fast ) );
 		$this->assertEqualsCanonicalizing( array( $hello, 1, $about, 1 ), $fast['fast'] );
 
-		$docs = $this->read( 'stillpress-search/docs/' . Index::chunk_of( $hello ) . '.json' );
+		$docs = $this->read( 'glaciate-search/docs/' . Index::chunk_of( $hello ) . '.json' );
 		$this->assertSame( array( '/hello/', 'Hello static', 'Static sites are fast.' ), $docs[ $hello ] );
 	}
 
@@ -115,19 +115,19 @@ final class IndexWriterTest extends \WP_UnitTestCase {
 
 		$this->page( '/about/', 'About', 'Simple words, zebra.' );
 		$this->write( 2 );
-		$terms = array_values( preg_grep( '#^stillpress:search/terms/#', $this->written_by( 2 ) ) );
-		$this->assertSame( array( 'stillpress:search/terms/7a65/7a65' ), $terms, 'Only the new term\'s group.' );
+		$terms = array_values( preg_grep( '#^glaciate:search/terms/#', $this->written_by( 2 ) ) );
+		$this->assertSame( array( 'glaciate:search/terms/7a65/7a65' ), $terms, 'Only the new term\'s group.' );
 	}
 
 	public function test_terms_that_leave_the_index_take_their_shard_and_key_with_them(): void {
 		$this->page( '/about/', 'About', 'Zebra crossing.' );
 		$this->write( 1 );
-		$this->assertNotNull( $this->read( 'stillpress-search/terms/7a65.json' ) );
+		$this->assertNotNull( $this->read( 'glaciate-search/terms/7a65.json' ) );
 
 		$this->page( '/about/', 'About', 'Crossing.' );
 		$this->write( 2 );
-		$this->assertNull( $this->read( 'stillpress-search/terms/7a65.json' ) );
-		$this->assertNotContains( 'ze', $this->read( 'stillpress-search/meta.json' )['keys'] );
+		$this->assertNull( $this->read( 'glaciate-search/terms/7a65.json' ) );
+		$this->assertNotContains( 'ze', $this->read( 'glaciate-search/meta.json' )['keys'] );
 	}
 
 	public function test_unpublished_pages_leave_the_index(): void {
@@ -136,21 +136,21 @@ final class IndexWriterTest extends \WP_UnitTestCase {
 
 		$this->urls->unpublish( $gone );
 		$this->write( 2 );
-		$this->assertNull( $this->read( 'stillpress-search/terms/756e.json' ) );
-		$this->assertNull( $this->read( 'stillpress-search/docs/' . Index::chunk_of( $gone ) . '.json' ) );
-		$this->assertSame( 0, $this->read( 'stillpress-search/meta.json' )['docs'] );
+		$this->assertNull( $this->read( 'glaciate-search/terms/756e.json' ) );
+		$this->assertNull( $this->read( 'glaciate-search/docs/' . Index::chunk_of( $gone ) . '.json' ) );
+		$this->assertSame( 0, $this->read( 'glaciate-search/meta.json' )['docs'] );
 	}
 
 	public function test_a_full_build_restores_missing_files_once(): void {
 		$this->page( '/hello/', 'Hello', 'Static sites.' );
 		$this->write( 1 );
-		$this->pipeline->cache->delete( 'stillpress-search/terms/7374.json' );
+		$this->pipeline->cache->delete( 'glaciate-search/terms/7374.json' );
 
 		$this->write( 2 );
-		$this->assertNull( $this->read( 'stillpress-search/terms/7374.json' ), 'An incremental build trusts the records.' );
+		$this->assertNull( $this->read( 'glaciate-search/terms/7374.json' ), 'An incremental build trusts the records.' );
 
 		$this->write( 3, 'full' );
-		$this->assertNotNull( $this->read( 'stillpress-search/terms/7374.json' ) );
+		$this->assertNotNull( $this->read( 'glaciate-search/terms/7374.json' ) );
 		$this->assertSame( array(), $this->index->dirty( 'group', 10 ) );
 	}
 
@@ -160,8 +160,8 @@ final class IndexWriterTest extends \WP_UnitTestCase {
 
 		$this->pipeline->settings['search'] = 'off';
 		$this->write( 2 );
-		$this->assertNull( $this->read( 'stillpress-search/meta.json' ) );
-		$this->assertNull( $this->read( 'stillpress-search/terms/7374.json' ) );
+		$this->assertNull( $this->read( 'glaciate-search/meta.json' ) );
+		$this->assertNull( $this->read( 'glaciate-search/terms/7374.json' ) );
 		$this->assertSame( 0, $this->index->count_docs() );
 	}
 }

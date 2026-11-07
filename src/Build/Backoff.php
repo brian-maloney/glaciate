@@ -2,10 +2,10 @@
 /**
  * How long a build waits, and how many requests it sends at once, after the site says it is overloaded.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
 /**
  * When the origin answers 429 or 5xx, the build stops sending requests for a while and continues with half as many

@@ -2,19 +2,19 @@
 /**
  * Deployer credentials.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Security;
+namespace Glaciate\Security;
 
 /**
  * Resolves deployer secrets (threat T10).
  *
  * Lookup order for deployer `s3`, field `secret_key`:
  *
- * 1. the constant `STILLPRESS_S3_SECRET_KEY` (wp-config.php);
+ * 1. the constant `GLACIATE_S3_SECRET_KEY` (wp-config.php);
  * 2. the environment variable of the same name;
- * 3. the `stillpress_secrets` option (autoload off), sealed with SecretBox under a key derived from the wp-config
+ * 3. the `glaciate_secrets` option (autoload off), sealed with SecretBox under a key derived from the wp-config
  *    salts. Rotating the salts makes stored secrets unreadable; source() then reports `unreadable`.
  *
  * Every value this class returns is registered with the Redactor first, so it is scrubbed from log lines.
@@ -23,7 +23,7 @@ namespace Stillpress\Security;
 final class Secrets {
 
 	/** Option holding sealed values: deployer => field => sealed string. */
-	const OPTION = 'stillpress_secrets';
+	const OPTION = 'glaciate_secrets';
 
 	/** The value comes from a wp-config.php constant. */
 	const SOURCE_CONSTANT = 'constant';
@@ -45,11 +45,11 @@ final class Secrets {
 	 *
 	 * @param string $deployer Deployer ID (lowercase letters, digits, dashes).
 	 * @param string $field    Field name (lowercase letters, digits, underscores).
-	 * @return string For example `STILLPRESS_S3_SECRET_KEY`.
+	 * @return string For example `GLACIATE_S3_SECRET_KEY`.
 	 */
 	public static function name( string $deployer, string $field ): string {
 		self::check( $deployer, $field );
-		return 'STILLPRESS_' . strtoupper( str_replace( '-', '_', $deployer ) ) . '_' . strtoupper( $field );
+		return 'GLACIATE_' . strtoupper( str_replace( '-', '_', $deployer ) ) . '_' . strtoupper( $field );
 	}
 
 	/**
@@ -110,7 +110,7 @@ final class Secrets {
 		$name = self::name( $deployer, $field );
 		if ( null !== self::constant( $name ) ) {
 			/* translators: %s: constant name. */
-			throw new \LogicException( sprintf( __( 'This secret is set in wp-config.php (%s).', 'stillpress' ), $name ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \LogicException( sprintf( __( 'This secret is set in wp-config.php (%s).', 'glaciate' ), $name ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( '' === $value ) {
 			self::delete( $deployer, $field );

@@ -2,20 +2,20 @@
 /**
  * Deploys to Amazon S3 (and S3-compatible storage), optionally invalidating CloudFront.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Deploy\Aws\CloudFrontClient;
-use Stillpress\Deploy\Aws\RequestsTransport;
-use Stillpress\Deploy\Aws\S3Client;
-use Stillpress\Deploy\Aws\SigV4;
-use Stillpress\Deploy\Aws\Transport;
-use Stillpress\Output\PathMapper;
-use Stillpress\Output\UnsafePathException;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Settings;
+use Glaciate\Deploy\Aws\CloudFrontClient;
+use Glaciate\Deploy\Aws\RequestsTransport;
+use Glaciate\Deploy\Aws\S3Client;
+use Glaciate\Deploy\Aws\SigV4;
+use Glaciate\Deploy\Aws\Transport;
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Settings;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Reads files from the build cache (see DECISIONS.md D9).
 
@@ -40,10 +40,10 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 	const BATCH_BYTES = 33554432;
 
 	/** Option holding unfinished multipart uploads: target key => path => {hash, upload_id, etags}. */
-	const MULTIPART_OPTION = 'stillpress_s3_multipart';
+	const MULTIPART_OPTION = 'glaciate_s3_multipart';
 
 	/** Option holding paths waiting for a CloudFront invalidation: target key => paths. */
-	const INVALIDATE_OPTION = 'stillpress_s3_invalidate';
+	const INVALIDATE_OPTION = 'glaciate_s3_invalidate';
 
 	/**
 	 * Transport (injected by tests; RequestsTransport otherwise).
@@ -86,7 +86,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 	 * {@inheritDoc}
 	 */
 	public function label(): string {
-		return __( 'Amazon S3 (or S3-compatible storage)', 'stillpress' );
+		return __( 'Amazon S3 (or S3-compatible storage)', 'glaciate' );
 	}
 
 	/**
@@ -97,58 +97,58 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 	public function fields(): array {
 		return array(
 			'bucket'                  => array(
-				'label'    => __( 'Bucket', 'stillpress' ),
+				'label'    => __( 'Bucket', 'glaciate' ),
 				'required' => true,
 				'pattern'  => '[a-z0-9][a-z0-9.\-]{1,61}[a-z0-9]',
 			),
 			'region'                  => array(
-				'label'       => __( 'Region', 'stillpress' ),
+				'label'       => __( 'Region', 'glaciate' ),
 				'required'    => true,
 				'default'     => 'us-east-1',
 				'pattern'     => '[a-z0-9\-]{2,32}',
-				'description' => __( 'For example eu-west-1. S3-compatible services document their own value (Cloudflare R2 uses "auto").', 'stillpress' ),
+				'description' => __( 'For example eu-west-1. S3-compatible services document their own value (Cloudflare R2 uses "auto").', 'glaciate' ),
 			),
 			'prefix'                  => array(
-				'label'       => __( 'Key prefix', 'stillpress' ),
+				'label'       => __( 'Key prefix', 'glaciate' ),
 				'pattern'     => '[A-Za-z0-9._\-/]{0,200}',
-				'description' => __( 'Optional folder inside the bucket, for example "www/". Leave empty to publish at the bucket root.', 'stillpress' ),
+				'description' => __( 'Optional folder inside the bucket, for example "www/". Leave empty to publish at the bucket root.', 'glaciate' ),
 			),
 			'access_key_id'           => array(
-				'label'    => __( 'Access key ID', 'stillpress' ),
+				'label'    => __( 'Access key ID', 'glaciate' ),
 				'required' => true,
 				'pattern'  => '[A-Za-z0-9]{8,128}',
 			),
 			'secret_access_key'       => array(
-				'label'    => __( 'Secret access key', 'stillpress' ),
+				'label'    => __( 'Secret access key', 'glaciate' ),
 				'type'     => 'secret',
 				'required' => true,
 			),
 			'session_token'           => array(
-				'label'       => __( 'Session token', 'stillpress' ),
+				'label'       => __( 'Session token', 'glaciate' ),
 				'type'        => 'secret',
-				'description' => __( 'Only for temporary credentials.', 'stillpress' ),
+				'description' => __( 'Only for temporary credentials.', 'glaciate' ),
 			),
 			'endpoint'                => array(
-				'label'       => __( 'Custom endpoint', 'stillpress' ),
+				'label'       => __( 'Custom endpoint', 'glaciate' ),
 				'pattern'     => '[A-Za-z0-9.\-]+(:[0-9]{1,5})?',
 				'restricted'  => true,
-				'description' => __( 'Host name of an S3-compatible service, for example <account>.r2.cloudflarestorage.com. Leave empty for AWS. Always HTTPS.', 'stillpress' ),
+				'description' => __( 'Host name of an S3-compatible service, for example <account>.r2.cloudflarestorage.com. Leave empty for AWS. Always HTTPS.', 'glaciate' ),
 			),
 			'path_style'              => array(
-				'label'       => __( 'Path-style addressing', 'stillpress' ),
+				'label'       => __( 'Path-style addressing', 'glaciate' ),
 				'type'        => 'bool',
 				'default'     => false,
-				'description' => __( 'Put the bucket in the path instead of the host name. Some S3-compatible services need this.', 'stillpress' ),
+				'description' => __( 'Put the bucket in the path instead of the host name. Some S3-compatible services need this.', 'glaciate' ),
 			),
 			'cache_control'           => array(
-				'label'       => __( 'Cache-Control header', 'stillpress' ),
+				'label'       => __( 'Cache-Control header', 'glaciate' ),
 				'pattern'     => '[A-Za-z0-9=,\- ]{0,200}',
-				'description' => __( 'Optional, sent with every file. For example "public, max-age=300".', 'stillpress' ),
+				'description' => __( 'Optional, sent with every file. For example "public, max-age=300".', 'glaciate' ),
 			),
 			'cloudfront_distribution' => array(
-				'label'       => __( 'CloudFront distribution ID', 'stillpress' ),
+				'label'       => __( 'CloudFront distribution ID', 'glaciate' ),
 				'pattern'     => '[A-Z0-9]{1,32}',
-				'description' => __( 'Optional. Changed pages are invalidated after each deploy.', 'stillpress' ),
+				'description' => __( 'Optional. Changed pages are invalidated after each deploy.', 'glaciate' ),
 			),
 		);
 	}
@@ -160,11 +160,11 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		$missing = TargetConfig::missing( $this );
 		if ( $missing ) {
 			/* translators: %s: comma-separated field names. */
-			return sprintf( __( 'Amazon S3 needs these settings: %s.', 'stillpress' ), implode( ', ', $missing ) );
+			return sprintf( __( 'Amazon S3 needs these settings: %s.', 'glaciate' ), implode( ', ', $missing ) );
 		}
 		foreach ( explode( '/', $this->prefix() ) as $segment ) {
 			if ( '.' === $segment || '..' === $segment ) {
-				return __( 'The S3 key prefix may not contain "." or ".." folders.', 'stillpress' );
+				return __( 'The S3 key prefix may not contain "." or ".." folders.', 'glaciate' );
 			}
 		}
 		return null;
@@ -191,24 +191,24 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		$response = $client->send( array( $client->head_bucket_request() ) )[0];
 		if ( 301 === $response['status'] && isset( $response['headers']['x-amz-bucket-region'] ) ) {
 			/* translators: %s: AWS region. */
-			return sprintf( __( 'The bucket is in region %s. Change the region setting to match.', 'stillpress' ), $response['headers']['x-amz-bucket-region'] );
+			return sprintf( __( 'The bucket is in region %s. Change the region setting to match.', 'glaciate' ), $response['headers']['x-amz-bucket-region'] );
 		}
 		if ( 403 === $response['status'] ) {
-			return __( 'S3 refused access to the bucket. Check the access key and its permissions.', 'stillpress' );
+			return __( 'S3 refused access to the bucket. Check the access key and its permissions.', 'glaciate' );
 		}
 		if ( 404 === $response['status'] ) {
-			return __( 'The bucket does not exist.', 'stillpress' );
+			return __( 'The bucket does not exist.', 'glaciate' );
 		}
 		if ( ! S3Client::ok( $response ) ) {
 			/* translators: %s: error details. */
-			return sprintf( __( 'Could not reach the bucket: %s', 'stillpress' ), S3Client::describe( $response ) );
+			return sprintf( __( 'Could not reach the bucket: %s', 'glaciate' ), S3Client::describe( $response ) );
 		}
 		$distribution = (string) TargetConfig::value( $this, 'cloudfront_distribution' );
 		if ( '' !== $distribution ) {
 			$response = $client->send( array( $this->cloudfront()->list_invalidations_request( $distribution ) ) )[0];
 			if ( ! S3Client::ok( $response ) ) {
 				/* translators: %s: error details. */
-				return sprintf( __( 'The bucket works, but CloudFront refused the request: %s', 'stillpress' ), S3Client::describe( $response ) );
+				return sprintf( __( 'The bucket works, but CloudFront refused the request: %s', 'glaciate' ), S3Client::describe( $response ) );
 			}
 		}
 		return null;
@@ -228,7 +228,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		if ( null !== $problem ) {
 			throw new \RuntimeException( $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Logged as plain text and escaped on display.
 		}
-		$this->served = ( new \Stillpress\Storage\UrlRepository() )->directory_types();
+		$this->served = ( new \Glaciate\Storage\UrlRepository() )->directory_types();
 		$client       = $this->s3();
 		$files        = new TargetFiles( $this->target_key() );
 		$held         = $files->all();
@@ -248,13 +248,13 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 				$file = $source->absolute_path( $path );
 			} catch ( UnsafePathException $e ) {
 				/* translators: 1: file path, 2: error message. */
-				$logger->error( sprintf( __( 'Could not deploy %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
+				$logger->error( sprintf( __( 'Could not deploy %1$s: %2$s', 'glaciate' ), $path, $e->getMessage() ) );
 				++$result->failed;
 				continue;
 			}
 			if ( ! is_file( $file ) ) {
 				/* translators: %s: file path. */
-				$logger->error( sprintf( __( 'Could not deploy %s: the built file is missing.', 'stillpress' ), $path ) );
+				$logger->error( sprintf( __( 'Could not deploy %s: the built file is missing.', 'glaciate' ), $path ) );
 				++$result->failed;
 				continue;
 			}
@@ -331,7 +331,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 			$body = file_get_contents( $item['file'] );
 			if ( false === $body ) {
 				/* translators: %s: file path. */
-				$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $item['path'] ) );
+				$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'glaciate' ), $item['path'] ) );
 				++$result->failed;
 				continue;
 			}
@@ -344,7 +344,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 			if ( ! S3Client::ok( $response ) ) {
 				self::fail_on_rejection( $response, $item['path'] );
 				/* translators: 1: file path, 2: error message. */
-				$logger->error( sprintf( __( 'Could not upload %1$s to S3: %2$s', 'stillpress' ), $item['path'], S3Client::describe( $response ) ) );
+				$logger->error( sprintf( __( 'Could not upload %1$s to S3: %2$s', 'glaciate' ), $item['path'], S3Client::describe( $response ) ) );
 			}
 			$this->record( $files, $item, S3Client::ok( $response ), $result );
 		}
@@ -375,7 +375,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 			if ( '' === $upload ) {
 				self::fail_on_rejection( $response, $item['path'] );
 				/* translators: 1: file path, 2: error message. */
-				$logger->error( sprintf( __( 'Could not start the upload of %1$s: %2$s', 'stillpress' ), $item['path'], S3Client::describe( $response ) ) );
+				$logger->error( sprintf( __( 'Could not start the upload of %1$s: %2$s', 'glaciate' ), $item['path'], S3Client::describe( $response ) ) );
 				return 'failed';
 			}
 			$state = array(
@@ -390,7 +390,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		$handle = fopen( $item['file'], 'rb' );
 		if ( false === $handle ) {
 			/* translators: %s: file path. */
-			$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $item['path'] ) );
+			$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'glaciate' ), $item['path'] ) );
 			return 'failed';
 		}
 		try {
@@ -409,7 +409,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 				if ( ! S3Client::ok( $response ) || '' === $etag ) {
 					self::fail_on_rejection( $response, $item['path'] );
 					/* translators: 1: part number, 2: file path, 3: error message. */
-					$logger->error( sprintf( __( 'Could not upload part %1$d of %2$s: %3$s', 'stillpress' ), $number, $item['path'], S3Client::describe( $response ) ) );
+					$logger->error( sprintf( __( 'Could not upload part %1$d of %2$s: %3$s', 'glaciate' ), $number, $item['path'], S3Client::describe( $response ) ) );
 					return 'failed';
 				}
 				$state['etags'][ $number ] = $etag;
@@ -422,7 +422,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		$response = $client->send( array( $client->complete_multipart_request( $key, (string) $state['upload_id'], $state['etags'] ) ) )[0];
 		if ( ! S3Client::ok( $response ) ) {
 			/* translators: 1: file path, 2: error message. */
-			$logger->error( sprintf( __( 'Could not finish the upload of %1$s: %2$s', 'stillpress' ), $item['path'], S3Client::describe( $response ) ) );
+			$logger->error( sprintf( __( 'Could not finish the upload of %1$s: %2$s', 'glaciate' ), $item['path'], S3Client::describe( $response ) ) );
 			if ( false !== strpos( $response['body'], 'NoSuchUpload' ) ) {
 				$this->save_multipart( $item['path'], null );
 			}
@@ -452,7 +452,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		if ( ! S3Client::ok( $response ) ) {
 			self::fail_on_rejection( $response, 'deleted files' );
 			/* translators: 1: number of files, 2: error message. */
-			$logger->error( sprintf( _n( 'Could not delete %1$d file from S3: %2$s', 'Could not delete %1$d files from S3: %2$s', count( $paths ), 'stillpress' ), count( $paths ), S3Client::describe( $response ) ) );
+			$logger->error( sprintf( _n( 'Could not delete %1$d file from S3: %2$s', 'Could not delete %1$d files from S3: %2$s', count( $paths ), 'glaciate' ), count( $paths ), S3Client::describe( $response ) ) );
 			$result->failed += count( $paths );
 			return;
 		}
@@ -466,7 +466,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		}
 		foreach ( $answer['errors'] as $key => $error ) {
 			/* translators: 1: file path, 2: error message. */
-			$logger->error( sprintf( __( 'Could not delete %1$s from S3: %2$s', 'stillpress' ), $by_key[ $key ] ?? $key, $error ) );
+			$logger->error( sprintf( __( 'Could not delete %1$s from S3: %2$s', 'glaciate' ), $by_key[ $key ] ?? $key, $error ) );
 			++$result->failed;
 		}
 	}
@@ -507,7 +507,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 	private static function fail_on_rejection( array $response, string $what ): void {
 		if ( $response['status'] >= 300 && $response['status'] < 500 ) {
 			/* translators: 1: file path, 2: error details. */
-			throw new \RuntimeException( sprintf( __( 'S3 rejected %1$s (%2$s). Run "wp stillpress target check s3" to diagnose.', 'stillpress' ), $what, S3Client::describe( $response ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'S3 rejected %1$s (%2$s). Run "wp glaciate target check s3" to diagnose.', 'glaciate' ), $what, S3Client::describe( $response ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 	}
 
@@ -551,16 +551,16 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 		if ( '' === $distribution || ! $paths ) {
 			return;
 		}
-		$request  = $this->cloudfront()->invalidation_request( $distribution, $paths, 'stillpress-' . time() . '-' . bin2hex( random_bytes( 4 ) ) );
+		$request  = $this->cloudfront()->invalidation_request( $distribution, $paths, 'glaciate-' . time() . '-' . bin2hex( random_bytes( 4 ) ) );
 		$response = $client->send( array( $request ) )[0];
 		unset( $all[ $this->target_key() ] );
 		update_option( self::INVALIDATE_OPTION, $all, false );
 		if ( S3Client::ok( $response ) ) {
 			/* translators: %d: number of paths. */
-			$logger->info( array( '/*' ) === $paths ? __( 'Asked CloudFront to refresh every page.', 'stillpress' ) : sprintf( _n( 'Asked CloudFront to refresh %d path.', 'Asked CloudFront to refresh %d paths.', count( $paths ), 'stillpress' ), count( $paths ) ) );
+			$logger->info( array( '/*' ) === $paths ? __( 'Asked CloudFront to refresh every page.', 'glaciate' ) : sprintf( _n( 'Asked CloudFront to refresh %d path.', 'Asked CloudFront to refresh %d paths.', count( $paths ), 'glaciate' ), count( $paths ) ) );
 		} else {
 			/* translators: %s: error message. */
-			$logger->error( sprintf( __( 'CloudFront invalidation failed: %s. Cached copies will update when they expire.', 'stillpress' ), S3Client::describe( $response ) ) );
+			$logger->error( sprintf( __( 'CloudFront invalidation failed: %s. Cached copies will update when they expire.', 'glaciate' ), S3Client::describe( $response ) ) );
 		}
 	}
 

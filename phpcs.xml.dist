@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
-<ruleset name="Stillpress">
-	<description>WordPress Coding Standards for Stillpress.</description>
+<ruleset name="Glaciate">
+	<description>WordPress Coding Standards for Glaciate.</description>
 
-	<file>./stillpress.php</file>
+	<file>./glaciate.php</file>
 	<file>./uninstall.php</file>
 	<file>./bin/hooks.php</file>
 	<file>./src</file>
 	<!-- The standalone receiver template is PHP stored as .txt, so it can't run inside the plugin folder. -->
-	<file>./receivers/stillpress-form-php.txt</file>
+	<file>./receivers/glaciate-form-php.txt</file>
 	<file>./tests</file>
 
 	<exclude-pattern>/vendor/*</exclude-pattern>
@@ -35,7 +35,7 @@
 	<rule ref="WordPress.WP.I18n">
 		<properties>
 			<property name="text_domain" type="array">
-				<element value="stillpress"/>
+				<element value="glaciate"/>
 			</property>
 		</properties>
 	</rule>
@@ -43,8 +43,8 @@
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<properties>
 			<property name="prefixes" type="array">
-				<element value="stillpress"/>
-				<element value="Stillpress"/>
+				<element value="glaciate"/>
+				<element value="Glaciate"/>
 			</property>
 		</properties>
 	</rule>

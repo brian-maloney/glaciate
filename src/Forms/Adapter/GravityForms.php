@@ -2,13 +2,13 @@
 /**
  * Gravity Forms.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms\Adapter;
+namespace Glaciate\Forms\Adapter;
 
-use Stillpress\Forms\Result;
-use Stillpress\Forms\Submission;
+use Glaciate\Forms\Result;
+use Glaciate\Forms\Submission;
 
 /**
  * Recognizes Gravity Forms forms (hidden `gform_submit` with the form ID) and submits them through the documented

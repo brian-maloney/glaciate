@@ -2,20 +2,20 @@
 /**
  * Writes the static search index files.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Search;
+namespace Glaciate\Search;
 
-use Stillpress\Build\Generated;
-use Stillpress\Build\Pipeline;
-use Stillpress\Storage\Schema;
-use Stillpress\Storage\UrlRepository;
+use Glaciate\Build\Generated;
+use Glaciate\Build\Pipeline;
+use Glaciate\Storage\Schema;
+use Glaciate\Storage\UrlRepository;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table.
 
 /**
- * Turns the index tables into files under stillpress-search/ during finalizing (D20):
+ * Turns the index tables into files under glaciate-search/ during finalizing (D20):
  *
  * - `terms/<hex of key>.json`: `{ term: [id, score, id, score, ...] }` for the terms of one shard.
  * - `docs/<chunk>.json`: `{ id: [public path, title, excerpt] }` for URL IDs in that chunk.
@@ -23,7 +23,7 @@ use Stillpress\Storage\UrlRepository;
  *
  * Only dirty groups and chunks are written, a group at a time, so the work resumes in the next slice when time runs
  * out. A full build marks everything dirty once, which repairs any file that went missing. Files are generated rows
- * (`stillpress:search/...`), so the manifest and deployers treat them like every other generated file.
+ * (`glaciate:search/...`), so the manifest and deployers treat them like every other generated file.
  */
 final class IndexWriter {
 
@@ -31,13 +31,13 @@ final class IndexWriter {
 	const FORMAT = 1;
 
 	/** Output folder. */
-	const DIR = 'stillpress-search';
+	const DIR = 'glaciate-search';
 
 	/** Pseudo-URL prefix of the generated rows. */
-	const PSEUDO = 'stillpress:search/';
+	const PSEUDO = 'glaciate:search/';
 
 	/** Option holding the ID of the last full build whose index was marked dirty. */
-	const MARKED_OPTION = 'stillpress_search_marked_build';
+	const MARKED_OPTION = 'glaciate_search_marked_build';
 
 	/** Dirty keys fetched at a time. */
 	const BATCH = 50;

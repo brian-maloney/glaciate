@@ -2,15 +2,15 @@
 /**
  * REST routes that receive form submissions.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
-use Stillpress\Rest\Controller;
+use Glaciate\Rest\Controller;
 
 /**
- * Two public routes under stillpress/v1:
+ * Two public routes under glaciate/v1:
  *
  *     POST /forms/submit  A visitor's browser posts a published form (forms = site).
  *     POST /forms/relay   A separate receiver forwards a submission, signed with the forms secret.
@@ -84,7 +84,7 @@ final class Endpoint {
 	 * @return \WP_REST_Response
 	 */
 	public static function relay( \WP_REST_Request $request ): \WP_REST_Response {
-		$result = Receiver::for_site()->relay( (string) $request->get_body(), (string) $request->get_header( 'x_stillpress_signature' ) );
+		$result = Receiver::for_site()->relay( (string) $request->get_body(), (string) $request->get_header( 'x_glaciate_signature' ) );
 		return new \WP_REST_Response( $result->to_array(), $result->http_status() );
 	}
 
@@ -151,7 +151,7 @@ final class Endpoint {
 			. '<style>body{font:1.1rem/1.5 system-ui,sans-serif;max-width:36rem;margin:15vh auto;padding:0 1rem}</style></head><body>'
 			. '<p>' . esc_html( $result->message ) . '</p>'
 			. ( '' === $items ? '' : '<ul>' . $items . '</ul>' )
-			. '<p><a href="' . esc_url( $back ) . '">' . esc_html__( 'Back to the page', 'stillpress' ) . '</a></p></body></html>';
+			. '<p><a href="' . esc_url( $back ) . '">' . esc_html__( 'Back to the page', 'glaciate' ) . '</a></p></body></html>';
 	}
 
 	/**
@@ -161,7 +161,7 @@ final class Endpoint {
 	 * @return string
 	 */
 	private static function back_link( string $page ): string {
-		$public = \Stillpress\Build\Pipeline::public_url( \Stillpress\Support\Settings::all() );
+		$public = \Glaciate\Build\Pipeline::public_url( \Glaciate\Support\Settings::all() );
 		return '' !== $page && Config::origin_of( $page ) === Config::origin_of( $public ) ? $page : $public;
 	}
 
@@ -182,6 +182,6 @@ final class Endpoint {
 		 *
 		 * @param string $ip REMOTE_ADDR.
 		 */
-		return (string) apply_filters( 'stillpress_form_client_ip', $ip );
+		return (string) apply_filters( 'glaciate_form_client_ip', $ip );
 	}
 }

@@ -2,15 +2,15 @@
 /**
  * Filesystem locations used by the plugin.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Support;
+namespace Glaciate\Support;
 
 /**
  * Resolves the data directory (build cache, ZIP archives, default local target).
  *
- * The data directory defaults to wp-content/stillpress and can be moved with the STILLPRESS_DATA_DIR constant.
+ * The data directory defaults to wp-content/glaciate and can be moved with the GLACIATE_DATA_DIR constant.
  * Every site in a network gets its own subdirectories, named after the blog ID.
  */
 final class Paths {
@@ -21,7 +21,7 @@ final class Paths {
 	 * @return string
 	 */
 	public static function data_dir(): string {
-		$dir = defined( 'STILLPRESS_DATA_DIR' ) ? (string) STILLPRESS_DATA_DIR : WP_CONTENT_DIR . '/stillpress';
+		$dir = defined( 'GLACIATE_DATA_DIR' ) ? (string) GLACIATE_DATA_DIR : WP_CONTENT_DIR . '/glaciate';
 
 		/**
 		 * Filters the base data directory.
@@ -30,7 +30,7 @@ final class Paths {
 		 *
 		 * @param string $dir Absolute path.
 		 */
-		return untrailingslashit( wp_normalize_path( (string) apply_filters( 'stillpress_data_dir', $dir ) ) );
+		return untrailingslashit( wp_normalize_path( (string) apply_filters( 'glaciate_data_dir', $dir ) ) );
 	}
 
 	/**

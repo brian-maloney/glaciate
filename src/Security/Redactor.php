@@ -2,10 +2,10 @@
 /**
  * Removes secrets from text before it is logged or displayed.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Security;
+namespace Glaciate\Security;
 
 /**
  * Keeps a process-wide list of secret values and scrubs them from any string (threat T10).

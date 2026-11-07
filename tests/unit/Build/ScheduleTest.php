@@ -2,13 +2,13 @@
 /**
  * Wall-clock schedules, including daylight-saving changes.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Build;
+namespace Glaciate\Tests\Unit\Build;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Build\Schedule;
+use Glaciate\Build\Schedule;
 
 final class ScheduleTest extends TestCase {
 

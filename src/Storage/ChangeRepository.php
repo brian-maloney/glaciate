@@ -2,10 +2,10 @@
 /**
  * Content changes waiting for an incremental build.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Storage;
+namespace Glaciate\Storage;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table; change queue must always be read fresh.
 

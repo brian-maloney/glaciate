@@ -2,14 +2,14 @@
 /**
  * Path traversal and mapping tests (threat T2).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Output;
+namespace Glaciate\Tests\Unit\Output;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Output\PathMapper;
-use Stillpress\Output\UnsafePathException;
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
 
 final class PathMapperTest extends TestCase {
 
@@ -17,13 +17,13 @@ final class PathMapperTest extends TestCase {
 	private $tmp;
 
 	protected function setUp(): void {
-		$this->tmp = sys_get_temp_dir() . '/stillpress-pm-' . bin2hex( random_bytes( 6 ) );
+		$this->tmp = sys_get_temp_dir() . '/glaciate-pm-' . bin2hex( random_bytes( 6 ) );
 		mkdir( $this->tmp . '/root', 0777, true );
 		mkdir( $this->tmp . '/outside', 0777, true );
 	}
 
 	protected function tearDown(): void {
-		\Stillpress\Tests\Support\Fs::rmrf( $this->tmp );
+		\Glaciate\Tests\Support\Fs::rmrf( $this->tmp );
 	}
 
 	private function mapper(): PathMapper {

@@ -2,12 +2,12 @@
 /**
  * The nonces core prints for anonymous visitors are emptied by NonceStripper.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Render;
+namespace Glaciate\Tests\Integration\Render;
 
-use Stillpress\Rewrite\NonceStripper;
+use Glaciate\Rewrite\NonceStripper;
 
 final class CoreNoncesTest extends \WP_UnitTestCase {
 

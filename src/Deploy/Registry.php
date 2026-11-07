@@ -2,14 +2,14 @@
 /**
  * Known deployers.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
 /**
  * Holds every registered deployer. Built-in deployers are registered first; extensions add theirs through the
- * `stillpress_register_deployers` action.
+ * `glaciate_register_deployers` action.
  */
 final class Registry {
 
@@ -50,7 +50,7 @@ final class Registry {
 			 *
 			 * @param Registry $registry The registry; call register() on it.
 			 */
-			do_action( 'stillpress_register_deployers', self::$instance );
+			do_action( 'glaciate_register_deployers', self::$instance );
 		}
 		return self::$instance;
 	}

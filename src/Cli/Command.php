@@ -263,12 +263,17 @@ final class Command {
 	}
 
 	/**
-	 * Writes the current build as a ZIP file.
+	 * Writes the current build as a ZIP file in the plugin's data directory and prints its path.
 	 *
 	 * ## OPTIONS
 	 *
-	 * [--out=<file>]
-	 * : Copy the archive to this path.
+	 * [--porcelain]
+	 * : Print only the archive's path.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     $ wp glaciate zip
+	 *     $ cp "$(wp glaciate zip --porcelain)" site.zip
 	 *
 	 * @param string[]             $args  Positional arguments.
 	 * @param array<string,string> $assoc Options.
@@ -279,7 +284,8 @@ final class Command {
 		if ( ! $manifest ) {
 			WP_CLI::error( 'Nothing has been built yet. Run "wp glaciate build --no-deploy" first.' );
 		}
-		Logger::echo_to_cli( true );
+		$porcelain = (bool) WP_CLI\Utils\get_flag_value( $assoc, 'porcelain', false );
+		Logger::echo_to_cli( ! $porcelain );
 		try {
 			$result = ( new \Glaciate\Deploy\Zip() )->deploy( $manifest, \Glaciate\Support\Paths::cache_dir(), new Logger() );
 		} catch ( \RuntimeException $e ) {
@@ -287,14 +293,11 @@ final class Command {
 		} finally {
 			Logger::echo_to_cli( false );
 		}
-		$file = $result->location;
-		if ( ! empty( $assoc['out'] ) ) {
-			if ( ! copy( $file, (string) $assoc['out'] ) ) {
-				WP_CLI::error( 'Could not write ' . $assoc['out'] );
-			}
-			$file = (string) $assoc['out'];
+		if ( $porcelain ) {
+			WP_CLI::line( $result->location );
+			return;
 		}
-		WP_CLI::success( sprintf( 'Wrote %d files to %s', $result->added, $file ) );
+		WP_CLI::success( sprintf( 'Wrote %d files to %s', $result->added, $result->location ) );
 	}
 
 	/**
@@ -778,7 +781,7 @@ final class Command {
 	}
 
 	/**
-	 * Shows how forms on the static site are received, or writes a standalone receiver.
+	 * Shows how forms on the static site are received, or prints a standalone receiver.
 	 *
 	 * Turn forms on with `wp glaciate settings set forms site` (this site's REST API receives them) or `forms
 	 * receiver` with `forms_endpoint` set to a receiver you run. The shared secret is `wp glaciate secret set forms
@@ -788,7 +791,8 @@ final class Command {
 	 * ## OPTIONS
 	 *
 	 * [<action>]
-	 * : status, or receiver to write a standalone receiver.
+	 * : status, or receiver to print a standalone receiver with this site's settings filled in. Its secrets never go
+	 * into it: set GLACIATE_FORMS_SECRET where it runs to the same value as here.
 	 * ---
 	 * default: status
 	 * options:
@@ -799,9 +803,6 @@ final class Command {
 	 * [<kind>]
 	 * : For receiver: php (any PHP host), cloudflare (a Worker) or netlify (a Netlify Function).
 	 *
-	 * [--out=<file>]
-	 * : Write the receiver to this file instead of standard output.
-	 *
 	 * [--format=<format>]
 	 * : Output format for status.
 	 * ---
@@ -811,7 +812,7 @@ final class Command {
 	 * ## EXAMPLES
 	 *
 	 *     $ wp glaciate forms
-	 *     $ wp glaciate forms receiver php --out=glaciate-form.php
+	 *     $ wp glaciate forms receiver php > glaciate-form.php
 	 *     $ wp glaciate forms receiver cloudflare > worker.mjs
 	 *
 	 * @param string[]             $args  Positional arguments.
@@ -826,14 +827,7 @@ final class Command {
 			} catch ( \InvalidArgumentException $e ) {
 				WP_CLI::error( $e->getMessage() );
 			}
-			if ( empty( $assoc['out'] ) ) {
-				WP_CLI::line( rtrim( $code, "\n" ) );
-				return;
-			}
-			if ( false === file_put_contents( (string) $assoc['out'], $code ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- A file the operator named.
-				WP_CLI::error( 'Could not write ' . $assoc['out'] );
-			}
-			WP_CLI::success( sprintf( 'Wrote %s. Set GLACIATE_FORMS_SECRET where it runs to the same value as here; it never goes into the file.', $assoc['out'] ) );
+			WP_CLI::line( rtrim( $code, "\n" ) );
 			return;
 		}
 		$source = static function ( string $field ): string {

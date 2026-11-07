@@ -316,7 +316,7 @@ from every log line. `wp glaciate secret list|set|delete` manages stored values;
   `map_meta_cap` to `glaciate_publish` + `edit_post`. In multisite, filesystem paths are set **only by a super admin or a constant**.
 - Activation defaults: target = Local directory at `<uploads>/glaciate/public/<site>/`, public URL = current home URL. The one
   onboarding choice: *where to deploy*.
-- WP-CLI: `wp glaciate build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--out]`,
+- WP-CLI: `wp glaciate build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--porcelain]`,
   `urls list|add|remove`, `why <url>` (shows recorded deps), `changes list|preview|flush`, `settings get|set|list`, `secret list|set|delete`,
   `forms status|receiver`, `doctor` (Site Health checks), `clean`.
 - Extension API: every pipeline stage has actions/filters (`glaciate_exclude_patterns`, `glaciate_exclude_render`,

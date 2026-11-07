@@ -15,7 +15,7 @@ Read before changing things: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs
 - **Security.** Capability + nonce on every action. Sanitize input, escape output. All output paths go through
   `Glaciate\Output\PathMapper`; all fetched URLs go through `Glaciate\Security\UrlPolicy`. Never log secrets.
 - **Check WordPress behavior** against developer.wordpress.org (or the core source in the container) instead of assuming.
-- Supported range: WordPress 6.6+, PHP 7.4+. No PHP 8-only syntax (no union types, `match`, named args, constructor promotion,
+- Supported range: WordPress 6.9+, PHP 7.4+. No PHP 8-only syntax (no union types, `match`, named args, constructor promotion,
   `readonly`, enums, nullsafe operator). PHPCompatibilityWP enforces this.
 
 ## Commands

@@ -1,7 +1,7 @@
 === Glaciate ===
 Contributors: brianmaloney
 Tags: static site, static html, performance, security, export
-Requires at least: 6.6
+Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
 Stable tag: 1.1.1

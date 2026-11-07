@@ -24,7 +24,7 @@ PHP or a database.
 
 ## Requirements
 
-- WordPress 6.6 or later (tested up to 7.1), single site or multisite
+- WordPress 6.9 or later (tested up to 7.1), single site or multisite
 - PHP 7.4 to 8.5
 - Pretty permalinks (anything but "Plain")
 - A server that can make HTTP requests to its own address. Behind a proxy or in a container, point it at the web

@@ -3,7 +3,7 @@
 A running log of non-obvious choices. Newest at the bottom. Each entry says what we chose, why, and what would
 make us revisit it.
 
-## D1. Support WordPress 6.6+ and PHP 7.4+
+## D1. Support WordPress 6.6+ and PHP 7.4+ (WordPress 6.9+ since D43)
 
 WordPress 7.0 raised core's own floor to PHP 7.4, and Action Scheduler requires 7.2 and WordPress 6.5. WordPress 6.6
 moved the editor SlotFills into `@wordpress/editor`, so one integration covers the post and site editors. 6.6 is about
@@ -715,3 +715,13 @@ directory itself stays open so the default local target can be served from it.
 
 A local target chosen by an administrator (a super admin on multisite) can still be any folder `TargetPolicy` allows,
 outside WordPress included: writing the static site where the web server serves it is what that target is for.
+
+
+## D43. WordPress 6.9 is the minimum, for Action Scheduler 4.2
+
+D1 set the floor at 6.6. The WordPress.org review asked for the current Action Scheduler, and 4.2 requires WordPress
+6.9 (4.0 already required 6.8). Holding the floor would mean shipping an outdated copy of a library that other plugins
+replace with their newer one anyway, so the floor moves to 6.9. The PHP floor stays at 7.4.
+
+Action Scheduler 4.0 counts arguments when it checks whether a unique action is already scheduled. The build queue's
+unique actions carry the build ID, and only one build runs at a time, so nothing changes for it.

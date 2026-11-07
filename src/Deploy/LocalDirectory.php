@@ -2,18 +2,18 @@
 /**
  * Deploys to a directory on this server.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Output\Cache;
-use Stillpress\Output\PathMapper;
-use Stillpress\Output\UnsafePathException;
-use Stillpress\Security\TargetPolicy;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Paths;
-use Stillpress\Support\Settings;
+use Glaciate\Output\Cache;
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
+use Glaciate\Security\TargetPolicy;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Paths;
+use Glaciate\Support\Settings;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Bulk file operations in a validated target directory (see DECISIONS.md D9).
 
@@ -36,7 +36,7 @@ final class LocalDirectory implements DeployerInterface {
 	 * {@inheritDoc}
 	 */
 	public function label(): string {
-		return __( 'Folder on this server', 'stillpress' );
+		return __( 'Folder on this server', 'glaciate' );
 	}
 
 	/**
@@ -61,11 +61,11 @@ final class LocalDirectory implements DeployerInterface {
 		if ( is_dir( $dir ) ) {
 			if ( ! wp_is_writable( $dir ) ) {
 				/* translators: %s: directory path. */
-				return sprintf( __( 'The folder %s is not writable by the web server.', 'stillpress' ), $dir );
+				return sprintf( __( 'The folder %s is not writable by the web server.', 'glaciate' ), $dir );
 			}
 			if ( ! file_exists( $dir . '/' . TargetPolicy::MARKER ) && self::has_entries( $dir ) ) {
 				/* translators: 1: directory path, 2: marker file name. */
-				return sprintf( __( 'The folder %1$s is not empty. Choose an empty folder, or create a file named %2$s in it to confirm it may be overwritten.', 'stillpress' ), $dir, TargetPolicy::MARKER );
+				return sprintf( __( 'The folder %1$s is not empty. Choose an empty folder, or create a file named %2$s in it to confirm it may be overwritten.', 'glaciate' ), $dir, TargetPolicy::MARKER );
 			}
 		}
 		return null;
@@ -88,10 +88,10 @@ final class LocalDirectory implements DeployerInterface {
 		$dir = $this->directory();
 		if ( ! wp_mkdir_p( $dir ) ) {
 			/* translators: %s: directory path. */
-			throw new \RuntimeException( sprintf( __( 'Could not create %s.', 'stillpress' ), $dir ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'Could not create %s.', 'glaciate' ), $dir ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( ! file_exists( $dir . '/' . TargetPolicy::MARKER ) ) {
-			file_put_contents( $dir . '/' . TargetPolicy::MARKER, "This folder is managed by Stillpress. Files listed in its deploy records may be replaced or deleted.\n" );
+			file_put_contents( $dir . '/' . TargetPolicy::MARKER, "This folder is managed by Glaciate. Files listed in its deploy records may be replaced or deleted.\n" );
 		}
 
 		$source = new PathMapper( $source_root );
@@ -113,7 +113,7 @@ final class LocalDirectory implements DeployerInterface {
 				Cache::ensure_dir( dirname( $to ) );
 			} catch ( UnsafePathException $e ) {
 				/* translators: 1: file path, 2: error message. */
-				$logger->error( sprintf( __( 'Could not deploy %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
+				$logger->error( sprintf( __( 'Could not deploy %1$s: %2$s', 'glaciate' ), $path, $e->getMessage() ) );
 				continue;
 			}
 			$tmp = $to . '.tmp-' . bin2hex( random_bytes( 4 ) );
@@ -122,7 +122,7 @@ final class LocalDirectory implements DeployerInterface {
 					unlink( $tmp );
 				}
 				/* translators: %s: file path. */
-				$logger->error( sprintf( __( 'Could not copy %s into the target folder.', 'stillpress' ), $path ) );
+				$logger->error( sprintf( __( 'Could not copy %s into the target folder.', 'glaciate' ), $path ) );
 				continue;
 			}
 			if ( isset( $held[ $path ] ) ) {

@@ -2,22 +2,22 @@
 /**
  * Builds the objects a build needs from the site's settings.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
-use Stillpress\Crawl\AssetCopier;
-use Stillpress\Crawl\LinkExtractor;
-use Stillpress\Crawl\UrlClassifier;
-use Stillpress\Output\Cache;
-use Stillpress\Output\PathMapper;
-use Stillpress\Render\LoopbackClient;
-use Stillpress\Rewrite\OriginSet;
-use Stillpress\Rewrite\UrlRewriter;
-use Stillpress\Security\UrlPolicy;
-use Stillpress\Support\Paths;
-use Stillpress\Support\Settings;
+use Glaciate\Crawl\AssetCopier;
+use Glaciate\Crawl\LinkExtractor;
+use Glaciate\Crawl\UrlClassifier;
+use Glaciate\Output\Cache;
+use Glaciate\Output\PathMapper;
+use Glaciate\Render\LoopbackClient;
+use Glaciate\Rewrite\OriginSet;
+use Glaciate\Rewrite\UrlRewriter;
+use Glaciate\Security\UrlPolicy;
+use Glaciate\Support\Paths;
+use Glaciate\Support\Settings;
 
 /**
  * Factory for the per-site build components.
@@ -100,7 +100,12 @@ final class Pipeline {
 		$p->rewriter = new UrlRewriter( $p->origins );
 
 		$p->extractor  = new LinkExtractor( $p->origins );
-		$p->classifier = new UrlClassifier( $p->policy, $p->origins, (array) $p->settings['exclude'], (string) $p->settings['feeds'] );
+		$excludes      = (array) $p->settings['exclude'];
+		$data_path     = Paths::data_url_path();
+		if ( null !== $data_path ) {
+			$excludes[] = $data_path . '/*';
+		}
+		$p->classifier = new UrlClassifier( $p->policy, $p->origins, $excludes, (string) $p->settings['feeds'] );
 		$p->client     = new LoopbackClient( $p->policy, self::connect_to( $p->settings ), (int) $p->settings['concurrency'] );
 		$p->copier     = AssetCopier::for_wordpress();
 
@@ -142,8 +147,8 @@ final class Pipeline {
 		 *
 		 * @since 0.1.0
 		 *
-		 * @param string $connect_to Pin from the settings or the STILLPRESS_CONNECT_TO constant.
+		 * @param string $connect_to Pin from the settings or the GLACIATE_CONNECT_TO constant.
 		 */
-		return (string) apply_filters( 'stillpress_connect_to', (string) ( $settings['connect_to'] ?? '' ) );
+		return (string) apply_filters( 'glaciate_connect_to', (string) ( $settings['connect_to'] ?? '' ) );
 	}
 }

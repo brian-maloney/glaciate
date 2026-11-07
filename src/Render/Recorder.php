@@ -2,25 +2,27 @@
 /**
  * Records what a render request read from WordPress.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Render;
+namespace Glaciate\Render;
 
-use Stillpress\Deps\DependencyStore;
-use Stillpress\Deps\OptionRules;
-use Stillpress\Deps\QuerySignature;
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Storage\Schema;
-use Stillpress\Support\Settings;
+use Glaciate\Deps\DependencyStore;
+use Glaciate\Deps\OptionRules;
+use Glaciate\Deps\QuerySignature;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Storage\Schema;
+use Glaciate\Support\Settings;
 
 /**
  * Runs inside a loopback render request (identified by a valid render token) and records the posts, terms,
  * users, options and queries the page used. At shutdown it stores them as the URL's dependencies.
  *
- * Timing: the recorder buffers all output. Its shutdown callback runs at priority 0, before WordPress flushes
- * output buffers at priority 1, so dependencies are in the database and the confirmation header is set before
- * the crawler receives a single byte of the response.
+ * Timing: the recorder buffers all output, from the start of the render request until its shutdown callback, which
+ * runs at priority 0, before WordPress flushes output buffers at priority 1. Dependencies are in the database and the
+ * confirmation header is set before the crawler receives a single byte of the response; then the callback closes the
+ * buffer itself. WordPress 6.9's template enhancement output buffer can't take its place: it only covers responses
+ * rendered from a theme template, not feeds, sitemaps or robots.txt.
  *
  * A render request also gets a cleaner page: no admin bar, no page caching, and no head links that only make
  * sense on a live WordPress site (RSD, shortlink, REST API discovery, oEmbed discovery, pingback).
@@ -63,6 +65,13 @@ final class Recorder {
 	private $term_queries = array();
 
 	/**
+	 * Output buffer level of the recorder's own buffer, or 0 when it has none open.
+	 *
+	 * @var int
+	 */
+	private $buffer_level = 0;
+
+	/**
 	 * Active recorder, if this request is a render.
 	 *
 	 * @var Recorder|null
@@ -75,10 +84,10 @@ final class Recorder {
 	 * @return void
 	 */
 	public static function maybe_start(): void {
-		if ( null !== self::$active || empty( $_SERVER['HTTP_X_STILLPRESS_RENDER'] ) ) {
+		if ( null !== self::$active || empty( $_SERVER['HTTP_X_GLACIATE_RENDER'] ) ) {
 			return;
 		}
-		$header = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_STILLPRESS_RENDER'] ) );
+		$header = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_GLACIATE_RENDER'] ) );
 		$claims = RenderToken::for_site()->verify( $header );
 		if ( null === $claims ) {
 			return;
@@ -111,7 +120,7 @@ final class Recorder {
 	}
 
 	/**
-	 * Adds a dependency manually. Extensions can call this through the stillpress_record_dependency action.
+	 * Adds a dependency manually. Extensions can call this through the glaciate_record_dependency action.
 	 *
 	 * @param string     $type Dependency type (see DependencyStore).
 	 * @param string|int $key  Key.
@@ -133,14 +142,16 @@ final class Recorder {
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 			define( 'DONOTCACHEPAGE', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Shared page-cache convention.
 		}
-		ob_start();
+		if ( ob_start() ) {
+			$this->buffer_level = ob_get_level();
+		}
 		add_action( 'shutdown', array( $this, 'finish' ), 0 );
 
 		$this->clean_output();
 		$this->observe();
 
 		add_action(
-			'stillpress_record_dependency',
+			'glaciate_record_dependency',
 			function ( $type, $key ) {
 				$this->add( (string) $type, $key );
 			},
@@ -164,7 +175,7 @@ final class Recorder {
 		 *
 		 * @param bool $clean Default true.
 		 */
-		if ( ! apply_filters( 'stillpress_clean_head', true ) ) {
+		if ( ! apply_filters( 'glaciate_clean_head', true ) ) {
 			return;
 		}
 		remove_action( 'wp_head', 'rsd_link' );
@@ -413,7 +424,7 @@ final class Recorder {
 		 * @param array<string,string[]> $deps   Keys by type (post, term, user, option, query, tq, uq, cq, lastmod).
 		 * @param int                    $url_id URL ID.
 		 */
-		$deps = (array) apply_filters( 'stillpress_dependencies_for_url', $deps, $this->url_id );
+		$deps = (array) apply_filters( 'glaciate_dependencies_for_url', $deps, $this->url_id );
 
 		$stored = ( new DependencyStore() )->replace( $this->url_id, $deps, $sigs );
 		$this->set_deps_state( $stored ? 'recorded' : 'unknown' );
@@ -425,6 +436,26 @@ final class Recorder {
 				header( RenderToken::EXCLUDE_HEADER . ': ' . $exclude );
 			}
 		}
+		$this->close_buffer();
+	}
+
+	/**
+	 * Sends and closes the output buffer that start() opened.
+	 *
+	 * Buffers opened after it are flushed into it first, as WordPress would do one priority later.
+	 *
+	 * @return void
+	 */
+	private function close_buffer(): void {
+		if ( 0 === $this->buffer_level ) {
+			return;
+		}
+		while ( ob_get_level() >= $this->buffer_level ) {
+			if ( ! ob_end_flush() ) {
+				break;
+			}
+		}
+		$this->buffer_level = 0;
 	}
 
 	/**
@@ -448,7 +479,7 @@ final class Recorder {
 		 *
 		 * @param string $reason Default "password-protected" for posts behind a password, otherwise "".
 		 */
-		$reason = (string) apply_filters( 'stillpress_exclude_render', $reason );
+		$reason = (string) apply_filters( 'glaciate_exclude_render', $reason );
 		return (string) preg_replace( '/[^a-z0-9\-]/', '', strtolower( $reason ) );
 	}
 

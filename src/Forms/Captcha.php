@@ -2,10 +2,10 @@
 /**
  * Captcha answers.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
 /**
  * Verifies a Cloudflare Turnstile or hCaptcha answer with the provider. Both are outside services, so a captcha is

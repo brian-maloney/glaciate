@@ -20,16 +20,16 @@ function expand( c ) {
 }
 
 const contact = ( extra = [] ) => [
-	[ 'stillpress_form', 'form:contact' ],
-	[ 'stillpress_page', 'https://static.example.org/contact/' ],
-	[ 'stillpress_hp', '' ],
-	[ 'stillpress_t', '8' ],
+	[ 'glaciate_form', 'form:contact' ],
+	[ 'glaciate_page', 'https://static.example.org/contact/' ],
+	[ 'glaciate_hp', '' ],
+	[ 'glaciate_t', '8' ],
 	[ 'email', 'ada@example.com' ],
 	[ 'message', 'Héllo' ],
 	...extra,
 ];
 
-const base = settings( { allowedOrigin: 'https://static.example.org', forwardUrl: 'https://wp.example.org/relay' }, { STILLPRESS_FORMS_SECRET: 'shared' } );
+const base = settings( { allowedOrigin: 'https://static.example.org', forwardUrl: 'https://wp.example.org/relay' }, { GLACIATE_FORMS_SECRET: 'shared' } );
 
 function fakeFetch( answers ) {
 	const calls = [];
@@ -67,7 +67,7 @@ test( 'forwards signed submissions and passes the answer back', async () => {
 	const { url, options } = fetch.calls[ 0 ];
 	assert.equal( url, 'https://wp.example.org/relay' );
 	assert.equal( options.redirect, 'manual' );
-	const [ , time, mac ] = options.headers[ 'X-Stillpress-Signature' ].match( /^t=(\d+),v1=([0-9a-f]{64})$/ );
+	const [ , time, mac ] = options.headers[ 'X-Glaciate-Signature' ].match( /^t=(\d+),v1=([0-9a-f]{64})$/ );
 	assert.equal( time, '1900000000' );
 	assert.equal( mac, createHmac( 'sha256', 'shared' ).update( time + '.' + options.body ).digest( 'hex' ) );
 	const payload = JSON.parse( options.body );
@@ -79,7 +79,7 @@ test( 'forwards signed submissions and passes the answer back', async () => {
 test( 'refuses, limits and fails safely', async () => {
 	const visitor = { ip: '192.0.2.1', userAgent: 'UA', origin: '' };
 	assert.equal( ( await check( base, contact(), { ...visitor, origin: 'https://evil.example' }, io( fakeFetch( [] ) ) ) ).status, 'spam' );
-	assert.equal( ( await check( base, [ [ 'stillpress_hp', 'x' ], ...contact() ], visitor, io( fakeFetch( [] ) ) ) ).status, 'spam' );
+	assert.equal( ( await check( base, [ [ 'glaciate_hp', 'x' ], ...contact() ], visitor, io( fakeFetch( [] ) ) ) ).status, 'spam' );
 
 	const limiter = memoryLimiter( 1, 600 );
 	const fetch = fakeFetch( [ new Response( null, { status: 204 } ) ] );
@@ -162,7 +162,7 @@ test( 'platform entry points read their environment', async () => {
 				body: new URLSearchParams( contact() ),
 				headers: { Accept: 'application/json', 'CF-Connecting-IP': '192.0.2.77' },
 			} );
-		const env = { STILLPRESS_FORWARD_URL: 'https://wp.example.org/relay', STILLPRESS_FORMS_SECRET: 's' };
+		const env = { GLACIATE_FORWARD_URL: 'https://wp.example.org/relay', GLACIATE_FORMS_SECRET: 's' };
 		const response = await worker.fetch( request(), env );
 		assert.equal( response.status, 200 );
 		assert.equal( forwarded[ 0 ].url, 'https://wp.example.org/relay' );
@@ -172,7 +172,7 @@ test( 'platform entry points read their environment', async () => {
 		const answer = await netlify( request(), { ip: '192.0.2.78' } );
 		assert.equal( answer.status, 200 );
 		assert.equal( JSON.parse( forwarded[ 1 ].options.body ).ip, '192.0.2.78' );
-		assert.equal( netlifyConfig.path, '/stillpress-form' );
+		assert.equal( netlifyConfig.path, '/glaciate-form' );
 	} finally {
 		globalThis.fetch = original;
 		delete globalThis.Netlify;

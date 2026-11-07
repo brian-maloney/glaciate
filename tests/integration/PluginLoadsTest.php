@@ -2,15 +2,15 @@
 /**
  * Confirms the plugin loads inside WordPress.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration;
+namespace Glaciate\Tests\Integration;
 
 final class PluginLoadsTest extends \WP_UnitTestCase {
 
 	public function test_plugin_constants_are_defined(): void {
-		$this->assertTrue( defined( 'STILLPRESS_VERSION' ) );
+		$this->assertTrue( defined( 'GLACIATE_VERSION' ) );
 	}
 
 	public function test_action_scheduler_is_available(): void {

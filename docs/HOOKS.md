@@ -3,19 +3,19 @@
 Every extension point the plugin offers. This file is generated from the source docblocks by
 `php bin/hooks.php > docs/HOOKS.md`; a unit test fails when a hook is missing its docblock.
 
-Deployers are registered with `stillpress_register_deployers`; see `src/Deploy/DeployerInterface.php` for the contract.
+Deployers are registered with `glaciate_register_deployers`; see `src/Deploy/DeployerInterface.php` for the contract.
 
 ## Actions you fire
 
-### `stillpress_record_dependency`
+### `glaciate_record_dependency`
 
-Call `do_action( 'stillpress_record_dependency', $type, $key )` while a page renders to say it depends on something the
+Call `do_action( 'glaciate_record_dependency', $type, $key )` while a page renders to say it depends on something the
 recorder can't see, for example data your plugin reads with direct SQL. Types: `post`, `term`, `user` (IDs), `option`
 (name), `tq` (taxonomy name). It does nothing outside a static render.
 
 ## Actions
 
-### `stillpress_before_loopback_batch`
+### `glaciate_before_loopback_batch`
 
 Fires before a batch of loopback render requests is sent.
 
@@ -23,7 +23,7 @@ Fires before a batch of loopback render requests is sent.
 
 Since 0.1.0. Fired in `src/Render/LoopbackClient.php`.
 
-### `stillpress_build_finished`
+### `glaciate_build_finished`
 
 Fires when a build stops: done, failed or cancelled.
 
@@ -31,7 +31,7 @@ Fires when a build stops: done, failed or cancelled.
 
 Since 0.1.0. Fired in `src/Build/Runner.php`.
 
-### `stillpress_build_started`
+### `glaciate_build_started`
 
 Fires when a build has been created, before any work runs.
 
@@ -41,7 +41,7 @@ Fires when a build has been created, before any work runs.
 
 Since 0.1.0. Fired in `src/Build/BuildService.php`.
 
-### `stillpress_changes_recorded`
+### `glaciate_changes_recorded`
 
 Fires after content changes were recorded for the next incremental build.
 
@@ -49,16 +49,16 @@ Fires after content changes were recorded for the next incremental build.
 
 Since 0.1.0. Fired in `src/Deps/ChangeListener.php`.
 
-### `stillpress_form_submitted`
+### `glaciate_form_submitted`
 
 Fires after a form submission from the static site was accepted.
 
-- `\Stillpress\Forms\Submission $submission` The submission: form key, fields, page, visitor.
-- `\Stillpress\Forms\Result $result` What the visitor is told.
+- `\Glaciate\Forms\Submission $submission` The submission: form key, fields, page, visitor.
+- `\Glaciate\Forms\Result $result` What the visitor is told.
 
 Since 0.4.0. Fired in `src/Forms/Receiver.php`.
 
-### `stillpress_register_deployers`
+### `glaciate_register_deployers`
 
 Fires once so extensions can register deployers.
 
@@ -68,7 +68,7 @@ Since 0.1.0. Fired in `src/Deploy/Registry.php`.
 
 ## Filters
 
-### `stillpress_affected_url_ids`
+### `glaciate_affected_url_ids`
 
 Filters the URL IDs an incremental build will render.
 
@@ -77,7 +77,7 @@ Filters the URL IDs an incremental build will render.
 
 Since 0.1.0. Fired in `src/Deps/Invalidator.php`.
 
-### `stillpress_asset_roots`
+### `glaciate_asset_roots`
 
 Filters the URL path prefixes whose files may be copied straight from disk.
 
@@ -85,7 +85,7 @@ Filters the URL path prefixes whose files may be copied straight from disk.
 
 Since 0.1.0. Fired in `src/Crawl/AssetCopier.php`.
 
-### `stillpress_backoff_seconds`
+### `glaciate_backoff_seconds`
 
 Filters how long a build waits after the site answers 429 or 5xx.
 
@@ -95,7 +95,7 @@ Filters how long a build waits after the site answers 429 or 5xx.
 
 Since 1.1.0. Fired in `src/Build/Runner.php`.
 
-### `stillpress_clean_head`
+### `glaciate_clean_head`
 
 Filters whether render requests drop head links that only work on a live WordPress site.
 
@@ -103,15 +103,15 @@ Filters whether render requests drop head links that only work on a live WordPre
 
 Since 0.1.0. Fired in `src/Render/Recorder.php`.
 
-### `stillpress_connect_to`
+### `glaciate_connect_to`
 
 Filters where loopback render requests connect ("host" or "host:port"; empty for the URL's own host).
 
-- `string $connect_to` Pin from the settings or the STILLPRESS_CONNECT_TO constant.
+- `string $connect_to` Pin from the settings or the GLACIATE_CONNECT_TO constant.
 
 Since 0.1.0. Fired in `src/Build/Pipeline.php`.
 
-### `stillpress_data_dir`
+### `glaciate_data_dir`
 
 Filters the base data directory.
 
@@ -119,7 +119,7 @@ Filters the base data directory.
 
 Since 0.1.0. Fired in `src/Support/Paths.php`.
 
-### `stillpress_dependencies_for_url`
+### `glaciate_dependencies_for_url`
 
 Filters the dependencies recorded for a URL before they are stored.
 
@@ -128,7 +128,7 @@ Filters the dependencies recorded for a URL before they are stored.
 
 Since 0.1.0. Fired in `src/Render/Recorder.php`.
 
-### `stillpress_exclude_patterns`
+### `glaciate_exclude_patterns`
 
 Filters the URL patterns that are never published.
 
@@ -136,7 +136,7 @@ Filters the URL patterns that are never published.
 
 Since 0.1.0. Fired in `src/Crawl/UrlClassifier.php`.
 
-### `stillpress_exclude_render`
+### `glaciate_exclude_render`
 
 Filters whether the page rendered in this request is left out of the static site.
 
@@ -147,16 +147,16 @@ Runs inside the render request, so conditional tags such as is_singular() work.
 
 Since 0.1.0. Fired in `src/Render/Recorder.php`.
 
-### `stillpress_form_adapters`
+### `glaciate_form_adapters`
 
 Filters the form adapters. An adapter recognizes a kind of form in published pages and processes its
 submissions; see `src/Forms/Adapter/AdapterInterface.php`. The first adapter that recognizes a form wins.
 
-- `\Stillpress\Forms\Adapter\AdapterInterface[] $adapters` Adapters for Contact Form 7, WPForms, Gravity
+- `\Glaciate\Forms\Adapter\AdapterInterface[] $adapters` Adapters for Contact Form 7, WPForms, Gravity
 
 Since 0.4.0. Fired in `src/Forms/Adapters.php`.
 
-### `stillpress_form_client_ip`
+### `glaciate_form_client_ip`
 
 Filters the IP address of a visitor who sends a form, used for the rate limit, the captcha check and the
 form plugins. By default it is REMOTE_ADDR; behind a proxy or CDN, return the address the proxy reports,
@@ -166,7 +166,7 @@ but only for requests that really came through it (forwarding headers are easy t
 
 Since 0.4.0. Fired in `src/Forms/Endpoint.php`.
 
-### `stillpress_form_rate_limit`
+### `glaciate_form_rate_limit`
 
 Filters how many form submissions one IP address may send, and in how many seconds.
 
@@ -175,7 +175,7 @@ Filters how many form submissions one IP address may send, and in how many secon
 
 Since 0.4.0. Fired in `src/Forms/Receiver.php`.
 
-### `stillpress_form_settings`
+### `glaciate_form_settings`
 
 Filters the settings of the forms client: captcha provider and site key, and labels.
 
@@ -183,7 +183,7 @@ Filters the settings of the forms client: captcha provider and site key, and lab
 
 Since 0.4.0. Fired in `src/Forms/Frontend.php`.
 
-### `stillpress_global_options`
+### `glaciate_global_options`
 
 Filters option names whose change triggers a full rebuild.
 
@@ -191,7 +191,7 @@ Filters option names whose change triggers a full rebuild.
 
 Since 0.1.0. Fired in `src/Deps/OptionRules.php`.
 
-### `stillpress_header_rules`
+### `glaciate_header_rules`
 
 Filters the rules written to the `_headers` file, which Netlify and Cloudflare read.
 
@@ -199,7 +199,7 @@ Filters the rules written to the `_headers` file, which Netlify and Cloudflare r
 
 Since 0.2.0. Fired in `src/Build/Generated.php`.
 
-### `stillpress_ignored_options`
+### `glaciate_ignored_options`
 
 Filters option names that are never recorded as dependencies and never trigger rebuilds.
 
@@ -207,7 +207,7 @@ Filters option names that are never recorded as dependencies and never trigger r
 
 Since 0.1.0. Fired in `src/Deps/OptionRules.php`.
 
-### `stillpress_ignored_post_meta`
+### `glaciate_ignored_post_meta`
 
 Filters post meta keys whose changes never affect the public site.
 
@@ -215,7 +215,7 @@ Filters post meta keys whose changes never affect the public site.
 
 Since 0.1.0. Fired in `src/Deps/ChangeListener.php`.
 
-### `stillpress_kick_builds`
+### `glaciate_kick_builds`
 
 Filters whether builds are started with an immediate loopback request.
 
@@ -223,7 +223,7 @@ Filters whether builds are started with an immediate loopback request.
 
 Since 0.1.0. Fired in `src/Build/Queue.php`.
 
-### `stillpress_manifest`
+### `glaciate_manifest`
 
 Filters the manifest (relative path => SHA-256) before it is deployed.
 
@@ -232,7 +232,7 @@ Filters the manifest (relative path => SHA-256) before it is deployed.
 
 Since 0.1.0. Fired in `src/Build/Runner.php`.
 
-### `stillpress_mute_changes`
+### `glaciate_mute_changes`
 
 Filters whether content changes in the current request are ignored.
 
@@ -240,7 +240,7 @@ Filters whether content changes in the current request are ignored.
 
 Since 0.1.0. Fired in `src/Deps/ChangeListener.php`.
 
-### `stillpress_output`
+### `glaciate_output`
 
 Filters a document after URL rewriting and before it is hashed and written.
 
@@ -253,7 +253,7 @@ like a change.
 
 Since 0.1.0. Fired in `src/Build/Processor.php`.
 
-### `stillpress_output_path`
+### `glaciate_output_path`
 
 Filters the output path of a URL, relative to the output root.
 
@@ -265,7 +265,7 @@ The result is validated again, so it can't escape the output directory.
 
 Since 0.1.0. Fired in `src/Build/Processor.php`.
 
-### `stillpress_redirect_rules`
+### `glaciate_redirect_rules`
 
 Filters redirect rules written to the `_redirects` file.
 
@@ -273,7 +273,7 @@ Filters redirect rules written to the `_redirects` file.
 
 Since 0.1.0. Fired in `src/Build/Generated.php`.
 
-### `stillpress_search_document`
+### `glaciate_search_document`
 
 Filters what the static search index stores for a page. Return null to leave the page out of search.
 
@@ -282,7 +282,7 @@ Filters what the static search index stores for a page. Return null to leave the
 
 Since 0.3.0. Fired in `src/Search/PageIndexer.php`.
 
-### `stillpress_search_settings`
+### `glaciate_search_settings`
 
 Filters the settings of the static search client: backend ("builtin" or "pagefind"), index address, public
 root path, stylesheet address, result limit and labels. Return an empty "style" to style the dialog in the
@@ -292,7 +292,7 @@ theme instead.
 
 Since 0.3.0. Fired in `src/Search/Frontend.php`.
 
-### `stillpress_settings`
+### `glaciate_settings`
 
 Filters the effective settings.
 
@@ -300,7 +300,7 @@ Filters the effective settings.
 
 Since 0.1.0. Fired in `src/Support/Settings.php`.
 
-### `stillpress_slice_budget`
+### `glaciate_slice_budget`
 
 Filters the time budget, in seconds, of one background build slice.
 
@@ -308,7 +308,7 @@ Filters the time budget, in seconds, of one background build slice.
 
 Since 0.1.0. Fired in `src/Build/Queue.php`.
 
-### `stillpress_strip_nonces`
+### `glaciate_strip_nonces`
 
 Filters whether nonces in a page's inline scripts are emptied.
 
@@ -320,7 +320,7 @@ rebuild although nothing changed, and a static site has nowhere to send them.
 
 Since 1.1.0. Fired in `src/Build/Processor.php`.
 
-### `stillpress_term_change_moves_posts`
+### `glaciate_term_change_moves_posts`
 
 Filters whether a change to a term's address also changes post addresses (forcing a full build).
 
@@ -332,7 +332,7 @@ Custom post types whose rewrite rules contain a taxonomy can return true here.
 
 Since 0.1.0. Fired in `src/Deps/ChangeListener.php`.
 
-### `stillpress_watched_user_meta`
+### `glaciate_watched_user_meta`
 
 Filters user meta keys whose changes rebuild that user's pages.
 

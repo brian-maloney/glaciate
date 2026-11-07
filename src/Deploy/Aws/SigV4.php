@@ -2,10 +2,10 @@
 /**
  * AWS Signature Version 4.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy\Aws;
+namespace Glaciate\Deploy\Aws;
 
 /**
  * Signs requests to AWS (and S3-compatible) APIs with Signature Version 4.

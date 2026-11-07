@@ -6,8 +6,8 @@
 ( function ( wp ) {
 	'use strict';
 
-	const form = document.querySelector( '.stillpress-settings form' );
-	const select = document.getElementById( 'stillpress-target' );
+	const form = document.querySelector( '.glaciate-settings form' );
+	const select = document.getElementById( 'glaciate-target' );
 	if ( ! form || ! select ) {
 		return;
 	}
@@ -15,10 +15,10 @@
 
 	function showSelected() {
 		const target = select.value;
-		form.querySelectorAll( '.stillpress-target-row' ).forEach( ( row ) => {
-			row.hidden = ! row.classList.contains( 'stillpress-target-row-' + target );
+		form.querySelectorAll( '.glaciate-target-row' ).forEach( ( row ) => {
+			row.hidden = ! row.classList.contains( 'glaciate-target-row-' + target );
 		} );
-		const folder = document.getElementById( 'stillpress-local-path' );
+		const folder = document.getElementById( 'glaciate-local-path' );
 		const folderRow = folder ? folder.closest( 'tr' ) : null;
 		if ( folderRow ) {
 			folderRow.hidden = 'local' !== target;
@@ -28,10 +28,10 @@
 	showSelected();
 
 	// Times and days only matter for "at set times"; the weekday only for weekly rebuilds.
-	const schedule = form.querySelector( '[data-stillpress-schedule]' );
-	const modes = form.querySelectorAll( 'input[name="stillpress_settings[publish_mode]"]' );
+	const schedule = form.querySelector( '[data-glaciate-schedule]' );
+	const modes = form.querySelectorAll( 'input[name="glaciate_settings[publish_mode]"]' );
 	function showSchedule() {
-		const chosen = form.querySelector( 'input[name="stillpress_settings[publish_mode]"]:checked' );
+		const chosen = form.querySelector( 'input[name="glaciate_settings[publish_mode]"]:checked' );
 		if ( schedule ) {
 			schedule.hidden = ! chosen || 'scheduled' !== chosen.value;
 		}
@@ -39,9 +39,9 @@
 	modes.forEach( ( radio ) => radio.addEventListener( 'change', showSchedule ) );
 	showSchedule();
 
-	const rebuild = document.getElementById( 'stillpress-full-rebuild' );
-	const rebuildDay = form.querySelector( 'select[name="stillpress_settings[full_rebuild_day]"]' );
-	const rebuildTime = form.querySelector( 'input[name="stillpress_settings[full_rebuild_time]"]' );
+	const rebuild = document.getElementById( 'glaciate-full-rebuild' );
+	const rebuildDay = form.querySelector( 'select[name="glaciate_settings[full_rebuild_day]"]' );
+	const rebuildTime = form.querySelector( 'input[name="glaciate_settings[full_rebuild_time]"]' );
 	function showRebuild() {
 		if ( rebuild && rebuildDay && rebuildTime ) {
 			rebuildDay.closest( 'label' ).hidden = 'weekly' !== rebuild.value;
@@ -58,26 +58,26 @@
 		dirty = true;
 	} );
 
-	form.querySelectorAll( '[data-stillpress-check]' ).forEach( ( button ) => {
-		const id = button.dataset.stillpressCheck;
-		const result = form.querySelector( '[data-stillpress-check-result="' + id + '"]' );
+	form.querySelectorAll( '[data-glaciate-check]' ).forEach( ( button ) => {
+		const id = button.dataset.glaciateCheck;
+		const result = form.querySelector( '[data-glaciate-check-result="' + id + '"]' );
 		button.addEventListener( 'click', () => {
 			if ( ! wp.apiFetch ) {
 				return;
 			}
 			button.disabled = true;
-			result.className = 'stillpress-check-result';
+			result.className = 'glaciate-check-result';
 			result.textContent = dirty
-				? __( 'Testing the saved settings (your unsaved changes are not included)…', 'stillpress' )
-				: __( 'Testing…', 'stillpress' );
-			wp.apiFetch( { path: '/stillpress/v1/targets/' + encodeURIComponent( id ) + '/check', method: 'POST' } )
+				? __( 'Testing the saved settings (your unsaved changes are not included)…', 'glaciate' )
+				: __( 'Testing…', 'glaciate' );
+			wp.apiFetch( { path: '/glaciate/v1/targets/' + encodeURIComponent( id ) + '/check', method: 'POST' } )
 				.then( ( response ) => {
 					// Plain text from the server: never inserted as HTML.
 					result.textContent = response.message;
 					result.classList.add( response.ok ? 'is-ok' : 'is-error' );
 				} )
 				.catch( ( error ) => {
-					result.textContent = ( error && error.message ) || __( 'The test could not run.', 'stillpress' );
+					result.textContent = ( error && error.message ) || __( 'The test could not run.', 'glaciate' );
 					result.classList.add( 'is-error' );
 				} )
 				.finally( () => {

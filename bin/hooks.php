@@ -8,12 +8,12 @@
  *
  * Also used by tests/unit/HooksDocumentedTest.php.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 // phpcs:disable WordPress.WP.AlternativeFunctions, WordPress.Security.EscapeOutput.OutputNotEscaped, WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Developer CLI script, not loaded by WordPress.
 
-namespace Stillpress\Bin;
+namespace Glaciate\Bin;
 
 /**
  * Scans PHP files for do_action()/apply_filters() calls with literal hook names.
@@ -54,7 +54,7 @@ function find_hooks( string $dir ): array {
 				continue;
 			}
 			$name = trim( $tokens[ $j ][1], '\'"' );
-			if ( 0 !== strpos( $name, 'stillpress_' ) ) {
+			if ( 0 !== strpos( $name, 'glaciate_' ) ) {
 				$doc = '';
 				continue;
 				// Core hooks we re-fire (documented by WordPress).
@@ -147,10 +147,10 @@ function markdown( array $hooks ): string {
 	$out  = "# Actions and filters\n\n";
 	$out .= "Every extension point the plugin offers. This file is generated from the source docblocks by\n";
 	$out .= "`php bin/hooks.php > docs/HOOKS.md`; a unit test fails when a hook is missing its docblock.\n\n";
-	$out .= "Deployers are registered with `stillpress_register_deployers`; see `src/Deploy/DeployerInterface.php` for the contract.\n\n";
+	$out .= "Deployers are registered with `glaciate_register_deployers`; see `src/Deploy/DeployerInterface.php` for the contract.\n\n";
 	$out .= "## Actions you fire\n\n";
-	$out .= "### `stillpress_record_dependency`\n\n";
-	$out .= "Call `do_action( 'stillpress_record_dependency', \$type, \$key )` while a page renders to say it depends on something the\n";
+	$out .= "### `glaciate_record_dependency`\n\n";
+	$out .= "Call `do_action( 'glaciate_record_dependency', \$type, \$key )` while a page renders to say it depends on something the\n";
 	$out .= "recorder can't see, for example data your plugin reads with direct SQL. Types: `post`, `term`, `user` (IDs), `option`\n";
 	$out .= "(name), `tq` (taxonomy name). It does nothing outside a static render.\n\n";
 	$seen = array();

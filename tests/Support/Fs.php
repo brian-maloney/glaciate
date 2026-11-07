@@ -2,10 +2,10 @@
 /**
  * Filesystem helpers for tests.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Support;
+namespace Glaciate\Tests\Support;
 
 /**
  * Temporary directories.

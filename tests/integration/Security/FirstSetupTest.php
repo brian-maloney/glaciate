@@ -2,14 +2,14 @@
 /**
  * Setting a site up when the activation hook never ran.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Security;
+namespace Glaciate\Tests\Integration\Security;
 
-use Stillpress\Plugin;
-use Stillpress\Security\Capabilities;
-use Stillpress\Storage\Schema;
+use Glaciate\Plugin;
+use Glaciate\Security\Capabilities;
+use Glaciate\Storage\Schema;
 
 final class FirstSetupTest extends \WP_UnitTestCase {
 

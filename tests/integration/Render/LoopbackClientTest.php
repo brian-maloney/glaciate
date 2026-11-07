@@ -5,17 +5,17 @@
  * Uses the Git test server's self-signed certificate. Start it with `npm run git:start`; these tests skip themselves
  * when git.test isn't reachable.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Render;
+namespace Glaciate\Tests\Integration\Render;
 
-use Stillpress\Render\LoopbackClient;
-use Stillpress\Security\UrlPolicy;
+use Glaciate\Render\LoopbackClient;
+use Glaciate\Security\UrlPolicy;
 
 final class LoopbackClientTest extends \WP_UnitTestCase {
 
-	const URL = 'https://git.test/stillpress-loopback-probe';
+	const URL = 'https://git.test/glaciate-loopback-probe';
 
 	public function set_up(): void {
 		parent::set_up();
@@ -26,7 +26,7 @@ final class LoopbackClientTest extends \WP_UnitTestCase {
 		fclose( $socket );
 	}
 
-	private function fetch(): \Stillpress\Render\RenderResult {
+	private function fetch(): \Glaciate\Render\RenderResult {
 		$client = new LoopbackClient( new UrlPolicy( array( 'https://git.test' ) ), '', 1, 15.0 );
 		return $client->fetch( array( array( 'url' => self::URL ) ) )[0];
 	}

@@ -2,12 +2,12 @@
 /**
  * Deployer contract.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Support\Logger;
+use Glaciate\Support\Logger;
 
 /**
  * A deployer publishes the build cache somewhere: a directory, an archive, a remote host.
@@ -16,9 +16,9 @@ use Stillpress\Support\Logger;
  * to make the target match it: upload new and changed files, delete files that are no longer in the manifest, and
  * leave everything else untouched. Deploys must be idempotent so an interrupted deploy can simply run again.
  *
- * Register a deployer with the `stillpress_register_deployers` action:
+ * Register a deployer with the `glaciate_register_deployers` action:
  *
- *     add_action( 'stillpress_register_deployers', function ( $registry ) {
+ *     add_action( 'glaciate_register_deployers', function ( $registry ) {
  *         $registry->register( new My_Deployer() );
  *     } );
  */

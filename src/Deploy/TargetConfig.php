@@ -2,18 +2,18 @@
 /**
  * Settings of individual deploy targets.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Settings;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Settings;
 
 /**
  * Stores, validates and resolves the fields declared by ConfigurableDeployerInterface::fields().
  *
- * Lookup order for every field: `STILLPRESS_<DEPLOYER>_<FIELD>` constant → environment variable → stored value →
+ * Lookup order for every field: `GLACIATE_<DEPLOYER>_<FIELD>` constant → environment variable → stored value →
  * default. Secret fields are stored by Secrets (encrypted, separate option); everything else lives in the
  * `targets` entry of the settings array, keyed by deployer ID.
  */
@@ -118,11 +118,11 @@ final class TargetConfig {
 		$def = self::fields( $deployer )[ $field ] ?? null;
 		if ( null === $def ) {
 			/* translators: 1: field name, 2: deployer label. */
-			throw new \InvalidArgumentException( sprintf( __( '%1$s has no setting named "%2$s".', 'stillpress' ), $deployer->label(), $field ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \InvalidArgumentException( sprintf( __( '%1$s has no setting named "%2$s".', 'glaciate' ), $deployer->label(), $field ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( $def['restricted'] && ! self::can_edit_restricted() ) {
 			/* translators: %s: field label. */
-			throw new \InvalidArgumentException( sprintf( __( 'Only a network administrator can change %s.', 'stillpress' ), $def['label'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \InvalidArgumentException( sprintf( __( 'Only a network administrator can change %s.', 'glaciate' ), $def['label'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$id = $deployer->id();
 		if ( 'secret' === $def['type'] ) {
@@ -132,7 +132,7 @@ final class TargetConfig {
 		list( $source ) = Secrets::pinned( $id, $field );
 		if ( Secrets::SOURCE_CONSTANT === $source ) {
 			/* translators: %s: constant name. */
-			throw new \LogicException( sprintf( __( 'This setting is set in wp-config.php (%s).', 'stillpress' ), Secrets::name( $id, $field ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \LogicException( sprintf( __( 'This setting is set in wp-config.php (%s).', 'glaciate' ), Secrets::name( $id, $field ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$targets = self::stored();
 		if ( '' === $raw || null === $raw ) {
@@ -141,7 +141,7 @@ final class TargetConfig {
 			$clean = self::clean( $def, $raw );
 			if ( null === $clean ) {
 				/* translators: %s: field label. */
-				throw new \InvalidArgumentException( sprintf( __( 'That is not a valid value for %s.', 'stillpress' ), $def['label'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+				throw new \InvalidArgumentException( sprintf( __( 'That is not a valid value for %s.', 'glaciate' ), $def['label'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 			}
 			$targets[ $id ][ $field ] = $clean;
 		}
@@ -233,7 +233,7 @@ final class TargetConfig {
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			return true;
 		}
-		return \Stillpress\Admin\SettingsPage::can_edit_paths();
+		return \Glaciate\Admin\SettingsPage::can_edit_paths();
 	}
 
 	/**

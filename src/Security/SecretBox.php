@@ -2,10 +2,10 @@
 /**
  * Authenticated encryption for stored secrets.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Security;
+namespace Glaciate\Security;
 
 /**
  * Seals and opens secrets with libsodium `secretbox` (XSalsa20-Poly1305).
@@ -89,6 +89,6 @@ final class SecretBox {
 	 * @return string
 	 */
 	private function key( string $context ): string {
-		return hash_hkdf( 'sha256', $this->key_material, SODIUM_CRYPTO_SECRETBOX_KEYBYTES, 'stillpress secrets v1|' . $context );
+		return hash_hkdf( 'sha256', $this->key_material, SODIUM_CRYPTO_SECRETBOX_KEYBYTES, 'glaciate secrets v1|' . $context );
 	}
 }

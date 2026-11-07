@@ -15,7 +15,7 @@ case "$action" in
 		export HOME=/tmp
 		git init -q --bare "$dir" && work=$(mktemp -d) && git clone -q "$dir" "$work" 2>/dev/null \
 			&& cd "$work" && git checkout -q -b gh-pages && echo "made elsewhere" > README.md && git add README.md \
-			&& git commit -q -m "Not made by Stillpress" && git push -q origin gh-pages 2>/dev/null && cd / && rm -rf "$work" \
+			&& git commit -q -m "Not made by Glaciate" && git push -q origin gh-pages 2>/dev/null && cd / && rm -rf "$work" \
 			&& echo seeded ;;
 	refs) git --git-dir="$dir" for-each-ref --format='%(refname) %(objectname)' ;;
 	tree) git --git-dir="$dir" ls-tree -r --name-only "refs/heads/$ref" ;;

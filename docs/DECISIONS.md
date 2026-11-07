@@ -3,7 +3,7 @@
 A running log of non-obvious choices. Newest at the bottom. Each entry says what we chose, why, and what would
 make us revisit it.
 
-## D1. Support WordPress 6.6+ and PHP 7.4+
+## D1. Support WordPress 6.6+ and PHP 7.4+ (WordPress 6.9+ since D43)
 
 WordPress 7.0 raised core's own floor to PHP 7.4, and Action Scheduler requires 7.2 and WordPress 6.5. WordPress 6.6
 moved the editor SlotFills into `@wordpress/editor`, so one integration covers the post and site editors. 6.6 is about
@@ -148,7 +148,7 @@ most WordPress hosts forbid. SFTP's change-only uploads cover the same need. Rev
 Integration tests run against a real OpenSSH server built from `alpine` (tests/sftp), not a mock: host-key, login and
 rename behavior are what matter, and only a real server shows them.
 
-## D15. Git deploys: pure-PHP smart-HTTP push to a branch Stillpress owns
+## D15. Git deploys: pure-PHP smart-HTTP push to a branch Glaciate owns
 
 The maintained PHP Git libraries shell out to the `git` binary, which needs `proc_open` and an installed Git, and most
 WordPress hosts have neither. Provider APIs (GitHub's Git Data API) are provider-specific and cost one call per file. So
@@ -164,7 +164,7 @@ remote tree, only its refs. A branch whose head isn't the commit we last pushed 
 sent, since the server's contents can't be known without a fetch.
 
 Large first deploys would exceed one slice, PHP's memory and some hosts' request limits, so blobs beyond 16 MB go up in
-batches, each in a commit on a temporary `stillpress-upload-<key>` branch that keeps them reachable (unreachable objects
+batches, each in a commit on a temporary `glaciate-upload-<key>` branch that keeps them reachable (unreachable objects
 may be garbage-collected) until the final push moves the real branch and deletes the temporary one.
 
 Testing against GitHub showed that in an empty repository the first branch pushed becomes the default branch, and GitHub
@@ -228,7 +228,7 @@ nothing pending starts no build, so frequent times cost nothing on quiet days.
 ## D19. Every folder URL is saved as index.html, with its real type recorded
 
 WordPress serves feeds at folder URLs (`/feed/`, `/category/news/feed/`, `/comments/feed/`), and every page links to them.
-Stillpress used to save non-HTML folder responses as `index.xml`, `index.json` or `index.txt`, but static hosts (S3,
+Glaciate used to save non-HTML folder responses as `index.xml`, `index.json` or `index.txt`, but static hosts (S3,
 Netlify, Cloudflare, GitHub Pages) map a folder request only to `index.html`, so a live test on Cloudflare returned 404
 for `/feed/`. The local e2e server tried every index name, which hid it.
 
@@ -249,9 +249,9 @@ one, so it can only be an option where the user supplies the binary or the deplo
 The default is our own: PHP builds the index, a small bundled script (unminified, no build step) searches it.
 
 - **Source: the published HTML, not the posts.** Text comes from each rendered page (the main content region when the
-  theme marks one, `<main>` or `[data-stillpress-search]`, else the body without header, nav, footer, script and style).
+  theme marks one, `<main>` or `[data-glaciate-search]`, else the body without header, nav, footer, script and style).
   That covers page builders, archives and anything a plugin prints, and the index can't hold text that isn't on the
-  public site. Pages Stillpress doesn't publish (drafts, excluded, password-protected) are never rendered, so never indexed.
+  public site. Pages Glaciate doesn't publish (drafts, excluded, password-protected) are never rendered, so never indexed.
 - **Incremental in the database.** Each page's terms and scores are stored per URL when it is rendered and replaced
   when it is rendered again; removing a page removes its rows. Finalizing writes only the shards whose terms changed.
   Holding the inverted index in PHP memory doesn't scale to the 50,000-URL limit; streaming it from a table ordered by
@@ -283,20 +283,20 @@ where it is available. Revisit if real sites show the table growing past what th
 *The server-run `pagefind` mode below was removed in 1.1.1; see D39.*
 
 Pagefind indexes faster than PHP, handles stemming and very large sites, and some people already use it. It is a
-compiled program, so Stillpress can't ship or download it (D20), and most shared hosts can't run programs at all. Two
+compiled program, so Glaciate can't ship or download it (D20), and most shared hosts can't run programs at all. Two
 modes use it, and both keep the same search dialog, which talks to Pagefind's own API instead of our index:
 
-- **`pagefind`**: each build runs the binary named by `STILLPRESS_PAGEFIND_BINARY` over the build cache, into a private
+- **`pagefind`**: each build runs the binary named by `GLACIATE_PAGEFIND_BINARY` over the build cache, into a private
   temporary folder, and copies the bundle into `pagefind/` as generated files. A failed run keeps the published bundle.
   The path is a constant rather than a setting because whoever sets it chooses a program the server runs: an
   administrator who can't install plugins (`DISALLOW_FILE_MODS`) mustn't get that through a settings screen (T19).
 - **`pagefind_host`**: the host builds the site from what we deploy (GitHub Actions on the Git target, Netlify or
-  Cloudflare Pages builds) and runs `npx pagefind --site .` there. Stillpress publishes no index; the client expects
+  Cloudflare Pages builds) and runs `npx pagefind --site .` there. Glaciate publishes no index; the client expects
   `/pagefind/` to exist and says search is unavailable if it doesn't.
 
 Pagefind indexes every HTML file, so pages that aren't content are marked `data-pagefind-ignore="all"` on `<body>`: the
 404 page and the meta-refresh pages of redirects. The marking is in every mode, so switching modes doesn't change the
-pages, and a host-side run sees it too. `[data-stillpress-search-ignore]` is passed as Pagefind's exclude selector, so
+pages, and a host-side run sees it too. `[data-glaciate-search-ignore]` is passed as Pagefind's exclude selector, so
 themes mark ignored parts once for both indexes. Pagefind's result addresses are paths from the site root; the client
 sets Pagefind's `baseUrl` to the public site's path, for sites published under a folder.
 
@@ -428,7 +428,7 @@ depend only on n, n % 10 and n % 100, so the client maps larger counts to 100 + 
 fails on any `make-pot` warning.
 
 
-## D26. Accessibility: WCAG 2.2 AA for what Stillpress adds, checked with axe-core in Playwright
+## D26. Accessibility: WCAG 2.2 AA for what Glaciate adds, checked with axe-core in Playwright
 
 `tests/e2e/a11y.spec.mjs` runs axe-core (MPL-2.0, a test-only dev dependency) with the WCAG 2.0–2.2 A and AA rules over
 the search dialog and form answers on the static site, and over the plugin's own part of its admin screens (core's
@@ -449,9 +449,9 @@ the finish across the reload that refreshes the screen. Admin CSS uses logical p
 packages from `composer.lock`, minus libraries' own build scripts and signing keys. Plugin Check (2.1.0) runs on that
 ZIP's contents rather than the working tree.
 
-- The standalone PHP form receiver is a template that runs on another host. Stored as `receivers/stillpress-form.php`
+- The standalone PHP form receiver is a template that runs on another host. Stored as `receivers/glaciate-form.php`
   it could be requested inside the plugin folder on the WordPress site and run there with empty settings, and Plugin
-  Check rightly flagged it. It is now `stillpress-form-php.txt` (no `.php` anywhere in the name, since some servers run
+  Check rightly flagged it. It is now `glaciate-form-php.txt` (no `.php` anywhere in the name, since some servers run
   `x.php.txt`) and is still linted as PHP and tested; downloads keep the `.php` name.
 - The readme lists each outside service under "External services": when it is contacted, what is sent, and its terms
   and privacy policy, as the plugin directory requires.
@@ -468,10 +468,10 @@ how to install it from a checkout, and how to develop it, with links into `docs/
 changelog rather than a copy of them. `README.md` and `SECURITY.md` are `export-ignore`d, so the release ZIP carries only
 `readme.txt`. The readme links to `docs/HOOKS.md` on GitHub, since `docs/` isn't in the ZIP.
 
-## D29. Bundled phpseclib loads as `Stillpress\Vendor\`, prefixed by Strauss at build time
+## D29. Bundled phpseclib loads as `Glaciate\Vendor\`, prefixed by Strauss at build time
 
 This closes D14's "revisit when release packaging lands". phpseclib 3.0.x and its paragonie dependencies are rewritten
-in place in `vendor/` to `Stillpress\Vendor\phpseclib3\` and `Stillpress\Vendor\ParagonIE\ConstantTime\`
+in place in `vendor/` to `Glaciate\Vendor\phpseclib3\` and `Glaciate\Vendor\ParagonIE\ConstantTime\`
 (random_compat is empty on PHP 7 and has nothing to rename). Another plugin's older 3.0.x can no longer be the copy
 that loads. Action Scheduler isn't prefixed: it picks the newest bundled copy itself (D2), and renaming it would defeat
 that. Constants aren't prefixed either. phpseclib defines some from computed names, which no prefixer can follow, and
@@ -493,7 +493,7 @@ Strauss 0.31 needed working around in five places, all in `composer.json` script
 
 - Its bin script loads `./vendor/autoload.php` (the plugin's) before its own, so a launcher loads the tool's autoloader.
   Parallel analysis is off because the workers go through that bin script.
-- Its regenerated autoloader drops the project's own `Stillpress\` map and moves Composer's loader classes into the
+- Its regenerated autoloader drops the project's own `Glaciate\` map and moves Composer's loader classes into the
   prefix, so `composer dump-autoload` runs again afterwards.
 - It writes `vendor/composer/autoload_aliases.php`, which registers the old names again in development. That would bring
   the collision back and hide unprefixed references, so it is deleted in both a checkout and the build.
@@ -512,7 +512,7 @@ keep prefixing.
 
 Builds request every page from the site itself. Sites often reach themselves through an address whose certificate the
 server doesn't trust: a self-signed certificate on an internal host, a proxy that terminates TLS, or a
-`STILLPRESS_CONNECT_TO` pin. So `LoopbackClient` follows WordPress's own loopback requests (cron, Site Health): it
+`GLACIATE_CONNECT_TO` pin. So `LoopbackClient` follows WordPress's own loopback requests (cron, Site Health): it
 doesn't check certificates, and the core `https_local_ssl_verify` filter can turn checks on. The filter gets each
 request's URL, as in core, because filters often decide by host.
 
@@ -550,7 +550,7 @@ the comments feed, each post's comments feed and the author, term, post type and
 links return 404. Feed readers and validators follow them, and link checkers report them on every page.
 
 During a render, the Recorder turns those links off with core's `feed_links_show_*` and `feed_links_extra_show_*`
-filters (WordPress 6.1+), as part of the head clean-up that `stillpress_clean_head` controls; `none` also drops the
+filters (WordPress 6.1+), as part of the head clean-up that `glaciate_clean_head` controls; `none` also drops the
 site feed. Links a theme prints itself aren't touched. The alternative, publishing every feed by default, adds a feed
 per post, term and author for something most sites don't use.
 
@@ -573,14 +573,14 @@ Anonymous renders still print nonces: core's `wp.apiFetch.createNonceMiddleware(
 every twelve hours, so a page carrying one hashes differently on every full rebuild, and every deployer sends it again
 although nothing on it changed.
 
-`Rewrite\NonceStripper` empties them in the processor (HTML only, before `stillpress_output`). It touches only
+`Rewrite\NonceStripper` empties them in the processor (HTML only, before `glaciate_output`). It touches only
 `<script>` contents, and only a value of exactly ten lowercase hex characters, the shape `wp_create_nonce()` returns,
 under a key or variable whose name contains "nonce". On a static site those values are useless (there is no REST API
 or `admin-ajax.php` to send them to) and core's middleware skips an empty nonce. Form fields and `data-` attributes are
 left alone: forms go through their adapters (D22), and a broader pattern would start matching content.
 
 Stabilizing the value instead (a `nonce_life` filter on render requests that pins the tick) would publish a nonce that
-never expires and hides the problem from anything that reads it. `stillpress_strip_nonces` turns the pass off per URL.
+never expires and hides the problem from anything that reads it. `glaciate_strip_nonces` turns the pass off per URL.
 
 ## D35. favicon.ico is published as a copy of the icon WordPress redirects to
 
@@ -663,7 +663,7 @@ tag now starts `.github/workflows/release.yml`, which builds the one ZIP that ev
 
 1. **CI on the tag.** `ci.yml` is also a reusable workflow with a `ref` input, so the release runs the full matrix,
    system and end-to-end jobs on the tagged commit rather than trusting an earlier run on `main`.
-2. **Versions agree.** `bin/release.mjs check-version` requires the tag, the `Version` header, `STILLPRESS_VERSION`
+2. **Versions agree.** `bin/release.mjs check-version` requires the tag, the `Version` header, `GLACIATE_VERSION`
    and `Stable tag` to be the same x.y.z, with a changelog entry for it. The tag can't choose the version.
 3. **Build and check.** `npm run build:zip` (D27), then Plugin Check, at a pinned version, on the ZIP's contents.
    Plugin Check exits 0 even when it reports errors, so `bin/release.mjs gate` reads its JSON and fails on any error
@@ -680,3 +680,60 @@ can be released.
 The plugin gets no GitHub-based updater: a plugin in the WordPress.org directory may only update from WordPress.org
 (guideline 8). Deploying the same ZIP to the directory's Subversion repository is the planned next step for this
 workflow, once the plugin is approved.
+
+
+## D41. The plugin is renamed Glaciate, with no migration from Stillpress
+
+The plugin was called Stillpress through 1.1.1. That name belongs to an existing WordPress static-site project, and
+the WordPress.org review also objected to its "-press" ending, which plays on the WordPress trademark. It is now
+Glaciate everywhere: the slug and folder, `Glaciate\` namespace, `glaciate_` hooks, options, tables, meta keys and
+capability, `GLACIATE_` constants, the `glaciate/v1` REST namespace, `wp glaciate`, the text domain and the
+`.glaciate-target` marker on deploy targets.
+
+1.x was only distributed through GitHub Releases and had no known users besides its author, so 2.0.0 is a clean break:
+it reads nothing that Stillpress stored, and a site moving over sets Glaciate up from scratch. Keeping the old names
+for compatibility would have kept the conflicting name in the plugin indefinitely.
+
+wp-env mounts the plugin through `mappings` as `wp-content/plugins/glaciate` (and activates it in `afterStart`), and the
+SFTP and Git test servers find the wp-env network from the checkout folder's name, so nothing depends on what the
+checkout is called.
+
+
+## D42. The data directory is in uploads
+
+The build cache, ZIP archives and the default local target lived in `wp-content/glaciate/`. The WordPress.org guidelines
+only allow plugins to write to the uploads directory, in a folder named after the plugin, unless the plugin's nature
+requires otherwise; `wp-content` isn't guaranteed to be writable or to persist. The data directory is now
+`glaciate/` inside the uploads directory, resolved with `wp_upload_dir()` at runtime, so it follows `UPLOADS`, the
+`upload_dir` filter and multisite's per-site folders. `GLACIATE_DATA_DIR` and the `glaciate_data_dir` filter still
+move it, for hosts whose uploads directory is on shared or remote storage.
+
+Uploads is served by the web server and is a root the asset copier reads from, so the data directory is excluded twice:
+`AssetCopier` never returns a file below it, and the build excludes its URL path, so a link to a cached page or a ZIP
+can't put it into the static site. The cache and ZIP folders keep their index.php and .htaccess guards; the data
+directory itself stays open so the default local target can be served from it.
+
+A local target chosen by an administrator (a super admin on multisite) can still be any folder `TargetPolicy` allows,
+outside WordPress included: writing the static site where the web server serves it is what that target is for.
+
+
+## D43. WordPress 6.9 is the minimum, for Action Scheduler 4.2
+
+D1 set the floor at 6.6. The WordPress.org review asked for the current Action Scheduler, and 4.2 requires WordPress
+6.9 (4.0 already required 6.8). Holding the floor would mean shipping an outdated copy of a library that other plugins
+replace with their newer one anyway, so the floor moves to 6.9. The PHP floor stays at 7.4.
+
+Action Scheduler 4.0 counts arguments when it checks whether a unique action is already scheduled. The build queue's
+unique actions carry the build ID, and only one build runs at a time, so nothing changes for it.
+
+
+## D44. The page recorder closes its own output buffer
+
+The recorder buffers a render's output so it can add the confirmation and exclusion headers at shutdown, after the
+page has run; the build reads them from the response. It used to leave closing the buffer to
+WordPress's `wp_ob_end_flush_all()` at shutdown priority 1; the WordPress.org review flagged that as an unclosed
+`ob_start()`. The recorder now remembers its buffer's level and its shutdown callback (priority 0) flushes it,
+together with any buffer opened after it, right after setting the headers.
+
+WordPress 6.9's template enhancement output buffer would avoid a buffer of our own, but it only wraps responses
+rendered from a theme template. Feeds, sitemaps and robots.txt are rendered too, and need the same headers.

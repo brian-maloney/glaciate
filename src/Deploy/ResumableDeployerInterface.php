@@ -2,10 +2,10 @@
 /**
  * Contract for deployers that can stop and continue.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
 /**
  * A deployer whose work can take longer than one background slice (thousands of uploads). The build runner sets a

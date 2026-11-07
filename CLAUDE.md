@@ -1,4 +1,4 @@
-# Stillpress
+# Glaciate
 
 A GPL-2.0-or-later WordPress plugin that publishes a WordPress site as static files. Every feature is free: no premium
 tier, no license keys, no phoning home.
@@ -13,9 +13,9 @@ Read before changing things: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs
 - **Licensing.** Every dependency must be GPL-compatible. Check before adding one.
 - **No external calls** without explicit user opt-in. No runtime downloads. No obfuscated or minified-only source.
 - **Security.** Capability + nonce on every action. Sanitize input, escape output. All output paths go through
-  `Stillpress\Output\PathMapper`; all fetched URLs go through `Stillpress\Security\UrlPolicy`. Never log secrets.
+  `Glaciate\Output\PathMapper`; all fetched URLs go through `Glaciate\Security\UrlPolicy`. Never log secrets.
 - **Check WordPress behavior** against developer.wordpress.org (or the core source in the container) instead of assuming.
-- Supported range: WordPress 6.6+, PHP 7.4+. No PHP 8-only syntax (no union types, `match`, named args, constructor promotion,
+- Supported range: WordPress 6.9+, PHP 7.4+. No PHP 8-only syntax (no union types, `match`, named args, constructor promotion,
   `readonly`, enums, nullsafe operator). PHPCompatibilityWP enforces this.
 
 ## Commands
@@ -37,21 +37,21 @@ npm run sftp:start          # Test-only SFTP server as sftp.test on the wp-env n
 npm run git:start           # Test-only HTTPS Git server as git.test (GitTest skips without it)
 npm run check:licenses      # Runtime Composer dependencies must be GPL-compatible
 npm run perf -- seed 80000  # Benchmark site, ~100k addresses (ERASES :8889); then `npm run perf -- bench` (tests/perf/README.md)
-npm run wp -- stillpress build --sync   # WP-CLI inside the dev site
+npm run wp -- glaciate build --sync   # WP-CLI inside the dev site
 ```
 
 Run one test: `npm run test:unit -- --filter PathMapperTest`.
 
 System tests: `tests/system/IncrementalDifferentialTest.php` applies random edits and requires incremental output to equal
-a full build. `STILLPRESS_DIFF_ITERATIONS=500` for a long run; a failure prints `STILLPRESS_DIFF_SEED=<n>` to reproduce it.
+a full build. `GLACIATE_DIFF_ITERATIONS=500` for a long run; a failure prints `GLACIATE_DIFF_SEED=<n>` to reproduce it.
 E2E: `SKIP_PREPARE=1 THEMES=block npx playwright test -g "/about/"` reuses the last build. Diffs land in `test-results/`.
 Pass env vars through wp-env with `npm run test:system -- ...` or `wp-env run tests-cli -- env VAR=1 vendor/bin/phpunit ...`. Check the PHP floor and ceiling quickly with
 `docker run --rm -v "$PWD":/app -w /app php:7.4-cli vendor/bin/phpunit` (and `php:8.5-cli`).
 
 ## Conventions
 
-- PHP namespace `Stillpress\` (PSR-4 under `src/`, file name = class name). Hooks, options, capabilities, transients and
-  meta keys are prefixed `stillpress_`. Tables are `{$wpdb->prefix}stillpress_*`. Text domain `stillpress`.
+- PHP namespace `Glaciate\` (PSR-4 under `src/`, file name = class name). Hooks, options, capabilities, transients and
+  meta keys are prefixed `glaciate_`. Tables are `{$wpdb->prefix}glaciate_*`. Text domain `glaciate`.
 - WordPress Coding Standards: tabs, `array()`, Yoda conditions, snake_case functions and variables, docblocks on everything.
 - No DI container. `Plugin` builds objects with explicit constructor arguments.
 - Pure logic (path mapping, URL rewriting, query-signature matching) has no WordPress calls so it can be unit tested.

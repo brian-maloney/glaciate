@@ -2,14 +2,14 @@
 /**
  * ZIP archives (threat T11 and zip-slip).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deploy;
+namespace Glaciate\Tests\Integration\Deploy;
 
-use Stillpress\Deploy\Zip;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Paths;
+use Glaciate\Deploy\Zip;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Paths;
 
 final class ZipTest extends \WP_UnitTestCase {
 
@@ -25,7 +25,7 @@ final class ZipTest extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
-		\Stillpress\Tests\Support\Fs::rmrf( $this->cache );
+		\Glaciate\Tests\Support\Fs::rmrf( $this->cache );
 		parent::tear_down();
 	}
 

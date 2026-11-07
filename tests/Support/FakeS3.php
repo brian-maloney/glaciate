@@ -2,12 +2,12 @@
 /**
  * In-memory stand-in for S3 and CloudFront, for deployer tests.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Support;
+namespace Glaciate\Tests\Support;
 
-use Stillpress\Deploy\Aws\Transport;
+use Glaciate\Deploy\Aws\Transport;
 
 /**
  * Answers the S3 and CloudFront calls the S3 deployer makes and keeps the bucket's objects in memory.

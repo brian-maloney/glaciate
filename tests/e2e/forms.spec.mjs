@@ -28,7 +28,7 @@ test.describe( 'static forms', () => {
 		page.on( 'request', ( r ) => r.url().startsWith( STATIC ) && 'POST' === r.method() && toStatic.push( r.url() ) );
 
 		await page.goto( STATIC + '/fixture-story-1/' );
-		const form = page.locator( 'form[data-stillpress-form="comments"]' );
+		const form = page.locator( 'form[data-glaciate-form="comments"]' );
 		await expect( form ).toBeVisible();
 		await page.waitForTimeout( READING_TIME );
 		await form.locator( '[name=comment]' ).fill( text );
@@ -36,7 +36,7 @@ test.describe( 'static forms', () => {
 		await form.locator( '[name=email]' ).fill( 'visitor@example.org' );
 		await form.getByRole( 'button', { name: 'Post Comment' } ).click();
 
-		await expect( form.locator( '.stillpress-form-message' ) ).toHaveText( /Thank you/ );
+		await expect( form.locator( '.glaciate-form-message' ) ).toHaveText( /Thank you/ );
 		expect( toStatic, 'Nothing is posted to the static host.' ).toEqual( [] );
 		const found = wp( [ 'comment', 'list', '--status=all', '--format=json', '--fields=comment_content,comment_author,user_id' ] );
 		expect( JSON.parse( found ) ).toContainEqual( { comment_content: text, comment_author: 'Static Visitor', user_id: '0' } );
@@ -48,7 +48,7 @@ test.describe( 'static forms', () => {
 
 		await page.goto( STATIC + '/contact-form/' );
 		const form = page.locator( 'form.wpcf7-form' );
-		await expect( form ).toHaveAttribute( 'data-stillpress-form', /^cf7:\d+$/ );
+		await expect( form ).toHaveAttribute( 'data-glaciate-form', /^cf7:\d+$/ );
 		await page.waitForTimeout( READING_TIME );
 		await form.getByLabel( 'Your name' ).fill( 'Ada' );
 		// Valid for the browser, refused by Contact Form 7's own email check.
@@ -58,15 +58,15 @@ test.describe( 'static forms', () => {
 
 		const email = form.getByLabel( 'Your email' );
 		await expect( email ).toHaveAttribute( 'aria-invalid', 'true' );
-		await expect( form.locator( '.stillpress-form-error' ) ).toHaveCount( 1 );
-		await expect( form.locator( '.stillpress-form-message' ) ).toHaveClass( /is-error/ );
+		await expect( form.locator( '.glaciate-form-error' ) ).toHaveCount( 1 );
+		await expect( form.locator( '.glaciate-form-message' ) ).toHaveClass( /is-error/ );
 
 		await email.fill( 'ada@example.org' );
 		await form.getByRole( 'button', { name: 'Submit' } ).click();
-		await expect( form.locator( '.stillpress-form-message' ) ).toHaveText( 'Thank you for your message. It has been sent.' );
-		await expect( form.locator( '.stillpress-form-error' ) ).toHaveCount( 0 );
+		await expect( form.locator( '.glaciate-form-message' ) ).toHaveText( 'Thank you for your message. It has been sent.' );
+		await expect( form.locator( '.glaciate-form-error' ) ).toHaveCount( 0 );
 		await expect( form.getByLabel( 'Your name' ) ).toHaveValue( '' );
-		expect( requests.every( ( url ) => url.startsWith( ORIGIN + '/wp-json/stillpress/v1/forms/submit' ) ), requests.join( '\n' ) ).toBe( true );
+		expect( requests.every( ( url ) => url.startsWith( ORIGIN + '/wp-json/glaciate/v1/forms/submit' ) ), requests.join( '\n' ) ).toBe( true );
 	} );
 
 	test( 'a form sent too quickly is refused', async ( { page } ) => {
@@ -76,7 +76,7 @@ test.describe( 'static forms', () => {
 		await form.getByLabel( 'Your email' ).fill( 'bot@example.org' );
 		await form.getByLabel( 'Subject' ).fill( 'Fast' );
 		await form.getByRole( 'button', { name: 'Submit' } ).click();
-		await expect( form.locator( '.stillpress-form-message' ) ).toHaveText( 'Your message couldn’t be sent.' );
+		await expect( form.locator( '.glaciate-form-message' ) ).toHaveText( 'Your message couldn’t be sent.' );
 	} );
 
 	test( 'without JavaScript the form still posts, and the answer links back', async ( { browser } ) => {

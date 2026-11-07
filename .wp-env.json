@@ -1,19 +1,22 @@
 {
 	"core": null,
 	"phpVersion": "8.3",
-	"plugins": [
-		"."
-	],
+	"mappings": {
+		"wp-content/plugins/glaciate": "."
+	},
+	"lifecycleScripts": {
+		"afterStart": "npx wp-env run cli wp plugin activate glaciate && npx wp-env run tests-cli wp plugin activate glaciate"
+	},
 	"config": {
 		"WP_DEBUG": true,
 		"WP_DEBUG_LOG": true,
 		"WP_DEBUG_DISPLAY": false,
-		"STILLPRESS_CONNECT_TO": "wordpress:8888"
+		"GLACIATE_CONNECT_TO": "wordpress:8888"
 	},
 	"env": {
 		"tests": {
 			"config": {
-				"STILLPRESS_CONNECT_TO": "tests-wordpress:8889"
+				"GLACIATE_CONNECT_TO": "tests-wordpress:8889"
 			}
 		}
 	}

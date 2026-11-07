@@ -2,16 +2,16 @@
 /**
  * Uninstall removes everything except deployed sites.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\System;
+namespace Glaciate\Tests\System;
 
-use Stillpress\Plugin;
-use Stillpress\Security\Capabilities;
-use Stillpress\Storage\Schema;
-use Stillpress\Support\Paths;
-use Stillpress\Uninstaller;
+use Glaciate\Plugin;
+use Glaciate\Security\Capabilities;
+use Glaciate\Storage\Schema;
+use Glaciate\Support\Paths;
+use Glaciate\Uninstaller;
 
 final class UninstallTest extends SystemTestCase {
 
@@ -39,7 +39,7 @@ final class UninstallTest extends SystemTestCase {
 		foreach ( Schema::TABLES as $table ) {
 			$this->assertNull( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', Schema::table( $table ) ) ), "Table {$table} survived." );
 		}
-		$this->assertSame( '0', $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s", 'stillpress\_%' ) ) );
+		$this->assertSame( '0', $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s", 'glaciate\_%' ) ) );
 		$this->assertFalse( get_role( 'administrator' )->has_cap( Capabilities::MANAGE ) );
 		$this->assertDirectoryDoesNotExist( Paths::cache_dir() );
 		$this->assertFileExists( $this->target . '/keep-me/index.html', 'Uninstall must never delete a deployed site.' );

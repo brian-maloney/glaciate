@@ -1,7 +1,7 @@
 /**
- * Sends forms on the published copy of the site to Stillpress's form receiver (D22).
+ * Sends forms on the published copy of the site to Glaciate's form receiver (D22).
  *
- * Forms that Stillpress rewrote carry data-stillpress-form, and their action is the receiver. This script takes over
+ * Forms that Glaciate rewrote carry data-glaciate-form, and their action is the receiver. This script takes over
  * their submit (before the form plugin's own script, which would post to an address the static host doesn't
  * answer), fills in how long the form was open, sends it with fetch() and shows the answer inside the form: a
  * message, and a note next to each field the receiver rejected. Without this script the form still posts normally
@@ -21,7 +21,7 @@
 		return;
 	}
 	if ( root.document ) {
-		api.attach( root, root.stillpressFormSettings || {} );
+		api.attach( root, root.glaciateFormSettings || {} );
 	}
 } )( 'undefined' !== typeof window ? window : globalThis, function () {
 	'use strict';
@@ -92,7 +92,7 @@
 	 * Hooks into the page.
 	 *
 	 * @param {Window} win      Window.
-	 * @param {Object} settings window.stillpressFormSettings.
+	 * @param {Object} settings window.glaciateFormSettings.
 	 */
 	function attach( win, settings ) {
 		const doc = win.document;
@@ -101,16 +101,16 @@
 		const widgets = new Map();
 
 		function forms() {
-			return Array.from( doc.querySelectorAll( 'form[data-stillpress-form]' ) );
+			return Array.from( doc.querySelectorAll( 'form[data-glaciate-form]' ) );
 		}
 
 		function style() {
-			if ( doc.getElementById( 'stillpress-forms-style' ) ) {
+			if ( doc.getElementById( 'glaciate-forms-style' ) ) {
 				return;
 			}
 			const el = doc.createElement( 'style' );
-			el.id = 'stillpress-forms-style';
-			el.textContent = '.stillpress-form-message{margin:1em 0}.stillpress-form-message:empty{margin:0}.stillpress-form-message.is-error,.stillpress-form-error{color:#b32d2e}.stillpress-form-error{display:block;font-size:.9em}';
+			el.id = 'glaciate-forms-style';
+			el.textContent = '.glaciate-form-message{margin:1em 0}.glaciate-form-message:empty{margin:0}.glaciate-form-message.is-error,.glaciate-form-error{color:#b32d2e}.glaciate-form-error{display:block;font-size:.9em}';
 			doc.head.appendChild( el );
 		}
 
@@ -120,11 +120,11 @@
 			if ( ! provider || ! captcha.siteKey ) {
 				return;
 			}
-			const callback = 'stillpressCaptchaReady';
+			const callback = 'glaciateCaptchaReady';
 			win[ callback ] = function () {
 				for ( const form of forms() ) {
 					const box = doc.createElement( 'div' );
-					box.className = 'stillpress-captcha';
+					box.className = 'glaciate-captcha';
 					const button = form.querySelector( '[type=submit]' );
 					form.insertBefore( box, button ? button.closest( 'p, div' ) || button : null );
 					widgets.set( form, win[ provider.global ].render( box, { sitekey: captcha.siteKey } ) );
@@ -144,10 +144,10 @@
 		}
 
 		function messageBox( form ) {
-			let box = form.querySelector( '.stillpress-form-message' );
+			let box = form.querySelector( '.glaciate-form-message' );
 			if ( ! box ) {
 				box = doc.createElement( 'div' );
-				box.className = 'stillpress-form-message';
+				box.className = 'glaciate-form-message';
 				box.setAttribute( 'role', 'status' );
 				box.setAttribute( 'tabindex', '-1' );
 				form.appendChild( box );
@@ -156,13 +156,13 @@
 		}
 
 		function clearErrors( form ) {
-			for ( const note of form.querySelectorAll( '.stillpress-form-error' ) ) {
+			for ( const note of form.querySelectorAll( '.glaciate-form-error' ) ) {
 				note.remove();
 			}
-			for ( const field of form.querySelectorAll( '[data-stillpress-invalid]' ) ) {
+			for ( const field of form.querySelectorAll( '[data-glaciate-invalid]' ) ) {
 				field.removeAttribute( 'aria-invalid' );
-				field.removeAttribute( 'data-stillpress-invalid' );
-				const describedBy = ( field.getAttribute( 'aria-describedby' ) || '' ).split( ' ' ).filter( ( id ) => id && ! id.startsWith( 'stillpress-error-' ) );
+				field.removeAttribute( 'data-glaciate-invalid' );
+				const describedBy = ( field.getAttribute( 'aria-describedby' ) || '' ).split( ' ' ).filter( ( id ) => id && ! id.startsWith( 'glaciate-error-' ) );
 				if ( describedBy.length ) {
 					field.setAttribute( 'aria-describedby', describedBy.join( ' ' ) );
 				} else {
@@ -183,13 +183,13 @@
 				const fields = Array.from( form.elements ).filter( ( el ) => el.name === match );
 				const last = fields[ fields.length - 1 ];
 				const note = doc.createElement( 'span' );
-				note.className = 'stillpress-form-error';
-				note.id = 'stillpress-error-' + ( ++index ) + '-' + Math.random().toString( 36 ).slice( 2, 8 );
+				note.className = 'glaciate-form-error';
+				note.id = 'glaciate-error-' + ( ++index ) + '-' + Math.random().toString( 36 ).slice( 2, 8 );
 				note.textContent = text;
 				last.insertAdjacentElement( 'afterend', note );
 				for ( const field of fields ) {
 					field.setAttribute( 'aria-invalid', 'true' );
-					field.setAttribute( 'data-stillpress-invalid', '' );
+					field.setAttribute( 'data-glaciate-invalid', '' );
 					field.setAttribute( 'aria-describedby', ( ( field.getAttribute( 'aria-describedby' ) || '' ) + ' ' + note.id ).trim() );
 				}
 				first = first || fields[ 0 ];
@@ -207,7 +207,7 @@
 		}
 
 		async function send( form, submitter ) {
-			const elapsed = form.elements.namedItem( 'stillpress_t' );
+			const elapsed = form.elements.namedItem( 'glaciate_t' );
 			if ( elapsed ) {
 				const now = win.performance ? win.performance.now() : Date.now();
 				elapsed.value = ( ( now - opened ) / 1000 ).toFixed( 1 );
@@ -265,7 +265,7 @@
 			'submit',
 			( event ) => {
 				const form = event.target;
-				if ( ! form || ! form.hasAttribute || ! form.hasAttribute( 'data-stillpress-form' ) ) {
+				if ( ! form || ! form.hasAttribute || ! form.hasAttribute( 'data-glaciate-form' ) ) {
 					return;
 				}
 				event.preventDefault();

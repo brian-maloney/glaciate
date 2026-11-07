@@ -2,17 +2,17 @@
 /**
  * Deploys to a Netlify site.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Deploy\Aws\RequestsTransport;
-use Stillpress\Deploy\Aws\Transport;
-use Stillpress\Output\PathMapper;
-use Stillpress\Output\UnsafePathException;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Settings;
+use Glaciate\Deploy\Aws\RequestsTransport;
+use Glaciate\Deploy\Aws\Transport;
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Settings;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Reads files from the build cache (see DECISIONS.md D9).
 
@@ -35,7 +35,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 	const API = 'https://api.netlify.com/api/v1';
 
 	/** Option holding unfinished deploys: target key => {deploy, digest}. */
-	const STATE_OPTION = 'stillpress_netlify_state';
+	const STATE_OPTION = 'glaciate_netlify_state';
 
 	/** Longest time to wait in one call for Netlify to prepare an async deploy. */
 	const PREPARE_WAIT = 20;
@@ -89,7 +89,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 	 * {@inheritDoc}
 	 */
 	public function label(): string {
-		return __( 'Netlify', 'stillpress' );
+		return __( 'Netlify', 'glaciate' );
 	}
 
 	/**
@@ -100,16 +100,16 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 	public function fields(): array {
 		return array(
 			'site_id' => array(
-				'label'       => __( 'Site ID', 'stillpress' ),
+				'label'       => __( 'Site ID', 'glaciate' ),
 				'required'    => true,
 				'pattern'     => '[A-Za-z0-9.\-]{1,100}',
-				'description' => __( 'The site\'s API ID (Site configuration → Site details) or its netlify.app address. Every publish replaces this site\'s files; Netlify keeps earlier deploys for rollback.', 'stillpress' ),
+				'description' => __( 'The site\'s API ID (Site configuration → Site details) or its netlify.app address. Every publish replaces this site\'s files; Netlify keeps earlier deploys for rollback.', 'glaciate' ),
 			),
 			'token'   => array(
-				'label'       => __( 'Personal access token', 'stillpress' ),
+				'label'       => __( 'Personal access token', 'glaciate' ),
 				'type'        => 'secret',
 				'required'    => true,
-				'description' => __( 'Create one under User settings → Applications → Personal access tokens.', 'stillpress' ),
+				'description' => __( 'Create one under User settings → Applications → Personal access tokens.', 'glaciate' ),
 			),
 		);
 	}
@@ -121,7 +121,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 		$missing = TargetConfig::missing( $this );
 		if ( $missing ) {
 			/* translators: %s: comma-separated field names. */
-			return sprintf( __( 'Netlify needs these settings: %s.', 'stillpress' ), implode( ', ', $missing ) );
+			return sprintf( __( 'Netlify needs these settings: %s.', 'glaciate' ), implode( ', ', $missing ) );
 		}
 		return null;
 	}
@@ -149,7 +149,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 			return $e->getMessage();
 		}
 		if ( '' === (string) ( $site['name'] ?? '' ) ) {
-			return __( 'Netlify answered, but not with a site.', 'stillpress' );
+			return __( 'Netlify answered, but not with a site.', 'glaciate' );
 		}
 		return null;
 	}
@@ -186,7 +186,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 			$path = (string) $path;
 			if ( false !== strpbrk( $path, '#?' ) ) {
 				/* translators: %s: file path. */
-				$logger->error( sprintf( __( 'Could not publish %s: Netlify does not accept "#" or "?" in file names.', 'stillpress' ), $path ) );
+				$logger->error( sprintf( __( 'Could not publish %s: Netlify does not accept "#" or "?" in file names.', 'glaciate' ), $path ) );
 				++$result->failed;
 				continue;
 			}
@@ -194,7 +194,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 				$file = $source->absolute_path( $path );
 			} catch ( UnsafePathException $e ) {
 				/* translators: 1: file path, 2: error message. */
-				$logger->error( sprintf( __( 'Could not publish %1$s: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
+				$logger->error( sprintf( __( 'Could not publish %1$s: %2$s', 'glaciate' ), $path, $e->getMessage() ) );
 				++$result->failed;
 				continue;
 			}
@@ -204,7 +204,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 				$sha1 = sha1_file( $file );
 				if ( false === $sha1 ) {
 					/* translators: %s: file path. */
-					$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $path ) );
+					$logger->error( sprintf( __( 'Could not read %s from the build cache.', 'glaciate' ), $path ) );
 					++$result->failed;
 					continue;
 				}
@@ -236,7 +236,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 				$deploy = null;
 				// Start a fresh deploy.
 			} else {
-				$logger->info( __( 'Continuing the unfinished Netlify deploy.', 'stillpress' ) );
+				$logger->info( __( 'Continuing the unfinished Netlify deploy.', 'glaciate' ) );
 			}
 		}
 		if ( null === $deploy ) {
@@ -259,7 +259,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 		}
 		$id = (string) ( $deploy['id'] ?? '' );
 		if ( '' === $id ) {
-			throw new \RuntimeException( __( 'Netlify did not return a deploy.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Netlify did not return a deploy.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 
 		// An async deploy is "preparing" until Netlify has compared the hashes with what it already stores.
@@ -276,7 +276,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 		if ( 'error' === ( $deploy['state'] ?? '' ) ) {
 			$this->save_state( array() );
 			/* translators: %s: error message from Netlify. */
-			throw new \RuntimeException( sprintf( __( 'Netlify could not prepare the deploy: %s', 'stillpress' ), (string) ( $deploy['error_message'] ?? __( 'no reason given', 'stillpress' ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'Netlify could not prepare the deploy: %s', 'glaciate' ), (string) ( $deploy['error_message'] ?? __( 'no reason given', 'glaciate' ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 
 		// What is left to upload comes from our own records: once uploading has started, Netlify's deploy no longer
@@ -303,12 +303,12 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 			foreach ( $chunk as $sha1 ) {
 				if ( ! isset( $by_hash[ $sha1 ], $local[ $sha1 ] ) ) {
 					/* translators: %s: SHA-1 hash. */
-					throw new \RuntimeException( sprintf( __( 'Netlify asked for a file this build does not have (%s).', 'stillpress' ), $sha1 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+					throw new \RuntimeException( sprintf( __( 'Netlify asked for a file this build does not have (%s).', 'glaciate' ), $sha1 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 				}
 				$body = file_get_contents( $local[ $sha1 ] );
 				if ( false === $body ) {
 					/* translators: %s: file path. */
-					throw new \RuntimeException( sprintf( __( 'Could not read %s from the build cache.', 'stillpress' ), $by_hash[ $sha1 ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+					throw new \RuntimeException( sprintf( __( 'Could not read %s from the build cache.', 'glaciate' ), $by_hash[ $sha1 ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 				}
 				$path              = implode( '/', array_map( 'rawurlencode', explode( '/', ltrim( $by_hash[ $sha1 ], '/' ) ) ) );
 				$requests[ $sha1 ] = $this->request( 'PUT', '/deploys/' . rawurlencode( $id ) . '/files/' . $path, $body, 'application/octet-stream' );
@@ -317,7 +317,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 				if ( $response['status'] < 200 || $response['status'] >= 300 ) {
 					// The deploy stays open with this file still listed: the next attempt sends it again.
 					/* translators: 1: file path, 2: error. */
-					throw new \RuntimeException( sprintf( __( 'Netlify refused the upload of %1$s: %2$s', 'stillpress' ), ltrim( (string) $by_hash[ $sha1 ], '/' ), self::error_text( $response ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+					throw new \RuntimeException( sprintf( __( 'Netlify refused the upload of %1$s: %2$s', 'glaciate' ), ltrim( (string) $by_hash[ $sha1 ], '/' ), self::error_text( $response ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 				}
 				$state['remaining'] = array_values( array_diff( $state['remaining'], array( (string) $sha1 ) ) );
 				++$uploaded;
@@ -332,14 +332,14 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 			if ( 'error' === ( $final['state'] ?? '' ) ) {
 				$this->save_state( array() );
 				/* translators: %s: error message from Netlify. */
-				throw new \RuntimeException( sprintf( __( 'Netlify failed the deploy: %s', 'stillpress' ), (string) ( $final['error_message'] ?? __( 'no reason given', 'stillpress' ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+				throw new \RuntimeException( sprintf( __( 'Netlify failed the deploy: %s', 'glaciate' ), (string) ( $final['error_message'] ?? __( 'no reason given', 'glaciate' ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 			}
 			if ( $this->out_of_time() || $waited >= self::PREPARE_WAIT ) {
 				++$state['waits'];
 				if ( $state['waits'] >= self::MAX_WAITS ) {
 					$this->save_state( array() );
 					/* translators: 1: deploy ID, 2: deploy state. */
-					throw new \RuntimeException( sprintf( __( 'Netlify did not finish deploy %1$s (still "%2$s") after every file was uploaded. The next publish starts a new deploy.', 'stillpress' ), $id, (string) ( $final['state'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+					throw new \RuntimeException( sprintf( __( 'Netlify did not finish deploy %1$s (still "%2$s") after every file was uploaded. The next publish starts a new deploy.', 'glaciate' ), $id, (string) ( $final['state'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 				}
 				$this->save_state( $state );
 				$result->done = false;
@@ -367,7 +367,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 		$result->unchanged = count( $digest ) - count( $changed );
 		$this->save_state( array() );
 		/* translators: 1: Netlify deploy ID, 2: Netlify's state for it, such as "ready", 3: number of files. */
-		$logger->info( sprintf( __( 'Netlify deploy %1$s: %2$s. Files uploaded in this run: %3$d.', 'stillpress' ), $id, (string) ( $final['state'] ?? 'uploaded' ), $uploaded ) );
+		$logger->info( sprintf( __( 'Netlify deploy %1$s: %2$s. Files uploaded in this run: %3$d.', 'glaciate' ), $id, (string) ( $final['state'] ?? 'uploaded' ), $uploaded ) );
 		return $result;
 	}
 
@@ -397,21 +397,21 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 		$status   = $response['status'];
 		if ( 0 === $status ) {
 			/* translators: %s: error message. */
-			throw new \RuntimeException( sprintf( __( 'Could not reach Netlify: %s', 'stillpress' ), $response['error'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'Could not reach Netlify: %s', 'glaciate' ), $response['error'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( 401 === $status || 403 === $status ) {
-			throw new \RuntimeException( __( 'Netlify refused the access token, or it may not deploy this site.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Netlify refused the access token, or it may not deploy this site.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( 404 === $status ) {
-			throw new \RuntimeException( __( 'Netlify has no site with that ID that this token can see.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Netlify has no site with that ID that this token can see.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( 429 === $status ) {
-			throw new \RuntimeException( __( 'Netlify\'s rate limit was reached (3 deploys a minute, 100 a day). The changes stay pending and go out with the next publish.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Netlify\'s rate limit was reached (3 deploys a minute, 100 a day). The changes stay pending and go out with the next publish.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$data = json_decode( $response['body'], true );
 		if ( $status < 200 || $status >= 300 || ! is_array( $data ) ) {
 			/* translators: %s: error details. */
-			throw new \RuntimeException( sprintf( __( 'Netlify answered with an error: %s', 'stillpress' ), self::error_text( $response ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'Netlify answered with an error: %s', 'glaciate' ), self::error_text( $response ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		return $data;
 	}
@@ -428,7 +428,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 	private function request( string $method, string $path, string $body, string $content_type ): array {
 		$headers = array(
 			'Authorization' => 'Bearer ' . TargetConfig::value( $this, 'token' ),
-			'User-Agent'    => 'Stillpress/' . ( defined( 'STILLPRESS_VERSION' ) ? STILLPRESS_VERSION : 'dev' ) . ' (WordPress plugin)',
+			'User-Agent'    => 'Glaciate/' . ( defined( 'GLACIATE_VERSION' ) ? GLACIATE_VERSION : 'dev' ) . ' (WordPress plugin)',
 		);
 		if ( '' !== $content_type ) {
 			$headers['Content-Type'] = $content_type;

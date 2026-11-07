@@ -2,16 +2,16 @@
 /**
  * Smoke test for the unit suite.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit;
+namespace Glaciate\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 
 final class SmokeTest extends TestCase {
 
 	public function test_autoloader_finds_plugin_class(): void {
-		$this->assertTrue( class_exists( \Stillpress\Plugin::class ) );
+		$this->assertTrue( class_exists( \Glaciate\Plugin::class ) );
 	}
 }

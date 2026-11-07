@@ -2,16 +2,16 @@
 /**
  * Previewing what the next "Publish changes" would rebuild.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Service;
+namespace Glaciate\Tests\Integration\Service;
 
-use Stillpress\Deps\DependencyStore;
-use Stillpress\Service\ChangesetService;
-use Stillpress\Storage\ChangeRepository;
-use Stillpress\Storage\Schema;
-use Stillpress\Storage\UrlRepository;
+use Glaciate\Deps\DependencyStore;
+use Glaciate\Service\ChangesetService;
+use Glaciate\Storage\ChangeRepository;
+use Glaciate\Storage\Schema;
+use Glaciate\Storage\UrlRepository;
 
 final class ChangesetServiceTest extends \WP_UnitTestCase {
 
@@ -70,11 +70,11 @@ final class ChangesetServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_addresses_are_shown_at_the_public_address(): void {
-		\Stillpress\Support\Settings::update( array( 'public_url' => 'https://static.example.org' ) );
+		\Glaciate\Support\Settings::update( array( 'public_url' => 'https://static.example.org' ) );
 		$this->published( '/uses-title/', array( 'option' => array( 'blogname' ) ) );
 		( new ChangeRepository() )->record( 'option', 'blogname' );
 		$this->assertSame( array( 'https://static.example.org/uses-title/' ), ( new ChangesetService() )->preview()['urls'] );
-		\Stillpress\Support\Settings::update( array( 'public_url' => '' ) );
+		\Glaciate\Support\Settings::update( array( 'public_url' => '' ) );
 	}
 
 	public function test_a_full_change_says_every_page_is_rebuilt(): void {

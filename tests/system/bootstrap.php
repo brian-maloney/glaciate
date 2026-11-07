@@ -3,13 +3,13 @@
  * System test bootstrap: loads a real, disposable WordPress site (the wp-env tests site) so builds can make real
  * loopback requests against committed data.
  *
- * These tests DELETE ALL CONTENT on the site they run against. They refuse to run unless STILLPRESS_SYSTEM_TESTS=1
+ * These tests DELETE ALL CONTENT on the site they run against. They refuse to run unless GLACIATE_SYSTEM_TESTS=1
  * and the site address is the wp-env tests site.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-if ( '1' !== getenv( 'STILLPRESS_SYSTEM_TESTS' ) ) {
+if ( '1' !== getenv( 'GLACIATE_SYSTEM_TESTS' ) ) {
 	fwrite( STDERR, "Refusing to run: system tests erase the site. Use npm run test:system.\n" );
 	exit( 1 );
 }
@@ -24,7 +24,7 @@ $GLOBALS['wp_filter'] = array( // phpcs:ignore WordPress.WP.GlobalVariablesOverr
 		10 => array(
 			array(
 				'function'      => static function () {
-					return array( 'stillpress/stillpress.php' );
+					return array( 'glaciate/glaciate.php' );
 				},
 				'accepted_args' => 1,
 			),
@@ -42,6 +42,6 @@ if ( 'http://localhost:8889' !== untrailingslashit( home_url() ) ) {
 
 // The plugin must be active so render requests on the web side run the recorder.
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
-if ( ! is_plugin_active( 'stillpress/stillpress.php' ) ) {
-	activate_plugin( 'stillpress/stillpress.php' );
+if ( ! is_plugin_active( 'glaciate/glaciate.php' ) ) {
+	activate_plugin( 'glaciate/glaciate.php' );
 }

@@ -2,12 +2,12 @@
 /**
  * Points published forms at the form receiver.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
-use Stillpress\Forms\Adapter\VolatileMarkupInterface;
+use Glaciate\Forms\Adapter\VolatileMarkupInterface;
 
 /**
  * Finds the forms on a rendered page that an adapter recognizes and rewrites them for the static copy: the action
@@ -23,7 +23,7 @@ use Stillpress\Forms\Adapter\VolatileMarkupInterface;
 final class FormMarkup {
 
 	/** Temporary attribute that marks where to insert fields. */
-	const SLOT = 'data-stillpress-slot';
+	const SLOT = 'data-glaciate-slot';
 
 	/**
 	 * Adapters.
@@ -68,7 +68,7 @@ final class FormMarkup {
 					continue;
 				}
 				$attrs = array();
-				foreach ( array( 'id', 'class', 'action', 'method', 'data-formid', 'data-stillpress-form' ) as $name ) {
+				foreach ( array( 'id', 'class', 'action', 'method', 'data-formid', 'data-glaciate-form' ) as $name ) {
 					$value = $processor->get_attribute( $name );
 					if ( is_string( $value ) ) {
 						$attrs[ $name ] = $value;
@@ -152,7 +152,7 @@ final class FormMarkup {
 			}
 			$processor->set_attribute( 'action', $this->endpoint );
 			$processor->set_attribute( 'method', 'post' );
-			$processor->set_attribute( 'data-stillpress-form', $keys[ $index ] );
+			$processor->set_attribute( 'data-glaciate-form', $keys[ $index ] );
 			// Gravity Forms posts into a hidden frame; the receiver answers the page itself.
 			$processor->remove_attribute( 'target' );
 			$adapter = $this->adapters->for_key( $keys[ $index ] );
@@ -187,8 +187,8 @@ final class FormMarkup {
 			. '<input type="hidden" name="' . Protocol::FIELD_PAGE . '" value="' . esc_attr( $page ) . '">'
 			. '<input type="hidden" name="' . Protocol::FIELD_ELAPSED . '" value="">'
 			// Off screen rather than display:none, which some bots check for; hidden from assistive technology too.
-			. '<div class="stillpress-hp" aria-hidden="true" style="position:absolute!important;left:-10000px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important">'
-			. '<label>' . esc_html__( 'Leave this field empty', 'stillpress' )
+			. '<div class="glaciate-hp" aria-hidden="true" style="position:absolute!important;left:-10000px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important">'
+			. '<label>' . esc_html__( 'Leave this field empty', 'glaciate' )
 			. ' <input type="text" name="' . Protocol::FIELD_HONEYPOT . '" value="" tabindex="-1" autocomplete="off"></label></div>';
 	}
 

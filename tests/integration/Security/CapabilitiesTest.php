@@ -2,12 +2,12 @@
 /**
  * Capability mapping.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Security;
+namespace Glaciate\Tests\Integration\Security;
 
-use Stillpress\Security\Capabilities;
+use Glaciate\Security\Capabilities;
 
 final class CapabilitiesTest extends \WP_UnitTestCase {
 

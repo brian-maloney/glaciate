@@ -2,12 +2,12 @@
 /**
  * Settings sanitizing and storage.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Support;
+namespace Glaciate\Tests\Integration\Support;
 
-use Stillpress\Support\Settings;
+use Glaciate\Support\Settings;
 
 final class SettingsTest extends \WP_UnitTestCase {
 
@@ -99,7 +99,7 @@ final class SettingsTest extends \WP_UnitTestCase {
 
 	public function test_filter_can_override(): void {
 		add_filter(
-			'stillpress_settings',
+			'glaciate_settings',
 			static function ( $s ) {
 				$s['max_urls'] = 7;
 				return $s;

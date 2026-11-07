@@ -2,13 +2,13 @@
 /**
  * Change capture for incremental builds.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deps;
+namespace Glaciate\Tests\Integration\Deps;
 
-use Stillpress\Deps\ChangeListener;
-use Stillpress\Storage\ChangeRepository;
+use Glaciate\Deps\ChangeListener;
+use Glaciate\Storage\ChangeRepository;
 
 final class ChangeListenerTest extends \WP_UnitTestCase {
 
@@ -23,7 +23,7 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
-		remove_all_actions( 'stillpress_changes_recorded' );
+		remove_all_actions( 'glaciate_changes_recorded' );
 		parent::tear_down();
 	}
 
@@ -90,7 +90,7 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 		$changes = $this->changes();
 		$this->assertArrayHasKey( "post:{$id}", $changes );
 		$this->assertSame( array( "post:{$id}" ), array_keys( $changes ), 'Recounting unchanged terms is not a change.' );
-		$this->assertSame( array(), array_values( array_intersect( \Stillpress\Deps\QuerySignature::FIELDS, $changes[ "post:{$id}" ]['moved'] ) ) );
+		$this->assertSame( array(), array_values( array_intersect( \Glaciate\Deps\QuerySignature::FIELDS, $changes[ "post:{$id}" ]['moved'] ) ) );
 	}
 
 	public function test_moved_fields_are_recorded(): void {
@@ -365,10 +365,10 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 	}
 
 	public function test_muted_requests_record_nothing(): void {
-		add_filter( 'stillpress_mute_changes', '__return_true' );
+		add_filter( 'glaciate_mute_changes', '__return_true' );
 		self::factory()->post->create();
 		update_option( 'blogdescription', 'Muted' );
-		remove_filter( 'stillpress_mute_changes', '__return_true' );
+		remove_filter( 'glaciate_mute_changes', '__return_true' );
 		$this->assertSame( array(), $this->changes() );
 	}
 

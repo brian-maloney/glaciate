@@ -2,13 +2,13 @@
 /**
  * Works out which URLs a set of changes affects.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deps;
+namespace Glaciate\Deps;
 
-use Stillpress\Storage\ChangeRepository;
-use Stillpress\Storage\UrlRepository;
+use Glaciate\Storage\ChangeRepository;
+use Glaciate\Storage\UrlRepository;
 
 /**
  * Turns pending changes into the URLs an incremental build must render.
@@ -156,7 +156,7 @@ final class Invalidator {
 		 * @param int[]                            $ids     URL IDs.
 		 * @param array<int,array<string,mixed>>   $changes Changes being built.
 		 */
-		$ids = (array) apply_filters( 'stillpress_affected_url_ids', array_values( array_unique( array_map( 'intval', $ids ) ) ), $changes );
+		$ids = (array) apply_filters( 'glaciate_affected_url_ids', array_values( array_unique( array_map( 'intval', $ids ) ) ), $changes );
 
 		return array(
 			'full'    => false,

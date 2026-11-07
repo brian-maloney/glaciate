@@ -2,13 +2,13 @@
 /**
  * Finds URLs in rendered documents.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Crawl;
+namespace Glaciate\Crawl;
 
-use Stillpress\Rewrite\OriginSet;
-use Stillpress\Support\Url;
+use Glaciate\Rewrite\OriginSet;
+use Glaciate\Support\Url;
 
 /**
  * Extracts candidate URLs from HTML, CSS, XML and script/JSON bodies.

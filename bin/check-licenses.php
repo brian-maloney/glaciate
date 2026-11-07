@@ -7,12 +7,12 @@
  * The distributed plugin is effectively GPLv3 because it bundles Action Scheduler (DECISIONS.md D2), so
  * GPLv3-compatible licences such as Apache-2.0 are allowed. Dev dependencies aren't distributed and aren't checked.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 // phpcs:disable WordPress.WP.AlternativeFunctions, WordPress.Security.EscapeOutput.OutputNotEscaped -- CLI script outside WordPress.
 
-const STILLPRESS_ALLOWED_LICENSES = array(
+const GLACIATE_ALLOWED_LICENSES = array(
 	'GPL-2.0-or-later',
 	'GPL-2.0-only',
 	'GPL-2.0+',
@@ -41,7 +41,7 @@ $bad = array();
 foreach ( $report['dependencies'] as $name => $info ) {
 	$licenses = (array) ( $info['license'] ?? array() );
 	// A package offered under several licences is fine if any one of them is allowed.
-	if ( ! array_intersect( $licenses, STILLPRESS_ALLOWED_LICENSES ) ) {
+	if ( ! array_intersect( $licenses, GLACIATE_ALLOWED_LICENSES ) ) {
 		$bad[] = $name . ' (' . ( $licenses ? implode( ', ', $licenses ) : 'no licence declared' ) . ')';
 	}
 }

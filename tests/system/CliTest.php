@@ -2,22 +2,22 @@
 /**
  * WP-CLI commands, run as real `wp` processes.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\System;
+namespace Glaciate\Tests\System;
 
 final class CliTest extends SystemTestCase {
 
 	/**
-	 * Runs `wp stillpress ...` and returns [exit code, stdout, stderr].
+	 * Runs `wp glaciate ...` and returns [exit code, stdout, stderr].
 	 *
-	 * @param string      $args  Arguments after "wp stillpress".
+	 * @param string      $args  Arguments after "wp glaciate".
 	 * @param string|null $stdin Text to pipe to the command; null leaves standard input inherited.
 	 * @return array{0:int,1:string,2:string}
 	 */
 	private function wp( string $args, ?string $stdin = null ): array {
-		$cmd   = 'wp --path=' . escapeshellarg( ABSPATH ) . ' stillpress ' . $args;
+		$cmd   = 'wp --path=' . escapeshellarg( ABSPATH ) . ' glaciate ' . $args;
 		$pipes = array();
 		$spec  = array(
 			1 => array( 'pipe', 'w' ),
@@ -92,7 +92,7 @@ final class CliTest extends SystemTestCase {
 				'post_title' => 'After the edit',
 			)
 		);
-		\Stillpress\Plugin::instance()->changes()->flush();
+		\Glaciate\Plugin::instance()->changes()->flush();
 
 		list( , $out ) = $this->wp( 'changes list --format=json' );
 		$this->assertNotEmpty( json_decode( $out, true ) );
@@ -127,7 +127,7 @@ final class CliTest extends SystemTestCase {
 		$this->assertSame( 0, $code, $out . $err );
 		$this->assertDirectoryDoesNotExist( $this->target, '--no-deploy must not deploy.' );
 
-		$zip                      = sys_get_temp_dir() . '/stillpress-cli-test.zip';
+		$zip                      = sys_get_temp_dir() . '/glaciate-cli-test.zip';
 		list( $code, $out, $err ) = $this->wp( 'zip --out=' . escapeshellarg( $zip ) );
 		$this->assertSame( 0, $code, $out . $err );
 		$this->assertFileExists( $zip );
@@ -139,8 +139,8 @@ final class CliTest extends SystemTestCase {
 
 		list( $code ) = $this->wp( 'urls add /extra-page/' );
 		$this->assertSame( 0, $code );
-		wp_cache_delete( 'stillpress_settings', 'options' );
-		$this->assertContains( '/extra-page/', \Stillpress\Support\Settings::get( 'additional_urls' ) );
+		wp_cache_delete( 'glaciate_settings', 'options' );
+		$this->assertContains( '/extra-page/', \Glaciate\Support\Settings::get( 'additional_urls' ) );
 
 		list( $code, $out, $err ) = $this->wp( 'deploy' );
 		$this->assertSame( 0, $code, $out . $err );
@@ -156,15 +156,15 @@ final class CliTest extends SystemTestCase {
 	public function test_secret_set_list_delete_never_prints_the_value(): void {
 		list( $code, $out, $err ) = $this->wp( 'secret set testdep token', "tok-cli-0a1b2c3d\n" );
 		$this->assertSame( 0, $code, $out . $err );
-		wp_cache_delete( \Stillpress\Security\Secrets::OPTION, 'options' );
-		$this->assertSame( 'tok-cli-0a1b2c3d', \Stillpress\Security\Secrets::get( 'testdep', 'token' ), 'The trailing newline is dropped.' );
+		wp_cache_delete( \Glaciate\Security\Secrets::OPTION, 'options' );
+		$this->assertSame( 'tok-cli-0a1b2c3d', \Glaciate\Security\Secrets::get( 'testdep', 'token' ), 'The trailing newline is dropped.' );
 
 		list( $code, $out, $err ) = $this->wp( 'secret list --format=json' );
 		$this->assertSame( 0, $code );
 		$this->assertStringNotContainsString( 'tok-cli-', $out . $err );
 		$rows = json_decode( $out, true );
 		$this->assertSame( 'stored', $rows[0]['source'] );
-		$this->assertSame( 'STILLPRESS_TESTDEP_TOKEN', $rows[0]['name'] );
+		$this->assertSame( 'GLACIATE_TESTDEP_TOKEN', $rows[0]['name'] );
 
 		list( $code ) = $this->wp( 'secret set testdep token', '' );
 		$this->assertNotSame( 0, $code, 'An empty value is refused.' );
@@ -197,7 +197,7 @@ final class CliTest extends SystemTestCase {
 		$this->assertSame( 'cli-bucket', $rows['bucket']['value'] );
 		$this->assertSame( '(hidden)', $rows['secret_access_key']['value'] );
 		$this->assertSame( 'stored', $rows['secret_access_key']['source'] );
-		$this->assertSame( 'STILLPRESS_S3_BUCKET', $rows['bucket']['constant'] );
+		$this->assertSame( 'GLACIATE_S3_BUCKET', $rows['bucket']['constant'] );
 	}
 
 	public function test_schedule_shows_the_next_runs(): void {
@@ -235,7 +235,7 @@ final class CliTest extends SystemTestCase {
 		list( $code, $out, $err ) = $this->wp( 'build --sync --no-deploy' );
 		$this->assertSame( 0, $code, $out . $err );
 		// A built file gone missing: the folder deployer logs an error for it and carries on.
-		unlink( \Stillpress\Support\Paths::cache_dir() . '/robots.txt' );
+		unlink( \Glaciate\Support\Paths::cache_dir() . '/robots.txt' );
 		list( $code, $out, $err ) = $this->wp( 'deploy' );
 		$this->assertSame( 0, $code, $out . $err );
 		$this->assertStringContainsString( 'Could not copy robots.txt into the target folder', $out . $err, 'The per-file error is shown, not only stored in the log.' );

@@ -2,14 +2,14 @@
 /**
  * The first-run form on the Publish screen.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Admin;
+namespace Glaciate\Tests\Integration\Admin;
 
-use Stillpress\Admin\PublishPage;
-use Stillpress\Security\Capabilities;
-use Stillpress\Support\Settings;
+use Glaciate\Admin\PublishPage;
+use Glaciate\Security\Capabilities;
+use Glaciate\Support\Settings;
 
 final class PublishPageTest extends \WP_UnitTestCase {
 
@@ -19,10 +19,10 @@ final class PublishPageTest extends \WP_UnitTestCase {
 
 	public function set_up(): void {
 		parent::set_up();
-		delete_option( 'stillpress_published_once' );
+		delete_option( 'glaciate_published_once' );
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		global $wpdb;
-		$wpdb->query( $wpdb->prepare( 'DELETE FROM %i', \Stillpress\Storage\Schema::table( 'changes' ) ) );
+		$wpdb->query( $wpdb->prepare( 'DELETE FROM %i', \Glaciate\Storage\Schema::table( 'changes' ) ) );
 	}
 
 	private function render(): string {
@@ -46,9 +46,9 @@ final class PublishPageTest extends \WP_UnitTestCase {
 	}
 
 	public function test_pending_changes_are_previewed(): void {
-		update_option( 'stillpress_published_once', 1 );
+		update_option( 'glaciate_published_once', 1 );
 		$post = self::factory()->post->create( array( 'post_title' => 'Edited story' ) );
-		( new \Stillpress\Storage\ChangeRepository() )->record( 'post', (string) $post, array( 'urls' => array( get_permalink( $post ) ) ) );
+		( new \Glaciate\Storage\ChangeRepository() )->record( 'post', (string) $post, array( 'urls' => array( get_permalink( $post ) ) ) );
 
 		$html = $this->render();
 		$this->assertStringContainsString( 'Waiting to be published', $html );
@@ -58,7 +58,7 @@ final class PublishPageTest extends \WP_UnitTestCase {
 	}
 
 	public function test_no_preview_without_pending_changes(): void {
-		update_option( 'stillpress_published_once', 1 );
+		update_option( 'glaciate_published_once', 1 );
 		$this->assertStringNotContainsString( 'Waiting to be published', $this->render() );
 	}
 

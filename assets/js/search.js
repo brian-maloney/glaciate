@@ -1,13 +1,13 @@
 /**
  * Static search for the published copy of the site (D20).
  *
- * Reads the index Stillpress writes under stillpress-search/ and shows results in a dialog. Any form with a field
+ * Reads the index Glaciate writes under glaciate-search/ and shows results in a dialog. Any form with a field
  * named "s" (core's search form and search block, and most themes' forms) opens the dialog instead of asking a server,
  * and so does a page address with ?s=, which is where those forms send people when this script hasn't loaded.
  *
  * With the "pagefind" backend the same dialog searches a Pagefind bundle instead, through Pagefind's own API.
  *
- * The tokenizer must cut text exactly like Stillpress\Search\Tokenizer; both are tested against
+ * The tokenizer must cut text exactly like Glaciate\Search\Tokenizer; both are tested against
  * tests/fixtures/search-tokenize.json. The file loads in Node too (module.exports), for those tests.
  */
 ( function ( root, factory ) {
@@ -18,8 +18,8 @@
 		module.exports = api;
 		return;
 	}
-	if ( root.stillpressSearchSettings ) {
-		api.attach( root.stillpressSearchSettings );
+	if ( root.glaciateSearchSettings ) {
+		api.attach( root.glaciateSearchSettings );
 	}
 } )( 'undefined' !== typeof window ? window : globalThis, function () {
 	'use strict';
@@ -353,7 +353,7 @@
 	/**
 	 * Wires search forms on the page to the dialog.
 	 *
-	 * @param {Object} settings Settings printed by Stillpress\Search\Frontend.
+	 * @param {Object} settings Settings printed by Glaciate\Search\Frontend.
 	 */
 	function attach( settings ) {
 		const labels = settings.labels;
@@ -380,38 +380,38 @@
 		}
 
 		function build() {
-			if ( settings.style && ! document.getElementById( 'stillpress-search-style' ) ) {
+			if ( settings.style && ! document.getElementById( 'glaciate-search-style' ) ) {
 				const link = document.createElement( 'link' );
-				link.id = 'stillpress-search-style';
+				link.id = 'glaciate-search-style';
 				link.rel = 'stylesheet';
 				link.href = settings.style;
 				document.head.append( link );
 			}
 
 			dialog = document.createElement( 'dialog' );
-			dialog.className = 'stillpress-search';
+			dialog.className = 'glaciate-search';
 			dialog.setAttribute( 'aria-label', labels.title );
 
 			const form = document.createElement( 'form' );
 			form.setAttribute( 'role', 'search' );
-			form.className = 'stillpress-search__form';
+			form.className = 'glaciate-search__form';
 			input = document.createElement( 'input' );
 			input.type = 'search';
-			input.className = 'stillpress-search__input';
+			input.className = 'glaciate-search__input';
 			input.setAttribute( 'aria-label', labels.title );
 			input.placeholder = labels.placeholder;
 			input.autocomplete = 'off';
 			const close = document.createElement( 'button' );
 			close.type = 'button';
-			close.className = 'stillpress-search__close';
+			close.className = 'glaciate-search__close';
 			close.textContent = labels.close;
 			form.append( input, close );
 
 			status = document.createElement( 'p' );
-			status.className = 'stillpress-search__status';
+			status.className = 'glaciate-search__status';
 			status.setAttribute( 'role', 'status' );
 			list = document.createElement( 'ol' );
-			list.className = 'stillpress-search__results';
+			list.className = 'glaciate-search__results';
 			// Safari drops list semantics from lists styled without markers; the count matters to screen readers.
 			list.setAttribute( 'role', 'list' );
 			dialog.append( form, status, list );
@@ -490,7 +490,7 @@
 			list.replaceChildren(
 				...found.results.map( ( result ) => {
 					const item = document.createElement( 'li' );
-					item.className = 'stillpress-search__result';
+					item.className = 'glaciate-search__result';
 					const link = document.createElement( 'a' );
 					link.href = result.path;
 					appendMarked( link, result.title || result.path, pattern );
@@ -538,7 +538,7 @@
 	}
 
 	/**
-	 * The "N results" label in the site's language (Stillpress\Search\Frontend::result_counts()). Plural rules
+	 * The "N results" label in the site's language (Glaciate\Search\Frontend::result_counts()). Plural rules
 	 * depend on n, n % 10 and n % 100, so counts from 200 up use the form of 100 + n % 100.
 	 *
 	 * @param {Object} labels Labels: results (forms) and plural (form index per count), or the older one and many.

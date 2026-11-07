@@ -2,13 +2,13 @@
 /**
  * SSRF-oriented tests for the URL policy (threat T1).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Security;
+namespace Glaciate\Tests\Unit\Security;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Security\UrlPolicy;
+use Glaciate\Security\UrlPolicy;
 
 final class UrlPolicyTest extends TestCase {
 

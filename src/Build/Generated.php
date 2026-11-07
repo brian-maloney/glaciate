@@ -2,15 +2,15 @@
 /**
  * Files the plugin generates rather than renders.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
-use Stillpress\Output\UnsafePathException;
-use Stillpress\Storage\Schema;
-use Stillpress\Storage\UrlRepository;
-use Stillpress\Support\Logger;
+use Glaciate\Output\UnsafePathException;
+use Glaciate\Storage\Schema;
+use Glaciate\Storage\UrlRepository;
+use Glaciate\Support\Logger;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table.
 
@@ -19,7 +19,7 @@ use Stillpress\Support\Logger;
  * redirects, plus a meta-refresh page for each user-defined redirect whose path is free, `_headers`, and
  * favicon.ico when WordPress answers it with a redirect.
  *
- * Generated files are stored as URL rows with a "stillpress:" pseudo-URL, so they flow through the same
+ * Generated files are stored as URL rows with a "glaciate:" pseudo-URL, so they flow through the same
  * manifest and deploy logic as everything else.
  */
 final class Generated {
@@ -28,7 +28,7 @@ final class Generated {
 	const MAX_HEADER_RULES = 100;
 
 	/** Pseudo-URL of favicon.ico when it is copied from the file WordPress redirects it to. */
-	const FAVICON = 'stillpress:generated/favicon.ico';
+	const FAVICON = 'glaciate:generated/favicon.ico';
 
 	/**
 	 * Components.
@@ -100,7 +100,7 @@ final class Generated {
 		 *
 		 * @param array<int,array{0:string,1:string,2:int}> $rules From path, target, status code.
 		 */
-		$rules = (array) apply_filters( 'stillpress_redirect_rules', $rules );
+		$rules = (array) apply_filters( 'glaciate_redirect_rules', $rules );
 
 		$lines = array();
 		foreach ( $rules as $rule ) {
@@ -108,7 +108,7 @@ final class Generated {
 				$lines[ $rule[0] ] = $rule[0] . ' ' . $rule[1] . ' ' . (int) ( $rule[2] ?? 301 );
 			}
 		}
-		$this->write_file( 'stillpress:generated/_redirects', '_redirects', $lines ? implode( "\n", $lines ) . "\n" : '' );
+		$this->write_file( 'glaciate:generated/_redirects', '_redirects', $lines ? implode( "\n", $lines ) . "\n" : '' );
 		$this->write_headers();
 	}
 
@@ -133,7 +133,7 @@ final class Generated {
 		 *
 		 * @param array<int,array{0:string,1:array<string,string>}> $rules URL path and the headers to send for it.
 		 */
-		$rules = (array) apply_filters( 'stillpress_header_rules', $rules );
+		$rules = (array) apply_filters( 'glaciate_header_rules', $rules );
 
 		$blocks = array();
 		foreach ( array_slice( $rules, 0, self::MAX_HEADER_RULES ) as $rule ) {
@@ -148,7 +148,7 @@ final class Generated {
 			}
 			$blocks[] = $block;
 		}
-		$this->write_file( 'stillpress:generated/_headers', '_headers', implode( "\n", $blocks ) );
+		$this->write_file( 'glaciate:generated/_headers', '_headers', implode( "\n", $blocks ) );
 	}
 
 	/**
@@ -247,7 +247,7 @@ final class Generated {
 			$relative = $this->pipeline->cache->mapper()->relative_path( $output );
 		} catch ( UnsafePathException $e ) {
 			/* translators: 1: address, 2: error message. */
-			( new Logger( $this->build_id ) )->warning( sprintf( __( 'Skipped the redirect from %1$s: %2$s', 'stillpress' ), $from, $e->getMessage() ) );
+			( new Logger( $this->build_id ) )->warning( sprintf( __( 'Skipped the redirect from %1$s: %2$s', 'glaciate' ), $from, $e->getMessage() ) );
 			return null;
 		}
 		if ( ! Processor::can_hold_redirect_page( $relative ) ) {
@@ -255,7 +255,7 @@ final class Generated {
 		}
 		$target = '/' === $to[0] ? $this->pipeline->origins->public_authority() . $to : $to;
 		$owner  = $this->urls->find_by_path( $relative );
-		$pseudo = 'stillpress:redirect' . $from;
+		$pseudo = 'glaciate:redirect' . $from;
 		if ( null !== $owner && $owner['url'] !== $pseudo ) {
 			return null;
 		}
@@ -272,7 +272,7 @@ final class Generated {
 	private function remove_stale_redirect_pages( array $keep ): void {
 		global $wpdb;
 		$rows = (array) $wpdb->get_results(
-			$wpdb->prepare( 'SELECT id, url, path FROM %i WHERE kind = %s AND url LIKE %s AND content_hash IS NOT NULL', Schema::table( 'urls' ), 'generated', $wpdb->esc_like( 'stillpress:redirect' ) . '%' ),
+			$wpdb->prepare( 'SELECT id, url, path FROM %i WHERE kind = %s AND url LIKE %s AND content_hash IS NOT NULL', Schema::table( 'urls' ), 'generated', $wpdb->esc_like( 'glaciate:redirect' ) . '%' ),
 			ARRAY_A
 		);
 		foreach ( $rows as $row ) {

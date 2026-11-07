@@ -2,11 +2,10 @@
 
 - **PHP 7.4 – 8.5.** 7.4 is WordPress 7.x's own floor and above Action Scheduler's 7.2. Choosing 8.1 would lose the share of sites still on
   7.4/8.0 for little gain.
-- **WordPress 6.6 – 7.1** (+ trunk as allowed-to-fail). 6.6 moved the editor SlotFills into `@wordpress/editor`, which lets one editor
-  integration cover the post and site editors. It also has a mature `WP_HTML_Tag_Processor` (6.2+) and `pre_option` (6.1+). That's about
-  two years of releases.
+- **WordPress 6.9 – 7.1** (+ trunk as allowed-to-fail). Action Scheduler 4.2 requires 6.9 (D43). 6.6 had moved the editor
+  SlotFills into `@wordpress/editor`, which lets one editor integration cover the post and site editors.
 - **DB:** MySQL 5.7/8.0, MariaDB 10.6+. **Multisite:** supported (subdomain + subdirectory).
-- **CI matrix (not a full cartesian product):** (7.4, 6.6), (7.4, 7.1), (8.1, 6.8), (8.3, 7.1), (8.4, 7.1), (8.5, 7.1), (8.5, trunk), plus one multisite
+- **CI matrix (not a full cartesian product):** (7.4, 6.9), (7.4, 7.1), (8.1, 7.0), (8.3, 7.1), (8.4, 7.1), (8.5, 7.1), (8.5, trunk), plus one multisite
   job, all on wp-env's database (MariaDB LTS); MySQL isn't run in CI. Playwright visual diffs run on (8.3, 7.1).
 - **Visual-diff themes:** Twenty Twenty-Five (block); **Astra** (classic; the first production sites use it, so it gets the most fixture content);
   Hello Elementor + Elementor (page builder). All three are GPL. Twenty Twenty-One is a cheap fourth job if a vanilla classic baseline proves useful.
@@ -14,7 +13,7 @@
 - **Site size:** tested to about 128,000 addresses (80,000 posts with their term, author and paginated archives) with
   `npm run perf` (D24). A full build's time is mostly WordPress rendering pages: 43 minutes for 128,000 addresses at concurrency 8
   on the benchmark theme, so real themes take longer in proportion to their page time. Builds run in background slices of 20 seconds
-  and resume after interruptions; `wp stillpress build --sync` runs one without slices. The address limit (default
+  and resume after interruptions; `wp glaciate build --sync` runs one without slices. The address limit (default
   100,000) counts only pages found through links, beyond everything listed from the database; files don't count.
 
 
@@ -27,7 +26,7 @@ covered by local servers and in-memory APIs in the test suite.
 
 | Target | Needs | Limits and behaviour | Tested live |
 |---|---|---|---|
-| Folder on this server | A writable folder outside WordPress's own directories | Empty or marked with `.stillpress-target`; only its own files are deleted | system tests |
+| Folder on this server | A writable folder outside WordPress's own directories | Empty or marked with `.glaciate-target`; only its own files are deleted | system tests |
 | ZIP | `zip` extension | Downloaded through an authenticated admin link | system tests |
 | Amazon S3 / S3-compatible | Bucket, region, access key (`s3:ListBucket`, `s3:PutObject`, `s3:DeleteObject`, `s3:AbortMultipartUpload`) | Files over 16 MB upload in parts; custom endpoints are HTTPS only (path-style optional); no instance-role or SSO credential providers (use constants or environment variables, with a session token for temporary keys) | AWS S3 (us-west-2) |
 | CloudFront | Distribution ID; `cloudfront:CreateInvalidation`, `cloudfront:ListInvalidations` | Changed paths invalidated after each deploy; more than 300 become `/*` | yes |
@@ -46,8 +45,8 @@ comes from; all modes use the same dialog, opened by any form with a field named
 
 | Mode | Needs | Limits and behaviour | Tested |
 |---|---|---|---|
-| Built in (`builtin`, default) | Nothing beyond Stillpress | Indexes published HTML only; up to 500 distinct terms per page (the highest-scoring); every word must match, the word being typed matches longer words; no stemming or typo tolerance; Chinese and Japanese are matched by character pairs | system tests, Playwright (Chromium) |
-| Pagefind by the host (`pagefind_host`) | A build step on the host that runs `npx pagefind --site .` on the deployed files | Stillpress publishes no index; search shows "isn't available" until the host has built `/pagefind/` | Playwright with Pagefind 1.5.2 run as the host would |
+| Built in (`builtin`, default) | Nothing beyond Glaciate | Indexes published HTML only; up to 500 distinct terms per page (the highest-scoring); every word must match, the word being typed matches longer words; no stemming or typo tolerance; Chinese and Japanese are matched by character pairs | system tests, Playwright (Chromium) |
+| Pagefind by the host (`pagefind_host`) | A build step on the host that runs `npx pagefind --site .` on the deployed files | Glaciate publishes no index; search shows "isn't available" until the host has built `/pagefind/` | Playwright with Pagefind 1.5.2 run as the host would |
 | Off | — | Search forms on the static site do nothing | system tests |
 
 Browsers: the client uses `<dialog>`, `replaceChildren()` and Unicode property escapes in regular expressions, so
@@ -55,8 +54,8 @@ Chrome and Edge 86+, Firefox 98+ and Safari 15.4+. The Pagefind mode also needs 
 have. The end-to-end tests run in Chromium only.
 
 The 404 page and redirect pages carry `data-pagefind-ignore="all"`, and elements marked
-`data-stillpress-search-ignore` are left out of both indexes; themes can limit the built-in index to elements marked
-`data-stillpress-search`.
+`data-glaciate-search-ignore` are left out of both indexes; themes can limit the built-in index to elements marked
+`data-glaciate-search`.
 
 ## Forms
 
@@ -68,7 +67,7 @@ has); without JavaScript the form posts normally and a short page answers.
 |---|---|---|---|
 | This site (`site`) | WordPress reachable from the internet at its own address (the static site at another address) | Rate limit in transients (5 per IP per 10 minutes); captcha checked here | integration, system tests, Playwright (Chromium, comments and Contact Form 7, with and without JavaScript) |
 | PHP file (`receiver`) | PHP 7.4+ on any host; curl or `allow_url_fopen` to forward; `mail()` to email | Rate limit in files in the temporary folder (or `data_dir`); never deploy it with the static site | unit tests, including requests through `php -S` on PHP 7.4 and 8.5 |
-| Cloudflare Worker (`receiver`) | A Worker; optional KV namespace bound as `STILLPRESS_RATE` | Without KV the rate limit counts per instance; forwards or sends to a webhook only (no email) | Node tests with the standard Request/Response API; not deployed live |
+| Cloudflare Worker (`receiver`) | A Worker; optional KV namespace bound as `GLACIATE_RATE` | Without KV the rate limit counts per instance; forwards or sends to a webhook only (no email) | Node tests with the standard Request/Response API; not deployed live |
 | Netlify Function (`receiver`) | Functions in the site's repository (`netlify/functions/`) | Rate limit per instance; forwards or sends to a webhook only | Node tests; not deployed live |
 
 | Form | Adapter | Limits | Tested |
@@ -77,4 +76,4 @@ has); without JavaScript the form posts normally and a short page answers.
 | WPForms (Lite and paid) | `WPForms_Process::process()` | Its render-time and token anti-spam checks are bypassed (the receiver applies its own); no file uploads or payments; page and redirect confirmations send the visitor there | WPForms Lite 2.0.3 (`npm run test:integration:forms`) |
 | Gravity Forms | `GFAPI::submit_form()` | Single-page forms only; no file uploads | Only against a stand-in that follows the documented return value: Gravity Forms isn't on WordPress.org |
 | Comments | `wp_handle_comment_submission()` | Always anonymous; core's moderation, flood and duplicate checks apply; approved comments appear after the next publish | integration, Playwright |
-| Marked forms (`data-stillpress-form`) | Email to `forms_email` | Fields are listed as name: value | integration, system tests |
+| Marked forms (`data-glaciate-form`) | Email to `forms_email` | Fields are listed as name: value | integration, system tests |

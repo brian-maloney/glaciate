@@ -1,14 +1,14 @@
-# Stillpress
+# Glaciate
 
 Publish a WordPress site as static files. Every feature is free: there's no premium version, no license key and no
 tracking.
 
-You keep writing in WordPress. Stillpress renders each page through your own site, exactly as a visitor sees it,
+You keep writing in WordPress. Glaciate renders each page through your own site, exactly as a visitor sees it,
 rewrites its addresses to the public site, and publishes plain HTML, CSS and images that any host can serve without
 PHP or a database.
 
 - **Works with your theme and plugins.** Block themes, classic themes and page builders all render as they do live.
-- **Rebuilds only what changed.** While a page renders, Stillpress records the posts, terms, authors, settings and
+- **Rebuilds only what changed.** While a page renders, Glaciate records the posts, terms, authors, settings and
   queries it used. Edit a post and only the pages that show it are rebuilt and redeployed.
 - **Publishes where you host.** A folder on the server, a ZIP file, Amazon S3 or S3-compatible storage (with CloudFront
   invalidation), SFTP, a Git branch (GitHub Pages, GitLab Pages and similar), Netlify or Cloudflare. Credentials are
@@ -24,18 +24,18 @@ PHP or a database.
 
 ## Requirements
 
-- WordPress 6.6 or later (tested up to 7.1), single site or multisite
+- WordPress 6.9 or later (tested up to 7.1), single site or multisite
 - PHP 7.4 to 8.5
 - Pretty permalinks (anything but "Plain")
 - A server that can make HTTP requests to its own address. Behind a proxy or in a container, point it at the web
-  server with `define( 'STILLPRESS_CONNECT_TO', '127.0.0.1:80' );` in wp-config.php.
+  server with `define( 'GLACIATE_CONNECT_TO', '127.0.0.1:80' );` in wp-config.php.
 
 [docs/SUPPORT.md](docs/SUPPORT.md) has the full support matrix and what each deploy target, search mode and form
 plugin needs.
 
 ## Install
 
-Use a release ZIP from [GitHub Releases](https://github.com/brian-maloney/stillpress/releases): it includes the plugin's
+Use a release ZIP from [GitHub Releases](https://github.com/brian-maloney/glaciate/releases): it includes the plugin's
 PHP dependencies, and a `.sha256` file next to it checks the download. Upload it under Plugins → Add New → Upload
 Plugin and activate it. A ZIP installed this way doesn't update itself; install the next release the same way.
 
@@ -55,31 +55,31 @@ runs nightly as a safety net.
 The same works from WP-CLI:
 
 ```bash
-wp stillpress target set s3 bucket www.example.org
-wp stillpress target set s3 region eu-west-1
-wp stillpress target set s3 access_key_id AKIA...
-printf %s "$AWS_SECRET_ACCESS_KEY" | wp stillpress secret set s3 secret_access_key
-wp stillpress target check s3
-wp stillpress settings set target s3
-wp stillpress build --full --sync
-wp stillpress status
-wp stillpress why /about/        # what a page depends on
-wp stillpress doctor             # the Site Health checks
+wp glaciate target set s3 bucket www.example.org
+wp glaciate target set s3 region eu-west-1
+wp glaciate target set s3 access_key_id AKIA...
+printf %s "$AWS_SECRET_ACCESS_KEY" | wp glaciate secret set s3 secret_access_key
+wp glaciate target check s3
+wp glaciate settings set target s3
+wp glaciate build --full --sync
+wp glaciate status
+wp glaciate why /about/        # what a page depends on
+wp glaciate doctor             # the Site Health checks
 ```
 
-`wp help stillpress` lists every command.
+`wp help glaciate` lists every command.
 
 ## Extending
 
 Every stage has actions and filters, listed in [docs/HOOKS.md](docs/HOOKS.md). Deploy targets are pluggable through
-`Stillpress\Deploy\DeployerInterface` and the `stillpress_register_deployers` action. Themes can mark what search
-indexes with `data-stillpress-search` and `data-stillpress-search-ignore`, and other forms with
-`data-stillpress-form="name"`.
+`Glaciate\Deploy\DeployerInterface` and the `glaciate_register_deployers` action. Themes can mark what search
+indexes with `data-glaciate-search` and `data-glaciate-search-ignore`, and other forms with
+`data-glaciate-form="name"`.
 
 ## How it works
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): the build pipeline, dependency tracking, deployers, search and forms.
-- [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md): what Stillpress protects and how.
+- [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md): what Glaciate protects and how.
 - [docs/DECISIONS.md](docs/DECISIONS.md): the non-obvious choices and why they were made.
 
 ## Development
@@ -100,13 +100,13 @@ npm run test:integration     # against the WordPress test suite
 npm run test:js              # search and forms clients, in Node
 npm run test:system          # real builds over HTTP (erases the :8889 site's content)
 npm run test:e2e             # Playwright: live vs static screenshots (erases the :8889 site's content)
-npm run build:zip            # build/stillpress-<version>.zip from the committed tree
+npm run build:zip            # build/glaciate-<version>.zip from the committed tree
 ```
 
 `npm run sftp:start` and `npm run git:start` start the throwaway servers the SFTP and Git deploy tests need; without
 them those tests skip. [CLAUDE.md](CLAUDE.md) has the project's conventions and rules for changes.
 
-To release, bump `Version` and `STILLPRESS_VERSION` in `stillpress.php` and `Stable tag` in `readme.txt`, add the
+To release, bump `Version` and `GLACIATE_VERSION` in `glaciate.php` and `Stable tag` in `readme.txt`, add the
 changelog entry, commit, and push an `x.y.z` tag. The Release workflow runs CI on the tag, builds the ZIP, runs Plugin
 Check on it and publishes a GitHub Release with the ZIP and its checksum. To release an existing tag, run the workflow
 by hand with that tag.

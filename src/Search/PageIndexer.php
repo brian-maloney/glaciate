@@ -2,10 +2,10 @@
 /**
  * Indexes a page as it is published.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Search;
+namespace Glaciate\Search;
 
 /**
  * Extracts a rendered page's text, scores its terms and stores them in the index.
@@ -68,7 +68,7 @@ final class PageIndexer {
 		 * @param array{title:string,text:string,excerpt:string}|null $document Title, searchable text and excerpt.
 		 * @param string                                               $url      Origin URL of the page.
 		 */
-		$document = apply_filters( 'stillpress_search_document', $document, $url );
+		$document = apply_filters( 'glaciate_search_document', $document, $url );
 		if ( ! is_array( $document ) ) {
 			$this->index->forget( $url_id );
 			return;

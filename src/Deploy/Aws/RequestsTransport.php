@@ -2,10 +2,10 @@
 /**
  * Transport over the HTTP library bundled with WordPress.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy\Aws;
+namespace Glaciate\Deploy\Aws;
 
 use WpOrg\Requests\Exception as RequestsException;
 use WpOrg\Requests\Hooks;
@@ -82,7 +82,7 @@ final class RequestsTransport implements Transport {
 			'connect_timeout'  => min( 10.0, $this->timeout ),
 			'follow_redirects' => false,
 			'verify'           => $this->ca_bundle,
-			'useragent'        => 'Stillpress/' . ( defined( 'STILLPRESS_VERSION' ) ? STILLPRESS_VERSION : 'dev' ),
+			'useragent'        => 'Glaciate/' . ( defined( 'GLACIATE_VERSION' ) ? GLACIATE_VERSION : 'dev' ),
 		);
 	}
 

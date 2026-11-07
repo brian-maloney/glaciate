@@ -1,5 +1,5 @@
 /**
- * Accessibility: axe-core (WCAG 2.2 A and AA rules) over what Stillpress adds, plus the keyboard and screen-reader
+ * Accessibility: axe-core (WCAG 2.2 A and AA rules) over what Glaciate adds, plus the keyboard and screen-reader
  * behaviour axe can't see. Covers the search dialog and form answers on the static site, and the plugin's admin
  * screens (only the plugin's own content: core's admin chrome is WordPress's to audit).
  *
@@ -50,7 +50,7 @@ test.describe( 'accessibility', () => {
 		await expect( dialog.getByRole( 'status' ) ).toHaveText( /\d+ results/ );
 		await expect( dialog.getByRole( 'searchbox' ) ).toBeFocused();
 		await expect( dialog.getByRole( 'list' ) ).toBeVisible();
-		expect( await audit( page, 'dialog.stillpress-search' ) ).toBe( '' );
+		expect( await audit( page, 'dialog.glaciate-search' ) ).toBe( '' );
 
 		// Tab moves through the dialog only (it is modal), with a visible focus ring.
 		await page.keyboard.press( 'Tab' );
@@ -77,7 +77,7 @@ test.describe( 'accessibility', () => {
 	test( 'form answers and field errors pass axe and are announced', async ( { page } ) => {
 		await page.goto( STATIC + '/contact-form/' );
 		const form = page.locator( 'form.wpcf7-form' );
-		await expect( form.locator( '.stillpress-form-message[role="status"]' ), 'The answer region exists before the form is sent.' ).toBeAttached();
+		await expect( form.locator( '.glaciate-form-message[role="status"]' ), 'The answer region exists before the form is sent.' ).toBeAttached();
 		await page.waitForTimeout( READING_TIME );
 		await form.getByLabel( 'Your name' ).fill( 'Ada' );
 		await form.getByLabel( 'Your email' ).fill( 'ada@localhost' );
@@ -88,7 +88,7 @@ test.describe( 'accessibility', () => {
 		await expect( email ).toHaveAttribute( 'aria-invalid', 'true' );
 		await expect( email, 'Focus moves to the first field to fix.' ).toBeFocused();
 		const described = await email.getAttribute( 'aria-describedby' );
-		expect( described ).toMatch( /stillpress-error-/ );
+		expect( described ).toMatch( /glaciate-error-/ );
 		await expect( page.locator( '#' + described.split( ' ' ).pop() ) ).not.toBeEmpty();
 		expect( await audit( page, 'form.wpcf7-form' ) ).toBe( '' );
 	} );
@@ -105,24 +105,24 @@ test.describe( 'accessibility', () => {
 		test( 'the Static Site screen passes axe', async ( { page } ) => {
 			// A pending change, so the "Waiting to be published" preview is on the screen too.
 			wp( [ 'option', 'update', 'blogdescription', 'Changed for the accessibility check' ] );
-			await page.goto( ORIGIN + '/wp-admin/admin.php?page=stillpress' );
-			await expect( page.locator( '#stillpress-app' ) ).toBeVisible();
-			await expect( page.locator( '.stillpress-changeset' ) ).toBeVisible();
-			await page.locator( '.stillpress-changeset details summary' ).click();
-			await page.locator( 'details[data-stillpress-log] summary' ).first().click();
+			await page.goto( ORIGIN + '/wp-admin/admin.php?page=glaciate' );
+			await expect( page.locator( '#glaciate-app' ) ).toBeVisible();
+			await expect( page.locator( '.glaciate-changeset' ) ).toBeVisible();
+			await page.locator( '.glaciate-changeset details summary' ).click();
+			await page.locator( 'details[data-glaciate-log] summary' ).first().click();
 			expect( await audit( page, '#wpbody-content' ) ).toBe( '' );
 		} );
 
 		test( 'the settings screen passes axe, and every field is named and described', async ( { page } ) => {
-			await page.goto( ORIGIN + '/wp-admin/admin.php?page=stillpress-settings' );
-			await expect( page.locator( '#stillpress-target' ) ).toBeVisible();
+			await page.goto( ORIGIN + '/wp-admin/admin.php?page=glaciate-settings' );
+			await expect( page.locator( '#glaciate-target' ) ).toBeVisible();
 			expect( await audit( page, '#wpbody-content' ) ).toBe( '' );
 
 			// A control inside its label adds its own value to the name ("Weekly rebuild on Sunday").
-			await page.locator( '#stillpress-full-rebuild' ).selectOption( 'weekly' );
+			await page.locator( '#glaciate-full-rebuild' ).selectOption( 'weekly' );
 			await expect( page.getByRole( 'combobox', { name: /^Weekly rebuild on\b/ } ) ).toBeVisible();
 			await expect( page.getByLabel( /^Full rebuild at\b/ ) ).toBeAttached();
-			for ( const id of [ 'stillpress-public-url', 'stillpress-search', 'stillpress-max-urls', 'stillpress-max-depth', 'stillpress-additional-urls' ] ) {
+			for ( const id of [ 'glaciate-public-url', 'glaciate-search', 'glaciate-max-urls', 'glaciate-max-depth', 'glaciate-additional-urls' ] ) {
 				const described = await page.locator( '#' + id ).getAttribute( 'aria-describedby' );
 				await expect( page.locator( '#' + described ), id ).not.toBeEmpty();
 			}

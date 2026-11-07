@@ -1,18 +1,18 @@
 /**
- * Stillpress form receiver as a Netlify Function, answering at /stillpress-form on the site.
+ * Glaciate form receiver as a Netlify Function, answering at /glaciate-form on the site.
  *
- * Put this file in your site's functions folder (netlify/functions/stillpress-form.mjs) in the repository Netlify
- * builds from, set STILLPRESS_FORMS_SECRET (and STILLPRESS_FORMS_CAPTCHA_SECRET with a captcha) as environment
- * variables, and set https://<your site>/stillpress-form as the receiver address in Stillpress. Netlify functions keep
+ * Put this file in your site's functions folder (netlify/functions/glaciate-form.mjs) in the repository Netlify
+ * builds from, set GLACIATE_FORMS_SECRET (and GLACIATE_FORMS_CAPTCHA_SECRET with a captcha) as environment
+ * variables, and set https://<your site>/glaciate-form as the receiver address in Glaciate. Netlify functions keep
  * no shared state, so the rate limit counts per instance.
  *
- * `wp stillpress forms receiver netlify` writes this file with the settings below filled in.
+ * `wp glaciate forms receiver netlify` writes this file with the settings below filled in.
  *
  * @license GPL-2.0-or-later
  */
-import { handle, memoryLimiter, settings } from './receiver-core.mjs'; // stillpress:import
+import { handle, memoryLimiter, settings } from './receiver-core.mjs'; // glaciate:import
 
-// stillpress:config:start
+// glaciate:config:start
 const DEFAULTS = {
 	allowedOrigin: '',
 	forwardUrl: '',
@@ -21,7 +21,7 @@ const DEFAULTS = {
 	rateLimit: 5,
 	rateWindow: 600,
 };
-// stillpress:config:end
+// glaciate:config:end
 
 let localLimiter = null;
 
@@ -40,4 +40,4 @@ export default async ( request, context ) => {
 	} );
 };
 
-export const config = { path: '/stillpress-form' };
+export const config = { path: '/glaciate-form' };

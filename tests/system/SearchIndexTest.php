@@ -2,13 +2,13 @@
 /**
  * The static search index in real builds.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\System;
+namespace Glaciate\Tests\System;
 
-use Stillpress\Search\ShardKeys;
-use Stillpress\Support\Settings;
+use Glaciate\Search\ShardKeys;
+use Glaciate\Support\Settings;
 
 final class SearchIndexTest extends SystemTestCase {
 
@@ -24,17 +24,17 @@ final class SearchIndexTest extends SystemTestCase {
 	 * Public paths of the documents holding a term, read the way the client will.
 	 */
 	private function search( string $term ): array {
-		$meta = $this->deployed_json( 'stillpress-search/meta.json' );
+		$meta = $this->deployed_json( 'glaciate-search/meta.json' );
 		$key  = ShardKeys::key_for( $term, $meta['keys'] );
 		if ( null === $key ) {
 			return array();
 		}
-		$postings = $this->deployed_json( 'stillpress-search/terms/' . ShardKeys::file_name( $key ) )[ $term ] ?? array();
+		$postings = $this->deployed_json( 'glaciate-search/terms/' . ShardKeys::file_name( $key ) )[ $term ] ?? array();
 		$paths    = array();
 		$count    = count( $postings );
 		for ( $i = 0; $i < $count; $i += 2 ) {
 			$id      = $postings[ $i ];
-			$docs    = $this->deployed_json( 'stillpress-search/docs/' . intdiv( $id, $meta['chunk'] ) . '.json' );
+			$docs    = $this->deployed_json( 'glaciate-search/docs/' . intdiv( $id, $meta['chunk'] ) . '.json' );
 			$paths[] = $docs[ $id ][0];
 		}
 		sort( $paths );
@@ -72,15 +72,15 @@ final class SearchIndexTest extends SystemTestCase {
 		$this->assertContains( '/harbour/', $this->search( 'fog' ) );
 		$this->assertSame( array(), $this->search( 'secretword' ) );
 
-		$meta = $this->deployed_json( 'stillpress-search/meta.json' );
+		$meta = $this->deployed_json( 'glaciate-search/meta.json' );
 		$this->assertGreaterThan( 2, $meta['docs'], 'Posts, the home page and archives.' );
 
 		$html = (string) $this->page( '/lighthouse/' );
-		$this->assertStringContainsString( 'window.stillpressSearchSettings', $html );
-		$this->assertStringContainsString( wp_json_encode( self::PUBLIC_URL . '/stillpress-search/' ), $html, 'The index address is rewritten to the public site.' );
-		$this->assertStringNotContainsString( wp_json_encode( home_url( '/stillpress-search/' ) ), $html );
-		$this->assertFileExists( $this->target . '/wp-content/plugins/stillpress/assets/js/search.js' );
-		$this->assertFileExists( $this->target . '/wp-content/plugins/stillpress/assets/css/search.css', 'Found in the settings and copied, though only loaded on demand.' );
+		$this->assertStringContainsString( 'window.glaciateSearchSettings', $html );
+		$this->assertStringContainsString( wp_json_encode( self::PUBLIC_URL . '/glaciate-search/' ), $html, 'The index address is rewritten to the public site.' );
+		$this->assertStringNotContainsString( wp_json_encode( home_url( '/glaciate-search/' ) ), $html );
+		$this->assertFileExists( $this->target . '/wp-content/plugins/glaciate/assets/js/search.js' );
+		$this->assertFileExists( $this->target . '/wp-content/plugins/glaciate/assets/css/search.css', 'Found in the settings and copied, though only loaded on demand.' );
 	}
 
 	public function test_pages_pagefind_must_skip_are_marked(): void {
@@ -95,7 +95,7 @@ final class SearchIndexTest extends SystemTestCase {
 		$this->assertStringContainsString( 'data-pagefind-ignore="all"', (string) file_get_contents( $this->target . '/404.html' ) );
 		$this->assertStringContainsString( '<body data-pagefind-ignore="all">', (string) $this->page( '/old-page/' ) );
 		$this->assertStringContainsString( '"backend":"pagefind"', (string) $this->page( '/' ) );
-		$this->assertFileDoesNotExist( $this->target . '/stillpress-search/meta.json', 'The built-in index is not published alongside.' );
+		$this->assertFileDoesNotExist( $this->target . '/glaciate-search/meta.json', 'The built-in index is not published alongside.' );
 	}
 
 	public function test_deleting_a_post_removes_it_from_search_incrementally(): void {
@@ -108,7 +108,7 @@ final class SearchIndexTest extends SystemTestCase {
 			)
 		);
 		$this->build( 'full' );
-		update_option( 'stillpress_published_once', 1 );
+		update_option( 'glaciate_published_once', 1 );
 		$this->assertContains( '/quokka/', $this->search( 'quokka' ) );
 
 		wp_delete_post( $id, true );
@@ -125,7 +125,7 @@ final class SearchIndexTest extends SystemTestCase {
 			)
 		);
 		$this->build( 'full' );
-		$this->assertFileDoesNotExist( $this->target . '/stillpress-search/meta.json' );
-		$this->assertStringNotContainsString( 'stillpressSearchSettings', (string) $this->page( '/' ) );
+		$this->assertFileDoesNotExist( $this->target . '/glaciate-search/meta.json' );
+		$this->assertStringNotContainsString( 'glaciateSearchSettings', (string) $this->page( '/' ) );
 	}
 }

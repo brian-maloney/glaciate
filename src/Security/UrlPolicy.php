@@ -2,12 +2,12 @@
 /**
  * Decides which URLs the crawler and renderer may request.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Security;
+namespace Glaciate\Security;
 
-use Stillpress\Support\Url;
+use Glaciate\Support\Url;
 
 /**
  * Only http(s) URLs on an allowed origin (host + port) pass. Everything else is refused, which is the

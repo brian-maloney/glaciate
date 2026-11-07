@@ -2,13 +2,13 @@
 /**
  * Query signature building and conservative matching.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Deps;
+namespace Glaciate\Tests\Unit\Deps;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Deps\QuerySignature;
+use Glaciate\Deps\QuerySignature;
 
 final class QuerySignatureTest extends TestCase {
 

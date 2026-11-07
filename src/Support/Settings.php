@@ -2,10 +2,10 @@
 /**
  * Plugin settings.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Support;
+namespace Glaciate\Support;
 
 /**
  * Reads, sanitizes and stores the settings array.
@@ -14,14 +14,14 @@ namespace Stillpress\Support;
  *
  * | Setting       | Constant               |
  * |---------------|------------------------|
- * | public_url    | STILLPRESS_PUBLIC_URL  |
- * | local_path    | STILLPRESS_LOCAL_PATH  |
- * | connect_to    | STILLPRESS_CONNECT_TO  |
+ * | public_url    | GLACIATE_PUBLIC_URL  |
+ * | local_path    | GLACIATE_LOCAL_PATH  |
+ * | connect_to    | GLACIATE_CONNECT_TO  |
  */
 final class Settings {
 
 	/** Option name. */
-	const OPTION = 'stillpress_settings';
+	const OPTION = 'glaciate_settings';
 
 	/**
 	 * Setting key => constant name, for settings that can be pinned in wp-config.php.
@@ -29,9 +29,9 @@ final class Settings {
 	 * @var array<string,string>
 	 */
 	const CONSTANTS = array(
-		'public_url' => 'STILLPRESS_PUBLIC_URL',
-		'local_path' => 'STILLPRESS_LOCAL_PATH',
-		'connect_to' => 'STILLPRESS_CONNECT_TO',
+		'public_url' => 'GLACIATE_PUBLIC_URL',
+		'local_path' => 'GLACIATE_LOCAL_PATH',
+		'connect_to' => 'GLACIATE_CONNECT_TO',
 	);
 
 	/**
@@ -73,7 +73,7 @@ final class Settings {
 			// receiver (forms_endpoint, a receiver run elsewhere).
 			'forms'                  => 'off',
 			'forms_endpoint'         => '',
-			// Who gets submissions of forms marked data-stillpress-form; empty means the admin email.
+			// Who gets submissions of forms marked data-glaciate-form; empty means the admin email.
 			'forms_email'            => '',
 			// Gets a signed copy of every accepted submission.
 			'forms_webhook'          => '',
@@ -110,7 +110,7 @@ final class Settings {
 		 *
 		 * @param array<string,mixed> $settings Settings after defaults and wp-config.php constants are applied.
 		 */
-		return apply_filters( 'stillpress_settings', $settings );
+		return apply_filters( 'glaciate_settings', $settings );
 	}
 
 	/**
@@ -195,17 +195,17 @@ final class Settings {
 
 		$mode                 = isset( $input['publish_mode'] ) ? (string) $input['publish_mode'] : $defaults['publish_mode'];
 		$out['publish_mode']  = in_array( $mode, array( 'immediate', 'scheduled', 'manual' ), true ) ? $mode : $defaults['publish_mode'];
-		$times                = \Stillpress\Build\Schedule::parse_times( $input['publish_times'] ?? $defaults['publish_times'] );
+		$times                = \Glaciate\Build\Schedule::parse_times( $input['publish_times'] ?? $defaults['publish_times'] );
 		$out['publish_times'] = $times ? array_slice( $times, 0, 48 ) : $defaults['publish_times'];
-		$days                 = \Stillpress\Build\Schedule::parse_days( $input['publish_days'] ?? $defaults['publish_days'] );
+		$days                 = \Glaciate\Build\Schedule::parse_days( $input['publish_days'] ?? $defaults['publish_days'] );
 		$out['publish_days']  = $days ? $days : $defaults['publish_days'];
 
 		$schedule            = isset( $input['full_rebuild'] ) ? (string) $input['full_rebuild'] : $defaults['full_rebuild'];
 		$out['full_rebuild'] = in_array( $schedule, array( 'off', 'daily', 'weekly' ), true ) ? $schedule : $defaults['full_rebuild'];
 
-		$rebuild_time             = \Stillpress\Build\Schedule::parse_times( array( $input['full_rebuild_time'] ?? '' ) );
+		$rebuild_time             = \Glaciate\Build\Schedule::parse_times( array( $input['full_rebuild_time'] ?? '' ) );
 		$out['full_rebuild_time'] = $rebuild_time ? $rebuild_time[0] : $defaults['full_rebuild_time'];
-		$rebuild_day              = \Stillpress\Build\Schedule::parse_days( array( $input['full_rebuild_day'] ?? '' ) );
+		$rebuild_day              = \Glaciate\Build\Schedule::parse_days( array( $input['full_rebuild_day'] ?? '' ) );
 		$out['full_rebuild_day']  = $rebuild_day ? $rebuild_day[0] : $defaults['full_rebuild_day'];
 
 		$out['concurrency'] = isset( $input['concurrency'] ) ? max( 1, min( 16, (int) $input['concurrency'] ) ) : $defaults['concurrency'];
@@ -235,7 +235,7 @@ final class Settings {
 		$site_key                      = isset( $input['forms_captcha_site_key'] ) ? trim( (string) $input['forms_captcha_site_key'] ) : '';
 		$out['forms_captcha_site_key'] = preg_match( '/^[A-Za-z0-9_\-]{1,100}$/', $site_key ) ? $site_key : '';
 
-		$out['targets'] = \Stillpress\Deploy\TargetConfig::sanitize( $input['targets'] ?? array() );
+		$out['targets'] = \Glaciate\Deploy\TargetConfig::sanitize( $input['targets'] ?? array() );
 
 		return $out;
 	}
@@ -299,7 +299,7 @@ final class Settings {
 	public static function sanitize_aliases( $value ): array {
 		$out = array();
 		foreach ( self::sanitize_lines( $value, 50 ) as $line ) {
-			$alias = \Stillpress\Rewrite\OriginSet::normalize_alias( $line );
+			$alias = \Glaciate\Rewrite\OriginSet::normalize_alias( $line );
 			if ( null !== $alias ) {
 				$out[] = $alias;
 			}

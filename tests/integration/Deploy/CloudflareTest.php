@@ -2,16 +2,16 @@
 /**
  * Cloudflare Workers static-assets deploys against an in-memory Cloudflare API (threat T16).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deploy;
+namespace Glaciate\Tests\Integration\Deploy;
 
-use Stillpress\Deploy\Cloudflare;
-use Stillpress\Deploy\TargetConfig;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Logger;
-use Stillpress\Tests\Support\FakeCloudflare;
+use Glaciate\Deploy\Cloudflare;
+use Glaciate\Deploy\TargetConfig;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Logger;
+use Glaciate\Tests\Support\FakeCloudflare;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions, WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Test fixtures; Cloudflare's hash input.
 
@@ -44,7 +44,7 @@ final class CloudflareTest extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
-		\Stillpress\Tests\Support\Fs::rmrf( $this->cache );
+		\Glaciate\Tests\Support\Fs::rmrf( $this->cache );
 		parent::tear_down();
 	}
 
@@ -58,7 +58,7 @@ final class CloudflareTest extends \WP_UnitTestCase {
 		return $out;
 	}
 
-	private function deploy(): \Stillpress\Deploy\DeployResult {
+	private function deploy(): \Glaciate\Deploy\DeployResult {
 		return $this->deployer->deploy( $this->manifest(), $this->cache, new Logger() );
 	}
 

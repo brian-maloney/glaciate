@@ -2,13 +2,13 @@
 /**
  * RFC 3986 resolution tests.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Support;
+namespace Glaciate\Tests\Unit\Support;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Support\Url;
+use Glaciate\Support\Url;
 
 final class UrlTest extends TestCase {
 

@@ -2,13 +2,13 @@
 /**
  * Back-off after the origin says it is overloaded.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Build;
+namespace Glaciate\Tests\Unit\Build;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Build\Backoff;
+use Glaciate\Build\Backoff;
 
 final class BackoffTest extends TestCase {
 

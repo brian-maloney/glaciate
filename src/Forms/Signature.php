@@ -2,13 +2,13 @@
 /**
  * Signatures on forwarded submissions and webhooks.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
 /**
- * Signs a request body with the forms secret: header `X-Stillpress-Signature: t=<unix time>,v1=<hex>`, where v1 is
+ * Signs a request body with the forms secret: header `X-Glaciate-Signature: t=<unix time>,v1=<hex>`, where v1 is
  * HMAC-SHA256 over "<t>.<body>". The time binds the signature to a five-minute window; the relay also remembers
  * signatures it has accepted, so a captured request can't be replayed inside that window.
  *
@@ -17,7 +17,7 @@ namespace Stillpress\Forms;
 final class Signature {
 
 	/** Request header. */
-	const HEADER = 'X-Stillpress-Signature';
+	const HEADER = 'X-Glaciate-Signature';
 
 	/** Seconds a signature stays valid either side of its time. */
 	const TOLERANCE = 300;

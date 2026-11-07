@@ -2,16 +2,16 @@
 /**
  * Per-target settings (threats T10, T13).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deploy;
+namespace Glaciate\Tests\Integration\Deploy;
 
-use Stillpress\Deploy\S3;
-use Stillpress\Deploy\TargetConfig;
-use Stillpress\Security\Capabilities;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Settings;
+use Glaciate\Deploy\S3;
+use Glaciate\Deploy\TargetConfig;
+use Glaciate\Security\Capabilities;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Settings;
 
 // phpcs:disable WordPress.PHP.DiscouragedPHPFunctions.runtime_configuration_putenv -- Tests the environment-variable source.
 
@@ -22,11 +22,11 @@ final class TargetConfigTest extends \WP_UnitTestCase {
 
 	public function set_up(): void {
 		parent::set_up();
-		$this->s3 = new S3( new \Stillpress\Tests\Support\FakeS3() );
+		$this->s3 = new S3( new \Glaciate\Tests\Support\FakeS3() );
 	}
 
 	public function tear_down(): void {
-		putenv( 'STILLPRESS_S3_REGION' );
+		putenv( 'GLACIATE_S3_REGION' );
 		parent::tear_down();
 	}
 
@@ -42,7 +42,7 @@ final class TargetConfigTest extends \WP_UnitTestCase {
 
 	public function test_environment_overrides_stored_value(): void {
 		TargetConfig::set( $this->s3, 'region', 'eu-west-1' );
-		putenv( 'STILLPRESS_S3_REGION=ap-south-1' );
+		putenv( 'GLACIATE_S3_REGION=ap-south-1' );
 		$this->assertSame( 'ap-south-1', TargetConfig::value( $this->s3, 'region' ) );
 		$this->assertSame( Secrets::SOURCE_ENVIRONMENT, TargetConfig::source( $this->s3, 'region' ) );
 	}

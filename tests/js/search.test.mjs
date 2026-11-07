@@ -68,9 +68,9 @@ const INDEX = {
 
 function searcher() {
 	const fetched = [];
-	const instance = new Searcher( '/stillpress-search/', async ( url ) => {
+	const instance = new Searcher( '/glaciate-search/', async ( url ) => {
 		fetched.push( url );
-		const file = url.slice( '/stillpress-search/'.length );
+		const file = url.slice( '/glaciate-search/'.length );
 		if ( ! ( file in INDEX ) ) {
 			throw new Error( 'HTTP 404 ' + url );
 		}
@@ -100,7 +100,7 @@ test( 'fetches only the files a query needs, once', async () => {
 	const { instance, fetched } = searcher();
 	await instance.search( 'lighthouse ', 20 );
 	await instance.search( 'lighthouse ', 20 );
-	assert.deepEqual( fetched, [ '/stillpress-search/meta.json', '/stillpress-search/terms/6c69.json', '/stillpress-search/docs/1.json' ] );
+	assert.deepEqual( fetched, [ '/glaciate-search/meta.json', '/glaciate-search/terms/6c69.json', '/glaciate-search/docs/1.json' ] );
 
 	await instance.search( 'zebra ', 20 );
 	assert.equal( fetched.length, 3, 'No shard can hold "zebra", so nothing is fetched.' );

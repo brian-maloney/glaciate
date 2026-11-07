@@ -2,13 +2,13 @@
 /**
  * Decides which discovered URLs belong in the static site.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Crawl;
+namespace Glaciate\Crawl;
 
-use Stillpress\Rewrite\OriginSet;
-use Stillpress\Security\UrlPolicy;
+use Glaciate\Rewrite\OriginSet;
+use Glaciate\Security\UrlPolicy;
 
 /**
  * Turns a candidate URL into a crawlable canonical URL, or explains why it is skipped.
@@ -50,7 +50,6 @@ final class UrlClassifier {
 		'*.php/*',
 		'/wp-content/cache/*',
 		'/wp-content/upgrade/*',
-		'/wp-content/stillpress/*',
 	);
 
 	/**
@@ -108,7 +107,7 @@ final class UrlClassifier {
 		 *
 		 * @param string[] $patterns Glob patterns ("*" wildcard) or regexes prefixed with "~", matched against the URL path.
 		 */
-		$patterns       = (array) apply_filters( 'stillpress_exclude_patterns', array_merge( self::DEFAULT_EXCLUDES, $excludes ) );
+		$patterns       = (array) apply_filters( 'glaciate_exclude_patterns', array_merge( self::DEFAULT_EXCLUDES, $excludes ) );
 		$this->excludes = array_values( array_filter( array_map( array( self::class, 'compile' ), $patterns ) ) );
 	}
 

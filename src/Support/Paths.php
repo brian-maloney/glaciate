@@ -2,16 +2,17 @@
 /**
  * Filesystem locations used by the plugin.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Support;
+namespace Glaciate\Support;
 
 /**
  * Resolves the data directory (build cache, ZIP archives, default local target).
  *
- * The data directory defaults to wp-content/stillpress and can be moved with the STILLPRESS_DATA_DIR constant.
- * Every site in a network gets its own subdirectories, named after the blog ID.
+ * The data directory defaults to a glaciate folder in the uploads directory, as wp_upload_dir() resolves it at runtime,
+ * and can be moved with the GLACIATE_DATA_DIR constant. Every site in a network gets its own subdirectories, named
+ * after the blog ID.
  */
 final class Paths {
 
@@ -21,7 +22,12 @@ final class Paths {
 	 * @return string
 	 */
 	public static function data_dir(): string {
-		$dir = defined( 'STILLPRESS_DATA_DIR' ) ? (string) STILLPRESS_DATA_DIR : WP_CONTENT_DIR . '/stillpress';
+		if ( defined( 'GLACIATE_DATA_DIR' ) ) {
+			$dir = (string) GLACIATE_DATA_DIR;
+		} else {
+			$uploads = wp_upload_dir( null, false );
+			$dir     = $uploads['basedir'] . '/glaciate';
+		}
 
 		/**
 		 * Filters the base data directory.
@@ -30,7 +36,25 @@ final class Paths {
 		 *
 		 * @param string $dir Absolute path.
 		 */
-		return untrailingslashit( wp_normalize_path( (string) apply_filters( 'stillpress_data_dir', $dir ) ) );
+		return untrailingslashit( wp_normalize_path( (string) apply_filters( 'glaciate_data_dir', $dir ) ) );
+	}
+
+	/**
+	 * URL path of the data directory, when the web server serves it (it is inside the uploads directory).
+	 *
+	 * Builds never crawl or copy anything below it: it holds the build cache, ZIP archives and perhaps a local target.
+	 *
+	 * @return string|null Path without trailing slash, for example /wp-content/uploads/glaciate, or null.
+	 */
+	public static function data_url_path(): ?string {
+		$uploads = wp_upload_dir( null, false );
+		$base    = untrailingslashit( wp_normalize_path( (string) $uploads['basedir'] ) );
+		$dir     = self::data_dir();
+		if ( '' === $base || 0 !== strpos( $dir . '/', $base . '/' ) ) {
+			return null;
+		}
+		$path = wp_parse_url( (string) $uploads['baseurl'], PHP_URL_PATH );
+		return untrailingslashit( ( is_string( $path ) ? $path : '' ) . substr( $dir, strlen( $base ) ) );
 	}
 
 	/**

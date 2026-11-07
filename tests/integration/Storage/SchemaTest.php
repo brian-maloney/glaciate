@@ -2,12 +2,12 @@
 /**
  * Schema installation.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Storage;
+namespace Glaciate\Tests\Integration\Storage;
 
-use Stillpress\Storage\Schema;
+use Glaciate\Storage\Schema;
 
 final class SchemaTest extends \WP_UnitTestCase {
 

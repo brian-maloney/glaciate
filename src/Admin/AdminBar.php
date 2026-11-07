@@ -2,13 +2,13 @@
 /**
  * Static status in the admin bar.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Admin;
+namespace Glaciate\Admin;
 
-use Stillpress\Security\Capabilities;
-use Stillpress\Service\StatusService;
+use Glaciate\Security\Capabilities;
+use Glaciate\Service\StatusService;
 
 /**
  * Adds a "Static" item to the admin bar for users who can publish, with quick actions. In the admin it refreshes
@@ -40,39 +40,39 @@ final class AdminBar {
 		$status = ( new StatusService() )->site();
 		$bar->add_node(
 			array(
-				'id'    => 'stillpress',
+				'id'    => 'glaciate',
 				'title' => '<span class="ab-icon dashicons dashicons-cloud-upload" aria-hidden="true"></span><span class="ab-label">' . esc_html( $status['label'] ) . '</span>',
 				'href'  => admin_url( 'admin.php?page=' . Admin::PAGE ),
 				'meta'  => array(
-					'class' => 'stillpress-ab stillpress-ab-' . sanitize_html_class( $status['state'] ),
+					'class' => 'glaciate-ab glaciate-ab-' . sanitize_html_class( $status['state'] ),
 					/* translators: %s: status such as "Up to date". */
-					'title' => sprintf( __( 'Static site: %s', 'stillpress' ), $status['label'] ),
+					'title' => sprintf( __( 'Static site: %s', 'glaciate' ), $status['label'] ),
 				),
 			)
 		);
 		if ( 'building' !== $status['state'] ) {
 			$bar->add_node(
 				array(
-					'parent' => 'stillpress',
-					'id'     => 'stillpress-publish',
-					'title'  => esc_html__( 'Publish changes now', 'stillpress' ),
+					'parent' => 'glaciate',
+					'id'     => 'glaciate-publish',
+					'title'  => esc_html__( 'Publish changes now', 'glaciate' ),
 					'href'   => Admin::action_url( 'build' ),
 				)
 			);
 			$bar->add_node(
 				array(
-					'parent' => 'stillpress',
-					'id'     => 'stillpress-rebuild',
-					'title'  => esc_html__( 'Rebuild everything', 'stillpress' ),
+					'parent' => 'glaciate',
+					'id'     => 'glaciate-rebuild',
+					'title'  => esc_html__( 'Rebuild everything', 'glaciate' ),
 					'href'   => Admin::action_url( 'build', array( 'kind' => 'full' ) ),
 				)
 			);
 		}
 		$bar->add_node(
 			array(
-				'parent' => 'stillpress',
-				'id'     => 'stillpress-screen',
-				'title'  => esc_html__( 'Static Site screen', 'stillpress' ),
+				'parent' => 'glaciate',
+				'id'     => 'glaciate-screen',
+				'title'  => esc_html__( 'Static Site screen', 'glaciate' ),
 				'href'   => admin_url( 'admin.php?page=' . Admin::PAGE ),
 			)
 		);
@@ -86,9 +86,9 @@ final class AdminBar {
 	 * @return array<string,mixed>
 	 */
 	public static function heartbeat( $response, $data ) {
-		if ( ! empty( $data['stillpress'] ) && current_user_can( Capabilities::PUBLISH ) ) {
-			$status                 = ( new StatusService() )->site();
-			$response['stillpress'] = array(
+		if ( ! empty( $data['glaciate'] ) && current_user_can( Capabilities::PUBLISH ) ) {
+			$status               = ( new StatusService() )->site();
+			$response['glaciate'] = array(
 				'state' => $status['state'],
 				'label' => $status['label'],
 			);
@@ -105,7 +105,7 @@ final class AdminBar {
 		if ( ! is_admin_bar_showing() || ! current_user_can( Capabilities::PUBLISH ) ) {
 			return;
 		}
-		wp_enqueue_script( 'stillpress-admin-bar', \Stillpress\Support\Assets::url( 'assets/js/admin-bar.js' ), array( 'heartbeat' ), \Stillpress\Support\Assets::version( 'assets/js/admin-bar.js' ), true );
-		wp_enqueue_style( 'stillpress-admin-bar', \Stillpress\Support\Assets::url( 'assets/css/admin-bar.css' ), array(), \Stillpress\Support\Assets::version( 'assets/css/admin-bar.css' ) );
+		wp_enqueue_script( 'glaciate-admin-bar', \Glaciate\Support\Assets::url( 'assets/js/admin-bar.js' ), array( 'heartbeat' ), \Glaciate\Support\Assets::version( 'assets/js/admin-bar.js' ), true );
+		wp_enqueue_style( 'glaciate-admin-bar', \Glaciate\Support\Assets::url( 'assets/css/admin-bar.css' ), array(), \Glaciate\Support\Assets::version( 'assets/css/admin-bar.css' ) );
 	}
 }

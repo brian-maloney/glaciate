@@ -2,10 +2,10 @@
 /**
  * Rewrites origin URLs to public URLs in rendered output.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Rewrite;
+namespace Glaciate\Rewrite;
 
 /**
  * Replaces every encoded form of the origin address, and of its aliases, with the public address.

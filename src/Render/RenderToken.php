@@ -2,13 +2,13 @@
 /**
  * Signed tokens that mark a loopback request as a render.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Render;
+namespace Glaciate\Render;
 
 /**
- * Issues and verifies the X-Stillpress-Render header value (threat T7).
+ * Issues and verifies the X-Glaciate-Render header value (threat T7).
  *
  * Format: "<build_id>.<url_id>.<expires>.<hmac>", where hmac = HMAC-SHA256 over the first three parts with a
  * per-site random key. The token grants no privileges; it only turns on dependency recording for that URL.
@@ -16,16 +16,16 @@ namespace Stillpress\Render;
 final class RenderToken {
 
 	/** Request header name. */
-	const HEADER = 'X-Stillpress-Render';
+	const HEADER = 'X-Glaciate-Render';
 
 	/** Response header name echoed by the recorder. */
-	const RECORDED_HEADER = 'X-Stillpress-Recorded';
+	const RECORDED_HEADER = 'X-Glaciate-Recorded';
 
 	/** Response header the recorder sends when the page must not be published. */
-	const EXCLUDE_HEADER = 'X-Stillpress-Exclude';
+	const EXCLUDE_HEADER = 'X-Glaciate-Exclude';
 
 	/** Option holding the HMAC key. */
-	const KEY_OPTION = 'stillpress_render_key';
+	const KEY_OPTION = 'glaciate_render_key';
 
 	/**
 	 * HMAC key.

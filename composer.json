@@ -1,12 +1,12 @@
 {
-	"name": "brian-maloney/stillpress",
+	"name": "brian-maloney/glaciate",
 	"description": "Publish a WordPress site as static files. Every feature free.",
 	"type": "wordpress-plugin",
 	"license": "GPL-2.0-or-later",
 	"require": {
 		"php": ">=7.4",
 		"phpseclib/phpseclib": "^3.0",
-		"woocommerce/action-scheduler": "^3.9"
+		"woocommerce/action-scheduler": "^4.2"
 	},
 	"require-dev": {
 		"phpunit/phpunit": "^9.6",
@@ -17,15 +17,15 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"Stillpress\\": "src/"
+			"Glaciate\\": "src/"
 		}
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"Stillpress\\Tests\\Unit\\": "tests/unit/",
-			"Stillpress\\Tests\\Integration\\": "tests/integration/",
-			"Stillpress\\Tests\\System\\": "tests/system/",
-			"Stillpress\\Tests\\Support\\": "tests/Support/"
+			"Glaciate\\Tests\\Unit\\": "tests/unit/",
+			"Glaciate\\Tests\\Integration\\": "tests/integration/",
+			"Glaciate\\Tests\\System\\": "tests/system/",
+			"Glaciate\\Tests\\Support\\": "tests/Support/"
 		}
 	},
 	"config": {
@@ -58,8 +58,8 @@
 	"extra": {
 		"strauss": {
 			"target_directory": "vendor",
-			"namespace_prefix": "Stillpress\\Vendor\\",
-			"classmap_prefix": "Stillpress_Vendor_",
+			"namespace_prefix": "Glaciate\\Vendor\\",
+			"classmap_prefix": "Glaciate_Vendor_",
 			"constant_prefix": "",
 			"packages": [
 				"phpseclib/phpseclib"

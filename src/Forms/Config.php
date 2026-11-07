@@ -2,28 +2,28 @@
 /**
  * Forms settings, resolved.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
-use Stillpress\Build\Pipeline;
-use Stillpress\Rest\Controller;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Settings;
+use Glaciate\Build\Pipeline;
+use Glaciate\Rest\Controller;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Settings;
 
 /**
  * Reads the forms settings and secrets.
  *
  * Modes (`forms` setting):
  * - off: forms are published unchanged (and don't work on the static copy);
- * - WordPress: forms post to this site's REST API (`stillpress/v1/forms/submit`), which must be reachable from the
+ * - WordPress: forms post to this site's REST API (`glaciate/v1/forms/submit`), which must be reachable from the
  *   public internet at the site address;
  * - receiver: forms post to a receiver run elsewhere (`forms_endpoint`): the standalone PHP script or a serverless
- *   function, which may forward submissions to this site's relay route (`stillpress/v1/forms/relay`).
+ *   function, which may forward submissions to this site's relay route (`glaciate/v1/forms/relay`).
  *
- * Secrets live in the `forms` slot of Secrets: `secret` (STILLPRESS_FORMS_SECRET) signs forwarded submissions and
- * webhooks; `captcha_secret` (STILLPRESS_FORMS_CAPTCHA_SECRET) verifies captcha answers.
+ * Secrets live in the `forms` slot of Secrets: `secret` (GLACIATE_FORMS_SECRET) signs forwarded submissions and
+ * webhooks; `captcha_secret` (GLACIATE_FORMS_CAPTCHA_SECRET) verifies captcha answers.
  */
 final class Config {
 

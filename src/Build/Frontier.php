@@ -2,12 +2,12 @@
 /**
  * The set of URLs a build still has to process.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
-use Stillpress\Storage\Schema;
+use Glaciate\Storage\Schema;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table; work queue state must always be read fresh.
 

@@ -2,16 +2,16 @@
 /**
  * The public form routes.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Forms;
+namespace Glaciate\Tests\Integration\Forms;
 
-use Stillpress\Forms\Endpoint;
-use Stillpress\Forms\Receiver;
-use Stillpress\Forms\Signature;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Settings;
+use Glaciate\Forms\Endpoint;
+use Glaciate\Forms\Receiver;
+use Glaciate\Forms\Signature;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Settings;
 use WP_REST_Request;
 use WP_UnitTestCase;
 
@@ -40,7 +40,7 @@ final class EndpointTest extends WP_UnitTestCase {
 	}
 
 	private static function submit( string $accept, array $body ): \WP_REST_Response {
-		$request = new WP_REST_Request( 'POST', '/stillpress/v1/forms/submit' );
+		$request = new WP_REST_Request( 'POST', '/glaciate/v1/forms/submit' );
 		$request->set_header( 'accept', $accept );
 		$request->set_header( 'origin', 'https://static.example.org' );
 		$request->set_body_params( $body );
@@ -49,11 +49,11 @@ final class EndpointTest extends WP_UnitTestCase {
 
 	private static function contact(): array {
 		return array(
-			'stillpress_form' => 'form:contact',
-			'stillpress_page' => 'https://static.example.org/contact/',
-			'stillpress_hp'   => '',
-			'stillpress_t'    => '7',
-			'message'         => 'Hi',
+			'glaciate_form' => 'form:contact',
+			'glaciate_page' => 'https://static.example.org/contact/',
+			'glaciate_hp'   => '',
+			'glaciate_t'    => '7',
+			'message'       => 'Hi',
 		);
 	}
 
@@ -64,7 +64,7 @@ final class EndpointTest extends WP_UnitTestCase {
 		$this->assertTrue( $response->get_data()['ok'] );
 		$this->assertSame( 'sent', $response->get_data()['status'] );
 
-		$spam = self::submit( 'application/json', array( 'stillpress_hp' => 'x' ) + self::contact() );
+		$spam = self::submit( 'application/json', array( 'glaciate_hp' => 'x' ) + self::contact() );
 		$this->assertSame( 403, $spam->get_status() );
 		$this->assertFalse( $spam->get_data()['ok'] );
 	}
@@ -76,19 +76,19 @@ final class EndpointTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'Your message was sent', $html );
 		$this->assertStringContainsString( 'href="https://static.example.org/contact/"', $html );
 
-		$request = new WP_REST_Request( 'POST', '/stillpress/v1/forms/submit' );
+		$request = new WP_REST_Request( 'POST', '/glaciate/v1/forms/submit' );
 		ob_start();
 		$served = Endpoint::serve_html( false, $response, $request, rest_get_server() );
 		$this->assertTrue( $served );
 		$this->assertSame( $html, ob_get_clean() );
 
 		// Answers of other routes are left to the REST server.
-		$other = new WP_REST_Request( 'GET', '/stillpress/v1/status' );
+		$other = new WP_REST_Request( 'GET', '/glaciate/v1/status' );
 		$this->assertFalse( Endpoint::serve_html( false, $response, $other, rest_get_server() ) );
 	}
 
 	public function test_back_link_stays_on_the_public_site(): void {
-		$html = (string) self::submit( 'text/html', array( 'stillpress_page' => 'https://evil.example/' ) + self::contact() )->get_data();
+		$html = (string) self::submit( 'text/html', array( 'glaciate_page' => 'https://evil.example/' ) + self::contact() )->get_data();
 		$this->assertStringContainsString( 'href="https://static.example.org"', $html );
 		$this->assertStringNotContainsString( 'evil.example', $html );
 	}
@@ -101,15 +101,15 @@ final class EndpointTest extends WP_UnitTestCase {
 			$pairs[] = array( $name, $value );
 		}
 		$body    = Receiver::payload( 'form:contact', '', $pairs, '192.0.2.9', 'UA' );
-		$request = new WP_REST_Request( 'POST', '/stillpress/v1/forms/relay' );
+		$request = new WP_REST_Request( 'POST', '/glaciate/v1/forms/relay' );
 		$request->set_header( 'content-type', 'application/json' );
-		$request->set_header( 'x-stillpress-signature', Signature::sign( $body, 'shared', time() ) );
+		$request->set_header( 'x-glaciate-signature', Signature::sign( $body, 'shared', time() ) );
 		$request->set_body( $body );
 		$response = rest_get_server()->dispatch( $request );
 		$this->assertSame( 200, $response->get_status() );
 		$this->assertTrue( $response->get_data()['ok'] );
 
-		$request->set_header( 'x-stillpress-signature', Signature::sign( $body, 'other', time() ) );
+		$request->set_header( 'x-glaciate-signature', Signature::sign( $body, 'other', time() ) );
 		$this->assertSame( 403, rest_get_server()->dispatch( $request )->get_status() );
 	}
 }

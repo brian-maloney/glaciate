@@ -7,7 +7,7 @@
  * Posts are inserted with multi-row SQL, not wp_insert_post(): the point is to measure builds, not inserts, and
  * 80,000 wp_insert_post() calls take most of an hour.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Bulk benchmark fixture on a disposable site.
@@ -20,7 +20,7 @@ require __DIR__ . '/guard.php';
  * @param int $posts Number of posts.
  * @return void
  */
-function stillpress_perf_seed( int $posts ): void {
+function glaciate_perf_seed( int $posts ): void {
 	global $wpdb;
 	$categories = 50;
 	$tags       = 500;
@@ -40,15 +40,15 @@ function stillpress_perf_seed( int $posts ): void {
 	wp_cache_flush();
 
 	// Theme: copy it in so the web container sees it wherever the plugin is mounted.
-	$theme_dir = get_theme_root() . '/stillpress-perf';
+	$theme_dir = get_theme_root() . '/glaciate-perf';
 	wp_mkdir_p( $theme_dir );
 	foreach ( array( 'style.css', 'index.php' ) as $file ) {
 		copy( __DIR__ . '/theme/' . $file, $theme_dir . '/' . $file );
 	}
-	switch_theme( 'stillpress-perf' );
+	switch_theme( 'glaciate-perf' );
 
-	update_option( 'active_plugins', array( 'stillpress/stillpress.php' ) );
-	update_option( 'blogname', 'Stillpress Benchmark' );
+	update_option( 'active_plugins', array( 'glaciate/glaciate.php' ) );
+	update_option( 'blogname', 'Glaciate Benchmark' );
 	update_option( 'show_on_front', 'posts' );
 	update_option( 'posts_per_page', 10 );
 	update_option( 'wp_attachment_pages_enabled', 0 );
@@ -123,4 +123,4 @@ function stillpress_perf_seed( int $posts ): void {
 	WP_CLI::success( sprintf( 'Seeded %d posts, %d categories, %d tags, %d authors in %.1f s.', $posts, $categories, $tags, $authors, microtime( true ) - $started ) );
 }
 
-stillpress_perf_seed( max( 1, (int) ( $args[0] ?? 80000 ) ) );
+glaciate_perf_seed( max( 1, (int) ( $args[0] ?? 80000 ) ) );

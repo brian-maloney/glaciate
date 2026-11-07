@@ -3,18 +3,18 @@
  * The WordPress form receiver: checks, relay signatures, rate limit, captcha, webhook, and the marked-form and comment
  * adapters.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Forms;
+namespace Glaciate\Tests\Integration\Forms;
 
-use Stillpress\Forms\Adapters;
-use Stillpress\Forms\Config;
-use Stillpress\Forms\Receiver;
-use Stillpress\Forms\Result;
-use Stillpress\Forms\Signature;
-use Stillpress\Security\Secrets;
-use Stillpress\Support\Settings;
+use Glaciate\Forms\Adapters;
+use Glaciate\Forms\Config;
+use Glaciate\Forms\Receiver;
+use Glaciate\Forms\Result;
+use Glaciate\Forms\Signature;
+use Glaciate\Security\Secrets;
+use Glaciate\Support\Settings;
 use WP_UnitTestCase;
 
 final class ReceiverTest extends WP_UnitTestCase {
@@ -80,10 +80,10 @@ final class ReceiverTest extends WP_UnitTestCase {
 	private static function contact( array $extra = array() ): array {
 		return array_merge(
 			array(
-				array( 'stillpress_form', 'form:contact' ),
-				array( 'stillpress_page', self::PUBLIC_URL . '/contact/' ),
-				array( 'stillpress_hp', '' ),
-				array( 'stillpress_t', '12.5' ),
+				array( 'glaciate_form', 'form:contact' ),
+				array( 'glaciate_page', self::PUBLIC_URL . '/contact/' ),
+				array( 'glaciate_hp', '' ),
+				array( 'glaciate_t', '12.5' ),
 				array( 'name', 'Ada' ),
 				array( 'email', 'ada@example.com' ),
 				array( 'message', "Hello\nthere" ),
@@ -101,26 +101,26 @@ final class ReceiverTest extends WP_UnitTestCase {
 		// PHPMailer's line endings differ between versions.
 		$this->assertStringContainsString( "message: Hello\nthere", str_replace( "\r\n", "\n", $mail->body ) );
 		$this->assertStringContainsString( 'name: Ada', $mail->body );
-		$this->assertStringNotContainsString( 'stillpress_', $mail->body );
+		$this->assertStringNotContainsString( 'glaciate_', $mail->body );
 		$this->assertStringContainsString( 'Reply-To: ada@example.com', $mail->header );
 	}
 
 	public function test_refusals(): void {
 		$cases = array(
 			'other origin' => array( self::contact(), 'https://evil.example' ),
-			'honeypot'     => array( self::contact( array( array( 'stillpress_hp', 'x' ) ) ), '' ),
-			'too fast'     => array( array_merge( array( array( 'stillpress_t', '0.5' ) ), self::contact() ), '' ),
+			'honeypot'     => array( self::contact( array( array( 'glaciate_hp', 'x' ) ) ), '' ),
+			'too fast'     => array( array_merge( array( array( 'glaciate_t', '0.5' ) ), self::contact() ), '' ),
 			'no form key'  => array( array( array( 'message', 'hi' ) ), '' ),
 		);
 		// The honeypot added at the end doesn't count (first value wins), so put it first.
-		$cases['honeypot'][0] = array_merge( array( array( 'stillpress_hp', 'x' ) ), self::contact() );
+		$cases['honeypot'][0] = array_merge( array( array( 'glaciate_hp', 'x' ) ), self::contact() );
 		foreach ( $cases as $name => $case ) {
 			$result = $this->receiver()->direct( $case[0], '203.0.113.6', 'UA', $case[1] );
 			$this->assertSame( Result::SPAM, $result->status, $name );
 		}
 		$this->assertFalse( tests_retrieve_phpmailer_instance()->get_sent(), 'nothing was sent' );
 
-		$unknown = $this->receiver()->direct( array( array( 'stillpress_form', 'nosuch:1' ) ), '203.0.113.6', 'UA', '' );
+		$unknown = $this->receiver()->direct( array( array( 'glaciate_form', 'nosuch:1' ) ), '203.0.113.6', 'UA', '' );
 		$this->assertSame( Result::ERROR, $unknown->status );
 	}
 
@@ -187,7 +187,7 @@ final class ReceiverTest extends WP_UnitTestCase {
 		$this->assertTrue( $result->ok(), $result->message );
 		$this->assertSame( Result::SPAM, $receiver->relay( $body, $signature )->status, 'replayed' );
 
-		$honeypot = Receiver::payload( 'form:contact', '', array_merge( array( array( 'stillpress_hp', 'x' ) ), self::contact() ), '192.0.2.4', 'UA' );
+		$honeypot = Receiver::payload( 'form:contact', '', array_merge( array( array( 'glaciate_hp', 'x' ) ), self::contact() ), '192.0.2.4', 'UA' );
 		$this->assertSame( Result::SPAM, $receiver->relay( $honeypot, Signature::sign( $honeypot, 'shared-secret', 2000000000 ) )->status, 'checked again' );
 	}
 
@@ -201,7 +201,7 @@ final class ReceiverTest extends WP_UnitTestCase {
 		Secrets::set( 'forms', 'secret', 'shared-secret' );
 		$fired = 0;
 		add_action(
-			'stillpress_form_submitted',
+			'glaciate_form_submitted',
 			static function () use ( &$fired ) {
 				++$fired;
 			}
@@ -215,7 +215,7 @@ final class ReceiverTest extends WP_UnitTestCase {
 		$payload = json_decode( $request['args']['body'], true );
 		$this->assertSame( 'form:contact', $payload['form'] );
 		$this->assertContains( array( 'name', 'Ada' ), $payload['fields'] );
-		$this->assertNotContains( array( 'stillpress_hp', '' ), $payload['fields'] );
+		$this->assertNotContains( array( 'glaciate_hp', '' ), $payload['fields'] );
 	}
 
 	public function test_comments_are_added_anonymously(): void {
@@ -224,7 +224,7 @@ final class ReceiverTest extends WP_UnitTestCase {
 		wp_set_current_user( $admin );
 		update_option( 'comment_moderation', 1 );
 		$pairs  = array(
-			array( 'stillpress_form', 'comments' ),
+			array( 'glaciate_form', 'comments' ),
 			array( 'comment_post_ID', (string) $post ),
 			array( 'comment_parent', '0' ),
 			array( 'author', 'Grace' ),
@@ -241,12 +241,12 @@ final class ReceiverTest extends WP_UnitTestCase {
 		$this->assertSame( '0', $comments[0]->comment_approved );
 		$this->assertSame( $admin, get_current_user_id(), 'the current user is restored' );
 
-		$missing = $this->receiver()->direct( array( array( 'stillpress_form', 'comments' ), array( 'comment_post_ID', (string) $post ), array( 'comment', 'x' ) ), '203.0.113.12', 'UA', '' );
+		$missing = $this->receiver()->direct( array( array( 'glaciate_form', 'comments' ), array( 'comment_post_ID', (string) $post ), array( 'comment', 'x' ) ), '203.0.113.12', 'UA', '' );
 		$this->assertSame( Result::INVALID, $missing->status );
 		$this->assertArrayHasKey( 'author', $missing->errors );
 
 		$closed = self::factory()->post->create( array( 'comment_status' => 'closed' ) );
-		$this->assertFalse( $this->receiver()->direct( array( array( 'stillpress_form', 'comments' ), array( 'comment_post_ID', (string) $closed ), array( 'author', 'a' ), array( 'email', 'a@example.com' ), array( 'comment', 'x' ) ), '203.0.113.13', 'UA', '' )->ok() );
+		$this->assertFalse( $this->receiver()->direct( array( array( 'glaciate_form', 'comments' ), array( 'comment_post_ID', (string) $closed ), array( 'author', 'a' ), array( 'email', 'a@example.com' ), array( 'comment', 'x' ) ), '203.0.113.13', 'UA', '' )->ok() );
 	}
 
 	public function test_result_messages_are_text(): void {

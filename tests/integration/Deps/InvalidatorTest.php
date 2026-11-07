@@ -2,15 +2,15 @@
 /**
  * From changes to affected URLs.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Deps;
+namespace Glaciate\Tests\Integration\Deps;
 
-use Stillpress\Deps\DependencyStore;
-use Stillpress\Deps\Invalidator;
-use Stillpress\Deps\QuerySignature;
-use Stillpress\Storage\UrlRepository;
+use Glaciate\Deps\DependencyStore;
+use Glaciate\Deps\Invalidator;
+use Glaciate\Deps\QuerySignature;
+use Glaciate\Storage\UrlRepository;
 
 final class InvalidatorTest extends \WP_UnitTestCase {
 

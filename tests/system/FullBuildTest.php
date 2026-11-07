@@ -2,10 +2,10 @@
 /**
  * End-to-end full builds over real HTTP.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\System;
+namespace Glaciate\Tests\System;
 
 final class FullBuildTest extends SystemTestCase {
 
@@ -133,7 +133,7 @@ final class FullBuildTest extends SystemTestCase {
 				'post_content' => '<!-- wp:paragraph --><p>' . $links . '</p><!-- /wp:paragraph -->',
 			)
 		);
-		\Stillpress\Support\Settings::update( array( 'max_urls' => 1 ) );
+		\Glaciate\Support\Settings::update( array( 'max_urls' => 1 ) );
 		$build = $this->build();
 		$files = $this->snapshot();
 
@@ -166,7 +166,7 @@ final class FullBuildTest extends SystemTestCase {
 				'post_content' => '<!-- wp:paragraph --><p><a href="' . home_url( '/2024/' ) . '">2024</a></p><!-- /wp:paragraph -->',
 			)
 		);
-		\Stillpress\Support\Settings::update( array( 'max_depth' => 1 ) );
+		\Glaciate\Support\Settings::update( array( 'max_depth' => 1 ) );
 
 		$build = $this->build();
 		$files = $this->snapshot();
@@ -178,7 +178,7 @@ final class FullBuildTest extends SystemTestCase {
 		$this->assertEmpty( preg_grep( '#^2024/page/#', array_keys( $this->snapshot() ) ), 'A page published through links is re-checked at the limit, so the chain does not grow by one step per build.' );
 		$this->assertSame( 0, $again['stats']['deploy']['added'] );
 
-		\Stillpress\Support\Settings::update( array( 'max_depth' => 0 ) );
+		\Glaciate\Support\Settings::update( array( 'max_depth' => 0 ) );
 		$build = $this->build();
 		$this->assertArrayHasKey( '2024/page/2/index.html', $this->snapshot(), 'Without a limit the later pages are followed. Log: ' . $this->log( (int) $build['id'] ) );
 	}
@@ -202,13 +202,13 @@ final class FullBuildTest extends SystemTestCase {
 		}
 		$this->assertArrayNotHasKey( 'page/5/index.html', $files );
 		foreach ( array( '/page/4/', '/category/busy/page/4/' ) as $path ) {
-			$row = ( new \Stillpress\Storage\UrlRepository() )->find( home_url( $path ) );
+			$row = ( new \Glaciate\Storage\UrlRepository() )->find( home_url( $path ) );
 			$this->assertSame( 'paged', $row['source'] ?? null, "{$path} is listed, not found one link at a time.\n" . $this->log( (int) $build['id'] ) );
 		}
 	}
 
 	public function test_user_redirects_and_404(): void {
-		\Stillpress\Support\Settings::update( array( 'redirects' => "/old-page/ /new-page/ 301\n/gone https://example.org/elsewhere 302" ) );
+		\Glaciate\Support\Settings::update( array( 'redirects' => "/old-page/ /new-page/ 301\n/gone https://example.org/elsewhere 302" ) );
 		$this->build();
 		$files = $this->snapshot();
 		$this->assertStringContainsString( '/old-page/ /new-page/ 301', $files['_redirects'] );
@@ -237,11 +237,11 @@ final class FullBuildTest extends SystemTestCase {
 			wp_delete_file( $file ); // The site recovers while the build waits.
 			return 0;
 		};
-		add_filter( 'stillpress_backoff_seconds', $wait, 10, 3 );
+		add_filter( 'glaciate_backoff_seconds', $wait, 10, 3 );
 		try {
 			$build = $this->build();
 		} finally {
-			remove_filter( 'stillpress_backoff_seconds', $wait, 10 );
+			remove_filter( 'glaciate_backoff_seconds', $wait, 10 );
 			wp_delete_file( $file );
 		}
 		$log = $this->log( (int) $build['id'] );
@@ -267,16 +267,16 @@ final class FullBuildTest extends SystemTestCase {
 			$this->markTestSkipped( 'Needs a writable WordPress root.' );
 		}
 		file_put_contents( $file, '<?php $upgrading = ' . time() . ';' );
-		add_filter( 'stillpress_backoff_seconds', '__return_zero' );
+		add_filter( 'glaciate_backoff_seconds', '__return_zero' );
 		try {
 			$build = $this->build();
 		} finally {
-			remove_filter( 'stillpress_backoff_seconds', '__return_zero' );
+			remove_filter( 'glaciate_backoff_seconds', '__return_zero' );
 			wp_delete_file( $file );
 		}
 		$this->assertSame( 1, $build['stats']['concurrency'] );
 		$this->assertGreaterThan( 0, $build['stats']['urls']['failed'] );
-		$row = ( new \Stillpress\Storage\UrlRepository() )->find( get_permalink( $post ) );
+		$row = ( new \Glaciate\Storage\UrlRepository() )->find( get_permalink( $post ) );
 		$this->assertSame( 'HTTP 503', $row['error'] ?? null, 'After its last try the address fails instead of waiting forever.' );
 	}
 
@@ -289,7 +289,7 @@ final class FullBuildTest extends SystemTestCase {
 				'post_content' => '<a href="' . home_url( '/filters/?colour=red' ) . '">Red</a> <a href="' . home_url( '/filters/?colour=blue' ) . '">Blue</a>',
 			)
 		);
-		\Stillpress\Support\Settings::update( array( 'additional_urls' => '/shop/?sort=price' ) );
+		\Glaciate\Support\Settings::update( array( 'additional_urls' => '/shop/?sort=price' ) );
 		$build = $this->build();
 		$log   = $this->log( (int) $build['id'] );
 
@@ -302,7 +302,7 @@ final class FullBuildTest extends SystemTestCase {
 	}
 
 	public function test_redirects_from_file_addresses_get_no_html_page(): void {
-		\Stillpress\Support\Settings::update( array( 'redirects' => "/old-brochure.pdf /about/ 301\n/old-page/ /about/ 301" ) );
+		\Glaciate\Support\Settings::update( array( 'redirects' => "/old-brochure.pdf /about/ 301\n/old-page/ /about/ 301" ) );
 		$this->build();
 		$files = $this->snapshot();
 		$this->assertStringContainsString( '/old-brochure.pdf /about/ 301', $files['_redirects'] );
@@ -366,32 +366,32 @@ final class FullBuildTest extends SystemTestCase {
 		$this->assertArrayNotHasKey( 'feed/index.xml', $files );
 		$this->assertStringContainsString( '<rss', $files['feed/index.html'] );
 		$this->assertMatchesRegularExpression( '#^/feed/\n  Content-Type: application/rss\+xml#m', $files['_headers'] ?? '' );
-		$types = ( new \Stillpress\Storage\UrlRepository() )->directory_types();
+		$types = ( new \Glaciate\Storage\UrlRepository() )->directory_types();
 		$this->assertStringStartsWith( 'application/rss+xml', $types['feed/index.html']['type'] );
-		$this->assertStringStartsWith( 'application/rss+xml', \Stillpress\Deploy\S3::content_type( 'feed/index.html', $types ) );
-		$this->assertSame( 'text/html; charset=utf-8', \Stillpress\Deploy\S3::content_type( 'index.html', $types ) );
+		$this->assertStringStartsWith( 'application/rss+xml', \Glaciate\Deploy\S3::content_type( 'feed/index.html', $types ) );
+		$this->assertSame( 'text/html; charset=utf-8', \Glaciate\Deploy\S3::content_type( 'index.html', $types ) );
 	}
 
 	public function test_redirect_that_starts_answering_404_leaves_redirects(): void {
 		$this->build();
 		// An attachment page redirects to its file when attachment pages are off (as the reset sets them).
-		$upload = wp_upload_bits( 'stillpress-redirect-test.txt', null, 'file contents' );
+		$upload = wp_upload_bits( 'glaciate-redirect-test.txt', null, 'file contents' );
 		$this->assertEmpty( $upload['error'] );
 		$id = wp_insert_attachment(
 			array(
-				'post_title'     => 'Stillpress redirect test',
-				'post_name'      => 'stillpress-redirect-test',
+				'post_title'     => 'Glaciate redirect test',
+				'post_name'      => 'glaciate-redirect-test',
 				'post_mime_type' => 'text/plain',
 				'post_status'    => 'inherit',
 			),
 			$upload['file']
 		);
 		$this->build( 'incremental' );
-		$this->assertStringContainsString( '/stillpress-redirect-test/ ', $this->snapshot()['_redirects'] ?? '', 'The redirect is published.' );
+		$this->assertStringContainsString( '/glaciate-redirect-test/ ', $this->snapshot()['_redirects'] ?? '', 'The redirect is published.' );
 
 		wp_delete_attachment( $id, true );
 		$this->build( 'full' );
-		$this->assertStringNotContainsString( '/stillpress-redirect-test/', $this->snapshot()['_redirects'] ?? '', 'A redirect that now answers 404 is gone from _redirects.' );
+		$this->assertStringNotContainsString( '/glaciate-redirect-test/', $this->snapshot()['_redirects'] ?? '', 'A redirect that now answers 404 is gone from _redirects.' );
 	}
 
 	public function test_zip_target(): void {
@@ -402,7 +402,7 @@ final class FullBuildTest extends SystemTestCase {
 				'post_status' => 'publish',
 			)
 		);
-		\Stillpress\Support\Settings::update( array( 'target' => 'zip' ) );
+		\Glaciate\Support\Settings::update( array( 'target' => 'zip' ) );
 		$build = $this->build();
 		$zip   = new \ZipArchive();
 		$this->assertTrue( $zip->open( (string) $build['stats']['deploy']['location'] ) );

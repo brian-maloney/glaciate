@@ -2,12 +2,12 @@
 /**
  * Searchable text extraction.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Search;
+namespace Glaciate\Tests\Integration\Search;
 
-use Stillpress\Search\TextExtractor;
+use Glaciate\Search\TextExtractor;
 
 final class TextExtractorTest extends \WP_UnitTestCase {
 
@@ -26,7 +26,7 @@ final class TextExtractorTest extends \WP_UnitTestCase {
 <span class="screen-reader-text">Skip me</span>
 <form><label>Search</label><input name="s"><button>Go</button></form>
 <div hidden>Hidden text</div><div aria-hidden="true">Decorative</div>
-<div data-stillpress-search-ignore><p>Ignored <b>nested</b></p></div>
+<div data-glaciate-search-ignore><p>Ignored <b>nested</b></p></div>
 <svg><text>chart label</text></svg>
 </article></main>
 <footer>Copyright footer</footer></body></html>
@@ -44,12 +44,12 @@ HTML
 	}
 
 	public function test_marked_regions_win_over_main(): void {
-		$doc = $this->extract( '<body><main><p>Main only</p><div data-stillpress-search><div><p>Picked</p></div></div><p>After</p><section data-stillpress-search>Also picked</section></main></body>' );
+		$doc = $this->extract( '<body><main><p>Main only</p><div data-glaciate-search><div><p>Picked</p></div></div><p>After</p><section data-glaciate-search>Also picked</section></main></body>' );
 		$this->assertSame( 'Picked Also picked', $doc['text'] );
 	}
 
 	public function test_nested_same_name_elements_keep_the_region_open(): void {
-		$doc = $this->extract( '<body><div data-stillpress-search><div>One</div><div><div>Two</div></div>Three</div><div>Outside</div></body>' );
+		$doc = $this->extract( '<body><div data-glaciate-search><div>One</div><div><div>Two</div></div>Three</div><div>Outside</div></body>' );
 		$this->assertSame( 'One Two Three', $doc['text'] );
 	}
 

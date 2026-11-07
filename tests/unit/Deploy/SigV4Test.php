@@ -6,13 +6,13 @@
  * The S3 cases are the four worked examples from AWS's "Signature Calculations for the Authorization Header"
  * page for Amazon S3 (sig-v4-header-based-auth.html).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Deploy;
+namespace Glaciate\Tests\Unit\Deploy;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Deploy\Aws\SigV4;
+use Glaciate\Deploy\Aws\SigV4;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Reads test fixtures.
 

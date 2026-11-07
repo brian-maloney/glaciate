@@ -2,17 +2,17 @@
 /**
  * Capabilities.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Security;
+namespace Glaciate\Security;
 
 /**
  * Defines the plugin's capabilities.
  *
- * - `stillpress_manage`  (primitive): change settings and deploy targets.
- * - `stillpress_publish` (primitive): start, cancel and download builds.
- * - `stillpress_publish_post` (meta, takes a post ID): publish one post's pages; requires `stillpress_publish`
+ * - `glaciate_manage`  (primitive): change settings and deploy targets.
+ * - `glaciate_publish` (primitive): start, cancel and download builds.
+ * - `glaciate_publish_post` (meta, takes a post ID): publish one post's pages; requires `glaciate_publish`
  *   and the ability to edit that post.
  *
  * Primitive capabilities are granted to roles once per site (administrator: both; editor: publish), on activation
@@ -20,14 +20,14 @@ namespace Stillpress\Security;
  */
 final class Capabilities {
 
-	const MANAGE       = 'stillpress_manage';
-	const PUBLISH      = 'stillpress_publish';
-	const PUBLISH_POST = 'stillpress_publish_post';
+	const MANAGE       = 'glaciate_manage';
+	const PUBLISH      = 'glaciate_publish';
+	const PUBLISH_POST = 'glaciate_publish_post';
 
 	/**
 	 * Option set once the default capabilities have been granted on a site.
 	 */
-	const GRANTED = 'stillpress_capabilities_granted';
+	const GRANTED = 'glaciate_capabilities_granted';
 
 	/**
 	 * Registers the meta capability mapping.
@@ -39,7 +39,7 @@ final class Capabilities {
 	}
 
 	/**
-	 * Maps `stillpress_publish_post` to primitive capabilities.
+	 * Maps `glaciate_publish_post` to primitive capabilities.
 	 *
 	 * @param string[] $caps    Primitive caps required.
 	 * @param string   $cap     Capability being checked.
@@ -79,7 +79,7 @@ final class Capabilities {
 	/**
 	 * Grants the default capabilities if this site has never had them.
 	 *
-	 * Activation doesn't run when the plugin was switched on before its dependencies were installed (stillpress.php
+	 * Activation doesn't run when the plugin was switched on before its dependencies were installed (glaciate.php
 	 * stops early without vendor/, so the hook isn't registered). The tables are then created on the next request, but
 	 * administrators would be left without the capabilities the admin screens need. Granting only once means ones an
 	 * administrator removed later stay removed.

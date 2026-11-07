@@ -2,12 +2,12 @@
 /**
  * Copying files from disk safely (threat T3).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Crawl;
+namespace Glaciate\Tests\Integration\Crawl;
 
-use Stillpress\Crawl\AssetCopier;
+use Glaciate\Crawl\AssetCopier;
 
 final class AssetCopierTest extends \WP_UnitTestCase {
 
@@ -33,8 +33,8 @@ final class AssetCopierTest extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
-		\Stillpress\Tests\Support\Fs::rmrf( $this->root );
-		\Stillpress\Tests\Support\Fs::rmrf( $this->outside );
+		\Glaciate\Tests\Support\Fs::rmrf( $this->root );
+		\Glaciate\Tests\Support\Fs::rmrf( $this->outside );
 		parent::tear_down();
 	}
 
@@ -51,6 +51,14 @@ final class AssetCopierTest extends \WP_UnitTestCase {
 		$this->assertSame( realpath( $this->root . '/2026/10/photo.jpg' ), $this->copier()->source_for( '/wp-content/uploads/2026/10/photo.jpg' ) );
 		$this->assertSame( realpath( $this->root . '/my file.png' ), $this->copier()->source_for( '/wp-content/uploads/my%20file.png' ) );
 		$this->assertNotNull( $this->copier()->source_for( '/wp-content/uploads/style.css' ) );
+	}
+
+	public function test_never_copies_from_an_excluded_directory_below_a_root(): void {
+		mkdir( $this->root . '/glaciate/zips/1', 0777, true );
+		file_put_contents( $this->root . '/glaciate/zips/1/site.zip', 'zip' );
+		$copier = new AssetCopier( array( '/wp-content/uploads' => $this->root ), array( $this->root . '/glaciate' ) );
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/glaciate/zips/1/site.zip' ) );
+		$this->assertNotNull( $copier->source_for( '/wp-content/uploads/2026/10/photo.jpg' ) );
 	}
 
 	/**

@@ -2,12 +2,12 @@
 /**
  * Stores what each URL depended on when it was last rendered.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deps;
+namespace Glaciate\Deps;
 
-use Stillpress\Storage\Schema;
+use Glaciate\Storage\Schema;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom tables; dependency data must always be read fresh.
 

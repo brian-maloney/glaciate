@@ -1,20 +1,20 @@
 <?php
 /**
- * Where a Pagefind bundle lives, and removal of one Stillpress published itself.
+ * Where a Pagefind bundle lives, and removal of one Glaciate published itself.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Search;
+namespace Glaciate\Search;
 
-use Stillpress\Build\Pipeline;
-use Stillpress\Storage\Schema;
-use Stillpress\Storage\UrlRepository;
+use Glaciate\Build\Pipeline;
+use Glaciate\Storage\Schema;
+use Glaciate\Storage\UrlRepository;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table.
 
 /**
- * In the "pagefind_host" search mode the host's build step writes the bundle into pagefind/ (D21); Stillpress
+ * In the "pagefind_host" search mode the host's build step writes the bundle into pagefind/ (D21); Glaciate
  * publishes nothing there. Up to 1.1.0 a "pagefind" mode ran the binary on this server and published the bundle as
  * generated files; that mode is gone (D39), so every build removes any such files that are still published.
  */
@@ -24,7 +24,7 @@ final class PagefindBundle {
 	const DIR = 'pagefind';
 
 	/** Pseudo-URL prefix of the generated rows the removed "pagefind" mode wrote. */
-	const PSEUDO = 'stillpress:pagefind/';
+	const PSEUDO = 'glaciate:pagefind/';
 
 	/**
 	 * Components.

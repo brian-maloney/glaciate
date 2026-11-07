@@ -2,14 +2,14 @@
 /**
  * URL rewriting edge cases.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Rewrite;
+namespace Glaciate\Tests\Unit\Rewrite;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Rewrite\OriginSet;
-use Stillpress\Rewrite\UrlRewriter;
+use Glaciate\Rewrite\OriginSet;
+use Glaciate\Rewrite\UrlRewriter;
 
 final class UrlRewriterTest extends TestCase {
 

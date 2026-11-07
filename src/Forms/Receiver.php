@@ -2,15 +2,15 @@
 /**
  * Receives form submissions in WordPress.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
-use Stillpress\Build\Pipeline;
-use Stillpress\Rewrite\UrlRewriter;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Settings;
+use Glaciate\Build\Pipeline;
+use Glaciate\Rewrite\UrlRewriter;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Settings;
 
 /**
  * Checks a submission and hands it to its adapter. Two ways in:
@@ -22,7 +22,7 @@ use Stillpress\Support\Settings;
  *   must verify and must not have been used before; the spam rules and rate limit apply again (the captcha answer
  *   was spent by the receiver that checked it).
  *
- * After an adapter accepts a submission, `stillpress_form_submitted` fires and, when set up, a signed copy goes to
+ * After an adapter accepts a submission, `glaciate_form_submitted` fires and, when set up, a signed copy goes to
  * the webhook. Nothing is stored here: what a form plugin stores is up to that plugin.
  */
 final class Receiver {
@@ -100,7 +100,7 @@ final class Receiver {
 				$token = '' === $token ? Protocol::value( $pairs, $field ) : $token;
 			}
 			if ( ! Captcha::verify( $this->config->captcha(), (string) $this->config->captcha_secret(), $token, $ip, $this->config->captcha_site_key() ) ) {
-				return new Result( Result::SPAM, __( 'Please complete the check that you\'re not a robot.', 'stillpress' ) );
+				return new Result( Result::SPAM, __( 'Please complete the check that you\'re not a robot.', 'glaciate' ) );
 			}
 		}
 		if ( ! $this->within_limit( $ip ) ) {
@@ -122,7 +122,7 @@ final class Receiver {
 		if ( 'off' === $this->config->mode() || '' === $secret || ! Signature::verify( $signature, $body, $secret, $now ) ) {
 			return Result::refused();
 		}
-		$seen = 'stillpress_form_seen_' . substr( hash( 'sha256', $signature ), 0, 40 );
+		$seen = 'glaciate_form_seen_' . substr( hash( 'sha256', $signature ), 0, 40 );
 		if ( false !== get_transient( $seen ) ) {
 			return Result::refused();
 		}
@@ -155,7 +155,7 @@ final class Receiver {
 			$result = $adapter->handle( $submission );
 		} catch ( \Throwable $e ) {
 			/* translators: 1: form type, such as cf7 or comments, 2: error message. */
-			( new Logger() )->error( sprintf( __( 'The %1$s form failed: %2$s', 'stillpress' ), $submission->key, $e->getMessage() ) );
+			( new Logger() )->error( sprintf( __( 'The %1$s form failed: %2$s', 'glaciate' ), $submission->key, $e->getMessage() ) );
 			$result = Result::error();
 		}
 		if ( '' !== $result->redirect ) {
@@ -167,10 +167,10 @@ final class Receiver {
 			 *
 			 * @since 0.4.0
 			 *
-			 * @param \Stillpress\Forms\Submission $submission The submission: form key, fields, page, visitor.
-			 * @param \Stillpress\Forms\Result     $result     What the visitor is told.
+			 * @param \Glaciate\Forms\Submission $submission The submission: form key, fields, page, visitor.
+			 * @param \Glaciate\Forms\Result     $result     What the visitor is told.
 			 */
-			do_action( 'stillpress_form_submitted', $submission, $result );
+			do_action( 'glaciate_form_submitted', $submission, $result );
 			$this->webhook( $submission );
 		}
 		return $result;
@@ -196,13 +196,13 @@ final class Receiver {
 		 *                                  the limit off.
 		 * @param string             $ip    Visitor IP address.
 		 */
-		$limit = (array) apply_filters( 'stillpress_form_rate_limit', array( self::RATE_LIMIT, self::RATE_WINDOW ), $ip );
+		$limit = (array) apply_filters( 'glaciate_form_rate_limit', array( self::RATE_LIMIT, self::RATE_WINDOW ), $ip );
 		$count = (int) ( $limit[0] ?? self::RATE_LIMIT );
 		if ( $count <= 0 ) {
 			return true;
 		}
 		// Hashed with the site's salt: the option name doesn't reveal the address.
-		$key  = 'stillpress_form_rate_' . substr( hash_hmac( 'sha256', $ip, wp_salt( 'nonce' ) ), 0, 32 );
+		$key  = 'glaciate_form_rate_' . substr( hash_hmac( 'sha256', $ip, wp_salt( 'nonce' ) ), 0, 32 );
 		$used = (int) get_transient( $key );
 		if ( $used >= $count ) {
 			return false;
@@ -240,7 +240,7 @@ final class Receiver {
 		if ( $code < 200 || $code > 299 ) {
 			$reason = is_wp_error( $response ) ? $response->get_error_message() : 'HTTP ' . $code;
 			/* translators: 1: form type, such as cf7 or comments, 2: reason. */
-			( new Logger() )->warning( sprintf( __( 'The forms webhook didn\'t accept a %1$s submission: %2$s', 'stillpress' ), $submission->key, $reason ) );
+			( new Logger() )->warning( sprintf( __( 'The forms webhook didn\'t accept a %1$s submission: %2$s', 'glaciate' ), $submission->key, $reason ) );
 		}
 	}
 

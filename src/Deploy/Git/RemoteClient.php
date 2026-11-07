@@ -2,12 +2,12 @@
 /**
  * Git smart-HTTP push client.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy\Git;
+namespace Glaciate\Deploy\Git;
 
-use Stillpress\Deploy\Aws\Transport;
+use Glaciate\Deploy\Aws\Transport;
 
 /**
  * Talks to a Git server's receive-pack service over HTTPS (protocol v0, as `git push` does over HTTP):
@@ -72,11 +72,11 @@ final class RemoteClient {
 		$response = $this->send( 'GET', '/info/refs?service=git-receive-pack', array(), '' );
 		$type     = strtolower( $response['headers']['content-type'] ?? '' );
 		if ( 0 !== strpos( $type, 'application/x-git-receive-pack-advertisement' ) ) {
-			throw new \RuntimeException( __( 'That address did not answer like a Git repository (it does not offer push over HTTPS).', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'That address did not answer like a Git repository (it does not offer push over HTTPS).', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$lines = self::decode( $response['body'] );
 		if ( ! $lines || "# service=git-receive-pack\n" !== $lines[0] ) {
-			throw new \RuntimeException( __( 'The Git server sent an unexpected reply.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'The Git server sent an unexpected reply.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$refs = array();
 		$caps = array();
@@ -99,11 +99,11 @@ final class RemoteClient {
 		}
 		foreach ( $caps as $cap ) {
 			if ( 0 === strpos( $cap, 'object-format=' ) && 'object-format=sha1' !== $cap ) {
-				throw new \RuntimeException( __( 'This repository uses SHA-256 object IDs, which are not supported yet.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+				throw new \RuntimeException( __( 'This repository uses SHA-256 object IDs, which are not supported yet.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 			}
 		}
 		if ( ! in_array( 'report-status', $caps, true ) ) {
-			throw new \RuntimeException( __( 'The Git server does not report push results, so a push could not be confirmed.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'The Git server does not report push results, so a push could not be confirmed.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		return array(
 			'refs' => $refs,
@@ -125,7 +125,7 @@ final class RemoteClient {
 		if ( in_array( 'atomic', $caps, true ) && count( $commands ) > 1 ) {
 			$want[] = 'atomic';
 		}
-		$want[] = 'agent=stillpress/' . ( defined( 'STILLPRESS_VERSION' ) ? STILLPRESS_VERSION : 'dev' );
+		$want[] = 'agent=glaciate/' . ( defined( 'GLACIATE_VERSION' ) ? GLACIATE_VERSION : 'dev' );
 		$body   = '';
 		foreach ( array_values( $commands ) as $i => $command ) {
 			$line  = $command[0] . ' ' . $command[1] . ' ' . $command[2];
@@ -158,7 +158,7 @@ final class RemoteClient {
 		}
 		if ( 'ok' !== $unpack ) {
 			/* translators: %s: error from the Git server. */
-			throw new \RuntimeException( sprintf( __( 'The Git server could not store the upload: %s', 'stillpress' ), '' === $unpack ? __( 'no report', 'stillpress' ) : $unpack ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'The Git server could not store the upload: %s', 'glaciate' ), '' === $unpack ? __( 'no report', 'glaciate' ) : $unpack ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		return $results;
 	}
@@ -231,19 +231,19 @@ final class RemoteClient {
 		}
 		if ( 0 === $status ) {
 			/* translators: %s: error message. */
-			throw new \RuntimeException( sprintf( __( 'Could not reach the Git server: %s', 'stillpress' ), $response['error'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'Could not reach the Git server: %s', 'glaciate' ), $response['error'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( 401 === $status || 403 === $status ) {
-			throw new \RuntimeException( __( 'The Git server refused the credentials, or they may not push to this repository.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'The Git server refused the credentials, or they may not push to this repository.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( 404 === $status ) {
-			throw new \RuntimeException( __( 'The repository was not found. Check the address, and that the token can see it.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'The repository was not found. Check the address, and that the token can see it.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( $status >= 300 && $status < 400 ) {
 			/* translators: %s: new address. */
-			throw new \RuntimeException( sprintf( __( 'The repository has moved to %s. Update the address.', 'stillpress' ), $response['headers']['location'] ?? '?' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( sprintf( __( 'The repository has moved to %s. Update the address.', 'glaciate' ), $response['headers']['location'] ?? '?' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		/* translators: %d: HTTP status code. */
-		throw new \RuntimeException( sprintf( __( 'The Git server answered with HTTP %d.', 'stillpress' ), $status ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+		throw new \RuntimeException( sprintf( __( 'The Git server answered with HTTP %d.', 'glaciate' ), $status ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 	}
 }

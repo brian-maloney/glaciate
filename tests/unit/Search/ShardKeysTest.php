@@ -2,13 +2,13 @@
 /**
  * Search shard planning tests.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Search;
+namespace Glaciate\Tests\Unit\Search;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Search\ShardKeys;
+use Glaciate\Search\ShardKeys;
 
 final class ShardKeysTest extends TestCase {
 

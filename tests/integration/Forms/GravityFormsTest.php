@@ -2,15 +2,15 @@
 /**
  * The Gravity Forms adapter, against a stand-in that returns what GFAPI::submit_form() documents.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Forms;
+namespace Glaciate\Tests\Integration\Forms;
 
-use Stillpress\Forms\Adapter\GravityForms;
-use Stillpress\Forms\Result;
-use Stillpress\Forms\Submission;
-use Stillpress\Support\Settings;
+use Glaciate\Forms\Adapter\GravityForms;
+use Glaciate\Forms\Result;
+use Glaciate\Forms\Submission;
+use Glaciate\Support\Settings;
 use WP_UnitTestCase;
 
 require_once dirname( __DIR__, 2 ) . '/Support/FakeGravityForms.php';
@@ -27,7 +27,7 @@ final class GravityFormsTest extends WP_UnitTestCase {
 	private static function submission( bool $relayed = true ): Submission {
 		return Submission::from_pairs(
 			array(
-				array( 'stillpress_form', 'gravityforms:2' ),
+				array( 'glaciate_form', 'gravityforms:2' ),
 				array( 'input_1', 'Ada' ),
 				array( 'input_3.1', 'News' ),
 				array( 'is_submit_2', '1' ),

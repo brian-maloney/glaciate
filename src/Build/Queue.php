@@ -2,13 +2,13 @@
 /**
  * Background execution of builds.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Support\Settings;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Support\Settings;
 
 /**
  * Runs builds on Action Scheduler: each action runs one time-boxed slice and enqueues the next one, so large
@@ -16,16 +16,16 @@ use Stillpress\Support\Settings;
  */
 final class Queue {
 
-	const GROUP = 'stillpress';
+	const GROUP = 'glaciate';
 
-	const SLICE_HOOK     = 'stillpress_build_slice';
-	const AUTO_HOOK      = 'stillpress_auto_publish';
-	const SCHEDULED_HOOK = 'stillpress_scheduled_rebuild';
-	const WINDOW_HOOK    = 'stillpress_publish_window';
-	const WATCHDOG_HOOK  = 'stillpress_watchdog';
+	const SLICE_HOOK     = 'glaciate_build_slice';
+	const AUTO_HOOK      = 'glaciate_auto_publish';
+	const SCHEDULED_HOOK = 'glaciate_scheduled_rebuild';
+	const WINDOW_HOOK    = 'glaciate_publish_window';
+	const WATCHDOG_HOOK  = 'glaciate_watchdog';
 
 	/** admin-ajax action that runs a slice right away. */
-	const KICK_ACTION = 'stillpress_run';
+	const KICK_ACTION = 'glaciate_run';
 
 	/** Seconds after the last change before an automatic incremental build starts. */
 	const DEBOUNCE = 60;
@@ -41,8 +41,8 @@ final class Queue {
 		add_action( self::SCHEDULED_HOOK, array( self::class, 'scheduled_rebuild' ), 10, 0 );
 		add_action( self::WINDOW_HOOK, array( self::class, 'publish_window' ), 10, 0 );
 		add_action( self::WATCHDOG_HOOK, array( self::class, 'watchdog' ), 10, 0 );
-		add_action( 'stillpress_changes_recorded', array( self::class, 'changes_recorded' ), 10, 0 );
-		add_action( 'stillpress_build_finished', array( self::class, 'build_finished' ), 10, 1 );
+		add_action( 'glaciate_changes_recorded', array( self::class, 'changes_recorded' ), 10, 0 );
+		add_action( 'glaciate_build_finished', array( self::class, 'build_finished' ), 10, 1 );
 		add_action( 'action_scheduler_init', array( self::class, 'ensure_recurring' ) );
 		add_action( 'wp_ajax_' . self::KICK_ACTION, array( self::class, 'handle_kick' ) );
 		add_action( 'wp_ajax_nopriv_' . self::KICK_ACTION, array( self::class, 'handle_kick' ) );
@@ -83,7 +83,7 @@ final class Queue {
 		 *
 		 * @param float $budget Seconds. Defaults to 20, or a third of max_execution_time when that is lower.
 		 */
-		$budget = (float) apply_filters( 'stillpress_slice_budget', self::default_budget() );
+		$budget = (float) apply_filters( 'glaciate_slice_budget', self::default_budget() );
 		self::after_slice( (int) $build_id, ( new Runner() )->run_slice( (int) $build_id, $budget ) );
 	}
 
@@ -126,7 +126,7 @@ final class Queue {
 		 *
 		 * @param bool $kick Default true. Return false to rely on Action Scheduler and WP-Cron only.
 		 */
-		if ( ! apply_filters( 'stillpress_kick_builds', true ) ) {
+		if ( ! apply_filters( 'glaciate_kick_builds', true ) ) {
 			return;
 		}
 		$pipeline = Pipeline::for_site();
@@ -147,10 +147,10 @@ final class Queue {
 	 * @return string
 	 */
 	private static function kick_token( int $build_id ): string {
-		$key = (string) get_option( \Stillpress\Render\RenderToken::KEY_OPTION );
+		$key = (string) get_option( \Glaciate\Render\RenderToken::KEY_OPTION );
 		if ( strlen( $key ) < 64 ) {
-			\Stillpress\Render\RenderToken::for_site();
-			$key = (string) get_option( \Stillpress\Render\RenderToken::KEY_OPTION );
+			\Glaciate\Render\RenderToken::for_site();
+			$key = (string) get_option( \Glaciate\Render\RenderToken::KEY_OPTION );
 		}
 		return hash_hmac( 'sha256', 'kick:' . $build_id, $key );
 	}
@@ -174,7 +174,7 @@ final class Queue {
 		}
 
 		/** This filter is documented in src/Build/Queue.php */
-		$budget = (float) apply_filters( 'stillpress_slice_budget', self::default_budget() );
+		$budget = (float) apply_filters( 'glaciate_slice_budget', self::default_budget() );
 		self::after_slice( $build_id, ( new Runner() )->run_slice( $build_id, $budget ) );
 		wp_die( '', '', array( 'response' => 204 ) );
 	}
@@ -196,7 +196,7 @@ final class Queue {
 	 */
 	public static function changes_recorded(): void {
 		// Only "publish right after changes" reacts here; scheduled changes wait for publish_window().
-		if ( 'immediate' !== Settings::get( 'publish_mode' ) || ! get_option( 'stillpress_published_once' ) ) {
+		if ( 'immediate' !== Settings::get( 'publish_mode' ) || ! get_option( 'glaciate_published_once' ) ) {
 			return;
 		}
 		if ( ! self::ready() ) {
@@ -232,7 +232,7 @@ final class Queue {
 	 * @return void
 	 */
 	public static function publish_window(): void {
-		if ( 'scheduled' === Settings::get( 'publish_mode' ) && get_option( 'stillpress_published_once' ) && ( new \Stillpress\Storage\ChangeRepository() )->pending_count() > 0 ) {
+		if ( 'scheduled' === Settings::get( 'publish_mode' ) && get_option( 'glaciate_published_once' ) && ( new \Glaciate\Storage\ChangeRepository() )->pending_count() > 0 ) {
 			( new BuildService() )->start( 'incremental', 'schedule', 0, true );
 		}
 		self::schedule_next( self::WINDOW_HOOK );
@@ -307,9 +307,9 @@ final class Queue {
 	 */
 	public static function build_finished( $build ): void {
 		if ( is_array( $build ) && 'done' === $build['status'] && ! empty( $build['deploy'] ) ) {
-			update_option( 'stillpress_published_once', 1, false );
+			update_option( 'glaciate_published_once', 1, false );
 		}
-		if ( ( new \Stillpress\Storage\ChangeRepository() )->pending_count() > 0 ) {
+		if ( ( new \Glaciate\Storage\ChangeRepository() )->pending_count() > 0 ) {
 			self::changes_recorded();
 		}
 	}
@@ -342,7 +342,7 @@ final class Queue {
 				)
 			)
 		);
-		$changed   = get_option( 'stillpress_schedule_signature' ) !== $signature;
+		$changed   = get_option( 'glaciate_schedule_signature' ) !== $signature;
 		foreach ( self::next_runs() as $hook => $when ) {
 			$missing = null !== $when && ! as_has_scheduled_action( $hook, array(), self::GROUP );
 			if ( $changed || $missing ) {
@@ -351,8 +351,8 @@ final class Queue {
 		}
 		if ( $changed ) {
 			// Earlier versions used a recurring action, which drifts across daylight-saving changes.
-			delete_option( 'stillpress_rebuild_interval' );
-			update_option( 'stillpress_schedule_signature', $signature, false );
+			delete_option( 'glaciate_rebuild_interval' );
+			update_option( 'glaciate_schedule_signature', $signature, false );
 		}
 	}
 
@@ -367,7 +367,7 @@ final class Queue {
 				as_unschedule_all_actions( $hook, array(), self::GROUP );
 			}
 		}
-		delete_option( 'stillpress_rebuild_interval' );
-		delete_option( 'stillpress_schedule_signature' );
+		delete_option( 'glaciate_rebuild_interval' );
+		delete_option( 'glaciate_schedule_signature' );
 	}
 }

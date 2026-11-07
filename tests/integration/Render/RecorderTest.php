@@ -2,16 +2,16 @@
 /**
  * Dependency recording inside a render.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Integration\Render;
+namespace Glaciate\Tests\Integration\Render;
 
-use Stillpress\Deps\DependencyStore;
-use Stillpress\Deps\QuerySignature;
-use Stillpress\Render\Recorder;
-use Stillpress\Storage\UrlRepository;
-use Stillpress\Support\Settings;
+use Glaciate\Deps\DependencyStore;
+use Glaciate\Deps\QuerySignature;
+use Glaciate\Render\Recorder;
+use Glaciate\Storage\UrlRepository;
+use Glaciate\Support\Settings;
 
 final class RecorderTest extends \WP_UnitTestCase {
 
@@ -162,7 +162,7 @@ final class RecorderTest extends \WP_UnitTestCase {
 			static function () {
 				// Before observe() registered its action this would be lost; the filter path always works.
 				add_filter(
-					'stillpress_dependencies_for_url',
+					'glaciate_dependencies_for_url',
 					static function ( $deps ) {
 						$deps['option'][] = 'my_plugin_setting';
 						return $deps;
@@ -182,10 +182,27 @@ final class RecorderTest extends \WP_UnitTestCase {
 		$this->assertSame( 'recorded', $urls->get( $id )['deps_state'] );
 	}
 
+	public function test_closes_its_output_buffer_when_it_finishes(): void {
+		$level    = ob_get_level();
+		$recorder = new Recorder( 1, ( new UrlRepository() )->ensure( 'https://example.test/buffered/' ) );
+		$start    = new \ReflectionMethod( Recorder::class, 'start' );
+		$start->setAccessible( true );
+		$start->invoke( $recorder );
+		$this->assertSame( $level + 1, ob_get_level(), 'The render is buffered.' );
+
+		echo 'page';
+		ob_start(); // A buffer someone else left open.
+		echo ' end';
+		$recorder->finish();
+
+		$this->assertSame( $level, ob_get_level() );
+		$this->expectOutputString( 'page end' );
+	}
+
 	public function test_render_header_without_valid_token_does_not_start_recording(): void {
-		$_SERVER['HTTP_X_STILLPRESS_RENDER'] = '1.1.9999999999.' . str_repeat( 'a', 64 );
+		$_SERVER['HTTP_X_GLACIATE_RENDER'] = '1.1.9999999999.' . str_repeat( 'a', 64 );
 		Recorder::maybe_start();
-		unset( $_SERVER['HTTP_X_STILLPRESS_RENDER'] );
+		unset( $_SERVER['HTTP_X_GLACIATE_RENDER'] );
 		$this->assertNull( Recorder::active() );
 	}
 

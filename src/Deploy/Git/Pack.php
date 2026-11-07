@@ -2,10 +2,10 @@
 /**
  * Git packfiles.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy\Git;
+namespace Glaciate\Deploy\Git;
 
 /**
  * Writes a version 2 packfile of whole (undeltified) objects: "PACK", version, count, then for each object a

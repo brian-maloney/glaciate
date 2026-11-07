@@ -2,13 +2,13 @@
 /**
  * Records content changes for incremental builds.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deps;
+namespace Glaciate\Deps;
 
-use Stillpress\Render\Recorder;
-use Stillpress\Storage\ChangeRepository;
+use Glaciate\Render\Recorder;
+use Glaciate\Storage\ChangeRepository;
 
 /**
  * Watches writes to posts, terms, users, comments and options, and records one change row per object at the end
@@ -157,7 +157,7 @@ final class ChangeListener {
 		 *
 		 * @param bool $muted True during render requests.
 		 */
-		return (bool) apply_filters( 'stillpress_mute_changes', null !== Recorder::active() );
+		return (bool) apply_filters( 'glaciate_mute_changes', null !== Recorder::active() );
 	}
 
 	/**
@@ -328,7 +328,7 @@ final class ChangeListener {
 		 *
 		 * @param string[] $keys Meta keys.
 		 */
-		$ignored = (array) apply_filters( 'stillpress_ignored_post_meta', array( '_edit_lock', '_edit_last', '_encloseme', '_pingme', '_wp_old_date', '_wp_trash_meta_status', '_wp_trash_meta_time', '_wp_desired_post_slug', '_wp_suggested_privacy_policy_content' ) );
+		$ignored = (array) apply_filters( 'glaciate_ignored_post_meta', array( '_edit_lock', '_edit_last', '_encloseme', '_pingme', '_wp_old_date', '_wp_trash_meta_status', '_wp_trash_meta_time', '_wp_desired_post_slug', '_wp_suggested_privacy_policy_content' ) );
 		if ( in_array( (string) $meta_key, $ignored, true ) ) {
 			return;
 		}
@@ -515,7 +515,7 @@ final class ChangeListener {
 		 *
 		 * @param string[] $keys Meta keys.
 		 */
-		$watched = (array) apply_filters( 'stillpress_watched_user_meta', array( 'first_name', 'last_name', 'nickname', 'description', 'display_name' ) );
+		$watched = (array) apply_filters( 'glaciate_watched_user_meta', array( 'first_name', 'last_name', 'nickname', 'description', 'display_name' ) );
 		if ( in_array( (string) $meta_key, $watched, true ) ) {
 			$this->touch_user( (int) $object_id );
 		}
@@ -651,7 +651,7 @@ final class ChangeListener {
 			 *
 			 * @param int $written Number of change rows written.
 			 */
-			do_action( 'stillpress_changes_recorded', $written );
+			do_action( 'glaciate_changes_recorded', $written );
 		}
 		return $written;
 	}
@@ -679,7 +679,7 @@ final class ChangeListener {
 		 * @param string $taxonomy Taxonomy.
 		 * @param int    $term_id  Term ID.
 		 */
-		return (bool) apply_filters( 'stillpress_term_change_moves_posts', $moves, $taxonomy, $term_id );
+		return (bool) apply_filters( 'glaciate_term_change_moves_posts', $moves, $taxonomy, $term_id );
 	}
 
 	/**

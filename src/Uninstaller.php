@@ -2,14 +2,14 @@
 /**
  * Data removal on uninstall.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress;
+namespace Glaciate;
 
-use Stillpress\Security\Capabilities;
-use Stillpress\Storage\Schema;
-use Stillpress\Support\Paths;
+use Glaciate\Security\Capabilities;
+use Glaciate\Storage\Schema;
+use Glaciate\Support\Paths;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Bulk removal of our own rows.
 
@@ -50,9 +50,9 @@ final class Uninstaller {
 		Schema::drop();
 		Capabilities::revoke_all();
 
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'stillpress_' ) . '%' ) );
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'glaciate_' ) . '%' ) );
 		// Form rate-limit counters and used relay signatures.
-		foreach ( array( '_transient_stillpress_', '_transient_timeout_stillpress_' ) as $prefix ) {
+		foreach ( array( '_transient_glaciate_', '_transient_timeout_glaciate_' ) as $prefix ) {
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $prefix ) . '%' ) );
 		}
 		wp_cache_flush();
@@ -62,7 +62,7 @@ final class Uninstaller {
 		$groups  = $wpdb->prefix . 'actionscheduler_groups';
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $actions ) ) === $actions ) {
 			$wpdb->query(
-				$wpdb->prepare( 'DELETE a FROM %i a JOIN %i g ON a.group_id = g.group_id WHERE g.slug = %s', $actions, $groups, 'stillpress' )
+				$wpdb->prepare( 'DELETE a FROM %i a JOIN %i g ON a.group_id = g.group_id WHERE g.slug = %s', $actions, $groups, 'glaciate' )
 			);
 		}
 

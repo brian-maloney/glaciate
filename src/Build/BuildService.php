@@ -2,12 +2,12 @@
 /**
  * Starting, running and stopping builds.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Build;
+namespace Glaciate\Build;
 
-use Stillpress\Storage\BuildRepository;
+use Glaciate\Storage\BuildRepository;
 
 /**
  * The one entry point for starting builds, shared by the admin screen, REST API, WP-CLI and the scheduler.
@@ -77,7 +77,7 @@ final class BuildService {
 		 * @param string $kind    full, incremental or urls.
 		 * @param string $trigger manual, cli, schedule or content.
 		 */
-		do_action( 'stillpress_build_started', $id, $kind, $trigger );
+		do_action( 'glaciate_build_started', $id, $kind, $trigger );
 
 		if ( empty( $options['sync'] ) ) {
 			Queue::enqueue_slice( $id );
@@ -127,7 +127,7 @@ final class BuildService {
 			( new Frontier( $active['id'] ) )->clear();
 
 			/** This action is documented in src/Build/Runner.php */
-			do_action( 'stillpress_build_finished', $this->builds->get( $active['id'] ) );
+			do_action( 'glaciate_build_finished', $this->builds->get( $active['id'] ) );
 			return $active['id'];
 		}
 		return null;

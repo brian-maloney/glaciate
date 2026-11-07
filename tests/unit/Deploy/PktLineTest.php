@@ -2,13 +2,13 @@
 /**
  * Git pkt-line framing.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Deploy;
+namespace Glaciate\Tests\Unit\Deploy;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Deploy\Git\RemoteClient;
+use Glaciate\Deploy\Git\RemoteClient;
 
 final class PktLineTest extends TestCase {
 

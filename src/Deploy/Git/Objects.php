@@ -2,10 +2,10 @@
 /**
  * Git objects.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy\Git;
+namespace Glaciate\Deploy\Git;
 
 /**
  * Builds Git blob, tree and commit objects (SHA-1 object format) and their IDs.

@@ -4,17 +4,17 @@
  *
  * Run with `npm run forms:plugins` (once) and `npm run test:integration:forms`, which loads both plugins.
  *
- * @package Stillpress
+ * @package Glaciate
  * @group form-plugins
  */
 
-namespace Stillpress\Tests\Integration\Forms;
+namespace Glaciate\Tests\Integration\Forms;
 
-use Stillpress\Forms\Adapters;
-use Stillpress\Forms\Config;
-use Stillpress\Forms\Receiver;
-use Stillpress\Forms\Result;
-use Stillpress\Support\Settings;
+use Glaciate\Forms\Adapters;
+use Glaciate\Forms\Config;
+use Glaciate\Forms\Receiver;
+use Glaciate\Forms\Result;
+use Glaciate\Support\Settings;
 use WP_UnitTestCase;
 
 /**
@@ -59,8 +59,8 @@ final class FormPluginsTest extends WP_UnitTestCase {
 
 		$pairs = static function ( string $email ) use ( $id ) {
 			return array(
-				array( 'stillpress_form', 'cf7:' . $id ),
-				array( 'stillpress_t', '9' ),
+				array( 'glaciate_form', 'cf7:' . $id ),
+				array( 'glaciate_t', '9' ),
 				array( '_wpcf7', $id ),
 				array( '_wpcf7_version', WPCF7_VERSION ),
 				array( '_wpcf7_locale', 'en_US' ),
@@ -147,8 +147,8 @@ final class FormPluginsTest extends WP_UnitTestCase {
 
 		$pairs = static function ( string $email ) use ( $id ) {
 			return array(
-				array( 'stillpress_form', 'wpforms:' . $id ),
-				array( 'stillpress_t', '9' ),
+				array( 'glaciate_form', 'wpforms:' . $id ),
+				array( 'glaciate_t', '9' ),
 				array( 'wpforms[fields][1]', 'Ada' ),
 				array( 'wpforms[fields][2]', $email ),
 				array( 'wpforms[fields][3]', 'From the static site.' ),

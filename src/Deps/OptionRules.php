@@ -2,10 +2,10 @@
 /**
  * Which options count as dependencies.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deps;
+namespace Glaciate\Deps;
 
 /**
  * Classifies options for dependency tracking.
@@ -34,12 +34,12 @@ final class OptionRules {
 			 *
 			 * @param string[] $list Exact option names.
 			 */
-			$exact = array_flip( (array) apply_filters( 'stillpress_ignored_options', $list ) );
+			$exact = array_flip( (array) apply_filters( 'glaciate_ignored_options', $list ) );
 		}
 		if ( isset( $exact[ $name ] ) ) {
 			return true;
 		}
-		return (bool) preg_match( '/^(_transient_|_site_transient_|stillpress_|action_scheduler|schema-ActionScheduler|as_|_wp_session_)/', $name );
+		return (bool) preg_match( '/^(_transient_|_site_transient_|glaciate_|action_scheduler|schema-ActionScheduler|as_|_wp_session_)/', $name );
 	}
 
 	/**
@@ -51,7 +51,7 @@ final class OptionRules {
 	public static function is_global( string $name ): bool {
 		static $global = null;
 		if ( null === $global ) {
-			$list = array( 'siteurl', 'home', 'permalink_structure', 'category_base', 'tag_base', 'template', 'stylesheet', 'active_plugins', 'WPLANG', 'blog_charset', 'timezone_string', 'gmt_offset', 'date_format', 'time_format', 'stillpress_settings' );
+			$list = array( 'siteurl', 'home', 'permalink_structure', 'category_base', 'tag_base', 'template', 'stylesheet', 'active_plugins', 'WPLANG', 'blog_charset', 'timezone_string', 'gmt_offset', 'date_format', 'time_format', 'glaciate_settings' );
 
 			/**
 			 * Filters option names whose change triggers a full rebuild.
@@ -60,7 +60,7 @@ final class OptionRules {
 			 *
 			 * @param string[] $list Exact option names.
 			 */
-			$global = array_flip( (array) apply_filters( 'stillpress_global_options', $list ) );
+			$global = array_flip( (array) apply_filters( 'glaciate_global_options', $list ) );
 		}
 		return isset( $global[ $name ] );
 	}

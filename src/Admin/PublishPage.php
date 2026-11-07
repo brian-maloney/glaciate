@@ -2,18 +2,18 @@
 /**
  * The Static Site → Publish screen.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Admin;
+namespace Glaciate\Admin;
 
-use Stillpress\Deploy\LocalDirectory;
-use Stillpress\Deploy\Registry;
-use Stillpress\Security\Capabilities;
-use Stillpress\Service\ChangesetService;
-use Stillpress\Service\StatusService;
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Support\Settings;
+use Glaciate\Deploy\LocalDirectory;
+use Glaciate\Deploy\Registry;
+use Glaciate\Security\Capabilities;
+use Glaciate\Service\ChangesetService;
+use Glaciate\Service\StatusService;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Support\Settings;
 
 /**
  * Shows status, the publish buttons, what the next publish would change, and build history. Before the first publish it shows the one question the
@@ -31,8 +31,8 @@ final class PublishPage {
 			return;
 		}
 		$status = ( new StatusService() )->site();
-		echo '<div class="wrap stillpress" id="stillpress-app" data-state="' . esc_attr( $status['state'] ) . '">';
-		echo '<h1>' . esc_html__( 'Static Site', 'stillpress' ) . '</h1>';
+		echo '<div class="wrap glaciate" id="glaciate-app" data-state="' . esc_attr( $status['state'] ) . '">';
+		echo '<h1>' . esc_html__( 'Static Site', 'glaciate' ) . '</h1>';
 		self::notices( $status );
 
 		if ( ! $status['published_once'] && null === $status['active'] && current_user_can( Capabilities::MANAGE ) ) {
@@ -54,15 +54,15 @@ final class PublishPage {
 	 * @return void
 	 */
 	private static function notices( array $status ): void {
-		$code     = isset( $_GET['stillpress_notice'] ) ? sanitize_key( wp_unslash( $_GET['stillpress_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display only.
+		$code     = isset( $_GET['glaciate_notice'] ) ? sanitize_key( wp_unslash( $_GET['glaciate_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display only.
 		$messages = array(
-			'started'   => array( 'info', __( 'Publishing started. You can leave this page; it continues in the background.', 'stillpress' ) ),
-			'cancelled' => array( 'warning', __( 'Publishing was cancelled. Files already deployed stay in place.', 'stillpress' ) ),
+			'started'   => array( 'info', __( 'Publishing started. You can leave this page; it continues in the background.', 'glaciate' ) ),
+			'cancelled' => array( 'warning', __( 'Publishing was cancelled. Files already deployed stay in place.', 'glaciate' ) ),
 		);
 		if ( 'target-problem' === $code ) {
-			$text = get_transient( 'stillpress_notice_' . get_current_user_id() );
-			delete_transient( 'stillpress_notice_' . get_current_user_id() );
-			wp_admin_notice( esc_html( is_string( $text ) ? $text : __( 'The deploy target is not ready.', 'stillpress' ) ), array( 'type' => 'error' ) );
+			$text = get_transient( 'glaciate_notice_' . get_current_user_id() );
+			delete_transient( 'glaciate_notice_' . get_current_user_id() );
+			wp_admin_notice( esc_html( is_string( $text ) ? $text : __( 'The deploy target is not ready.', 'glaciate' ) ), array( 'type' => 'error' ) );
 		} elseif ( isset( $messages[ $code ] ) ) {
 			wp_admin_notice(
 				esc_html( $messages[ $code ][1] ),
@@ -79,8 +79,8 @@ final class PublishPage {
 			wp_admin_notice(
 				sprintf(
 					/* translators: %s: link to permalink settings. */
-					esc_html__( 'Static sites need pretty permalinks. Choose any structure other than "Plain" in %s.', 'stillpress' ),
-					'<a href="' . esc_url( admin_url( 'options-permalink.php' ) ) . '">' . esc_html__( 'Permalink settings', 'stillpress' ) . '</a>'
+					esc_html__( 'Static sites need pretty permalinks. Choose any structure other than "Plain" in %s.', 'glaciate' ),
+					'<a href="' . esc_url( admin_url( 'options-permalink.php' ) ) . '">' . esc_html__( 'Permalink settings', 'glaciate' ) . '</a>'
 				),
 				array( 'type' => 'error' )
 			);
@@ -99,49 +99,49 @@ final class PublishPage {
 		// A target set up in Settings before the first publish is offered first, so submitting doesn't replace it.
 		$other = in_array( $target, array( 'local', 'zip' ), true ) ? null : Registry::instance()->get( $target );
 		?>
-		<div class="stillpress-card stillpress-onboarding">
-			<h2><?php esc_html_e( 'Where should your static site go?', 'stillpress' ); ?></h2>
-			<p><?php esc_html_e( 'Your site will be saved as plain HTML, CSS and images that any web host can serve, without PHP or a database. Everything else has sensible defaults you can change later in Settings.', 'stillpress' ); ?></p>
+		<div class="glaciate-card glaciate-onboarding">
+			<h2><?php esc_html_e( 'Where should your static site go?', 'glaciate' ); ?></h2>
+			<p><?php esc_html_e( 'Your site will be saved as plain HTML, CSS and images that any web host can serve, without PHP or a database. Everything else has sensible defaults you can change later in Settings.', 'glaciate' ); ?></p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="stillpress_onboard">
-				<?php wp_nonce_field( 'stillpress_onboard' ); ?>
+				<input type="hidden" name="action" value="glaciate_onboard">
+				<?php wp_nonce_field( 'glaciate_onboard' ); ?>
 				<fieldset>
-					<legend class="screen-reader-text"><?php esc_html_e( 'Destination', 'stillpress' ); ?></legend>
+					<legend class="screen-reader-text"><?php esc_html_e( 'Destination', 'glaciate' ); ?></legend>
 					<?php if ( null !== $other ) : ?>
-						<label class="stillpress-choice">
+						<label class="glaciate-choice">
 							<input type="radio" name="target" value="<?php echo esc_attr( $other->id() ); ?>" checked>
 							<strong><?php echo esc_html( $other->label() ); ?></strong>
-							<span><?php esc_html_e( 'As set up in Settings.', 'stillpress' ); ?></span>
+							<span><?php esc_html_e( 'As set up in Settings.', 'glaciate' ); ?></span>
 						</label>
 					<?php endif; ?>
-					<label class="stillpress-choice">
+					<label class="glaciate-choice">
 						<input type="radio" name="target" value="local" <?php checked( null === $other && 'zip' !== $target ); ?>>
-						<strong><?php esc_html_e( 'A folder on this server', 'stillpress' ); ?></strong>
-						<span><?php esc_html_e( 'Point a web server or a sync tool at it.', 'stillpress' ); ?></span>
+						<strong><?php esc_html_e( 'A folder on this server', 'glaciate' ); ?></strong>
+						<span><?php esc_html_e( 'Point a web server or a sync tool at it.', 'glaciate' ); ?></span>
 					</label>
 					<?php if ( SettingsPage::can_edit_paths() && ! Settings::is_pinned( 'local_path' ) ) : ?>
-						<p class="stillpress-indent">
-							<label for="stillpress-local-path"><?php esc_html_e( 'Folder', 'stillpress' ); ?></label><br>
-							<input type="text" class="large-text code" id="stillpress-local-path" name="local_path" value="<?php echo esc_attr( $dir ); ?>">
+						<p class="glaciate-indent">
+							<label for="glaciate-local-path"><?php esc_html_e( 'Folder', 'glaciate' ); ?></label><br>
+							<input type="text" class="large-text code" id="glaciate-local-path" name="local_path" value="<?php echo esc_attr( $dir ); ?>">
 						</p>
 					<?php else : ?>
-						<p class="stillpress-indent"><code><?php echo esc_html( $dir ); ?></code></p>
+						<p class="glaciate-indent"><code><?php echo esc_html( $dir ); ?></code></p>
 					<?php endif; ?>
-					<label class="stillpress-choice">
+					<label class="glaciate-choice">
 						<input type="radio" name="target" value="zip" <?php checked( 'zip', $target ); ?>>
-						<strong><?php esc_html_e( 'A ZIP file to download', 'stillpress' ); ?></strong>
-						<span><?php esc_html_e( 'Upload it to any static host yourself.', 'stillpress' ); ?></span>
+						<strong><?php esc_html_e( 'A ZIP file to download', 'glaciate' ); ?></strong>
+						<span><?php esc_html_e( 'Upload it to any static host yourself.', 'glaciate' ); ?></span>
 					</label>
 				</fieldset>
-				<details class="stillpress-indent">
-					<summary><?php esc_html_e( 'Will the static site live at a different address?', 'stillpress' ); ?></summary>
+				<details class="glaciate-indent">
+					<summary><?php esc_html_e( 'Will the static site live at a different address?', 'glaciate' ); ?></summary>
 					<p>
-						<label for="stillpress-public-url"><?php esc_html_e( 'Public address of the static site', 'stillpress' ); ?></label><br>
-						<input type="url" class="regular-text code" id="stillpress-public-url" name="public_url" placeholder="<?php echo esc_attr( home_url() ); ?>" value="<?php echo esc_attr( (string) Settings::get( 'public_url' ) ); ?>">
+						<label for="glaciate-public-url"><?php esc_html_e( 'Public address of the static site', 'glaciate' ); ?></label><br>
+						<input type="url" class="regular-text code" id="glaciate-public-url" name="public_url" placeholder="<?php echo esc_attr( home_url() ); ?>" value="<?php echo esc_attr( (string) Settings::get( 'public_url' ) ); ?>">
 					</p>
-					<p class="description"><?php esc_html_e( 'Leave empty to keep this site\'s address. Links, images and feeds are rewritten to whatever you enter.', 'stillpress' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Leave empty to keep this site\'s address. Links, images and feeds are rewritten to whatever you enter.', 'glaciate' ); ?></p>
 				</details>
-				<?php submit_button( __( 'Publish my site', 'stillpress' ), 'primary hero', 'submit', false ); ?>
+				<?php submit_button( __( 'Publish my site', 'glaciate' ), 'primary hero', 'submit', false ); ?>
 			</form>
 		</div>
 		<?php
@@ -157,65 +157,65 @@ final class PublishPage {
 		$active   = $status['active'];
 		$building = null !== $active;
 		?>
-		<div class="stillpress-card stillpress-status">
-			<p class="stillpress-state">
-				<span class="stillpress-dot stillpress-dot-<?php echo esc_attr( $status['state'] ); ?>" aria-hidden="true"></span>
-				<strong data-stillpress="label"><?php echo esc_html( $status['label'] ); ?></strong>
+		<div class="glaciate-card glaciate-status">
+			<p class="glaciate-state">
+				<span class="glaciate-dot glaciate-dot-<?php echo esc_attr( $status['state'] ); ?>" aria-hidden="true"></span>
+				<strong data-glaciate="label"><?php echo esc_html( $status['label'] ); ?></strong>
 			</p>
-			<div class="stillpress-progress" data-stillpress="progress" <?php echo $building ? '' : 'hidden'; ?>>
-				<progress max="100" value="<?php echo esc_attr( (string) ( $building ? $active['percent'] : 0 ) ); ?>" aria-label="<?php esc_attr_e( 'Publishing progress', 'stillpress' ); ?>"></progress>
-				<span data-stillpress="progress-text">
+			<div class="glaciate-progress" data-glaciate="progress" <?php echo $building ? '' : 'hidden'; ?>>
+				<progress max="100" value="<?php echo esc_attr( (string) ( $building ? $active['percent'] : 0 ) ); ?>" aria-label="<?php esc_attr_e( 'Publishing progress', 'glaciate' ); ?>"></progress>
+				<span data-glaciate="progress-text">
 					<?php
 					if ( $building ) {
 						/* translators: 1: addresses processed, 2: addresses queued. Both are formatted numbers. */
-						echo esc_html( sprintf( _n( '%1$s of %2$s address', '%1$s of %2$s addresses', (int) $active['total'], 'stillpress' ), number_format_i18n( (int) $active['done'] ), number_format_i18n( (int) $active['total'] ) ) );
+						echo esc_html( sprintf( _n( '%1$s of %2$s address', '%1$s of %2$s addresses', (int) $active['total'], 'glaciate' ), number_format_i18n( (int) $active['done'] ), number_format_i18n( (int) $active['total'] ) ) );
 					}
 					?>
 				</span>
 			</div>
 
-			<p class="stillpress-actions">
-				<a class="button button-primary" data-stillpress="publish" href="<?php echo esc_url( Admin::action_url( 'build' ) ); ?>" <?php echo $building ? 'aria-disabled="true"' : ''; ?>><?php esc_html_e( 'Publish changes', 'stillpress' ); ?></a>
-				<a class="button" data-stillpress="rebuild" href="<?php echo esc_url( Admin::action_url( 'build', array( 'kind' => 'full' ) ) ); ?>" <?php echo $building ? 'aria-disabled="true"' : ''; ?>><?php esc_html_e( 'Rebuild everything', 'stillpress' ); ?></a>
-				<a class="button button-link-delete" data-stillpress="cancel" href="<?php echo esc_url( Admin::action_url( 'cancel' ) ); ?>" <?php echo $building ? '' : 'hidden'; ?>><?php esc_html_e( 'Cancel', 'stillpress' ); ?></a>
+			<p class="glaciate-actions">
+				<a class="button button-primary" data-glaciate="publish" href="<?php echo esc_url( Admin::action_url( 'build' ) ); ?>" <?php echo $building ? 'aria-disabled="true"' : ''; ?>><?php esc_html_e( 'Publish changes', 'glaciate' ); ?></a>
+				<a class="button" data-glaciate="rebuild" href="<?php echo esc_url( Admin::action_url( 'build', array( 'kind' => 'full' ) ) ); ?>" <?php echo $building ? 'aria-disabled="true"' : ''; ?>><?php esc_html_e( 'Rebuild everything', 'glaciate' ); ?></a>
+				<a class="button button-link-delete" data-glaciate="cancel" href="<?php echo esc_url( Admin::action_url( 'cancel' ) ); ?>" <?php echo $building ? '' : 'hidden'; ?>><?php esc_html_e( 'Cancel', 'glaciate' ); ?></a>
 			</p>
 
-			<dl class="stillpress-facts">
-				<dt><?php esc_html_e( 'Published to', 'stillpress' ); ?></dt>
+			<dl class="glaciate-facts">
+				<dt><?php esc_html_e( 'Published to', 'glaciate' ); ?></dt>
 				<dd>
 					<?php echo esc_html( $status['target']['label'] ); ?>
 					<?php if ( '' !== $status['target']['location'] ) : ?>
 						<br><code><?php echo esc_html( $status['target']['location'] ); ?></code>
 					<?php endif; ?>
 					<?php if ( 'zip' === $status['target']['id'] && $status['zip'] ) : ?>
-						<br><a class="button" href="<?php echo esc_url( Admin::action_url( 'download_zip' ) ); ?>"><?php esc_html_e( 'Download ZIP', 'stillpress' ); ?></a>
+						<br><a class="button" href="<?php echo esc_url( Admin::action_url( 'download_zip' ) ); ?>"><?php esc_html_e( 'Download ZIP', 'glaciate' ); ?></a>
 					<?php endif; ?>
 				</dd>
-				<dt><?php esc_html_e( 'Public address', 'stillpress' ); ?></dt>
+				<dt><?php esc_html_e( 'Public address', 'glaciate' ); ?></dt>
 				<dd><a href="<?php echo esc_url( $status['public_url'] ); ?>"><?php echo esc_html( $status['public_url'] ); ?></a></dd>
-				<dt><?php esc_html_e( 'Files', 'stillpress' ); ?></dt>
+				<dt><?php esc_html_e( 'Files', 'glaciate' ); ?></dt>
 				<dd>
 					<?php
 					/* translators: 1: number of files, 2: how many of them are pages. Both are formatted numbers. */
-					echo esc_html( sprintf( __( '%1$s (pages: %2$s)', 'stillpress' ), number_format_i18n( (int) $status['files'] ), number_format_i18n( (int) ( $status['published']['page'] ?? 0 ) ) ) );
+					echo esc_html( sprintf( __( '%1$s (pages: %2$s)', 'glaciate' ), number_format_i18n( (int) $status['files'] ), number_format_i18n( (int) ( $status['published']['page'] ?? 0 ) ) ) );
 					?>
 				</dd>
-				<dt><?php esc_html_e( 'Automatic publishing', 'stillpress' ); ?></dt>
+				<dt><?php esc_html_e( 'Automatic publishing', 'glaciate' ); ?></dt>
 				<dd>
 					<?php
 					$schedule = $status['schedule'];
 					if ( 'immediate' === $schedule['mode'] ) {
-						esc_html_e( 'Changes are published a minute after you save them.', 'stillpress' );
+						esc_html_e( 'Changes are published a minute after you save them.', 'glaciate' );
 					} elseif ( 'scheduled' === $schedule['mode'] && null !== $schedule['next_publish'] ) {
 						/* translators: %s: date and time. */
-						echo esc_html( sprintf( __( 'Changes are published at set times. Next: %s.', 'stillpress' ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $schedule['next_publish'] ) ) );
+						echo esc_html( sprintf( __( 'Changes are published at set times. Next: %s.', 'glaciate' ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $schedule['next_publish'] ) ) );
 					} else {
-						esc_html_e( 'Off: publish changes with the button above.', 'stillpress' );
+						esc_html_e( 'Off: publish changes with the button above.', 'glaciate' );
 					}
 					?>
 				</dd>
 				<?php if ( null !== $schedule['next_full_rebuild'] ) : ?>
-					<dt><?php esc_html_e( 'Next full rebuild', 'stillpress' ); ?></dt>
+					<dt><?php esc_html_e( 'Next full rebuild', 'glaciate' ); ?></dt>
 					<dd><?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $schedule['next_full_rebuild'] ) ); ?></dd>
 				<?php endif; ?>
 			</dl>
@@ -232,9 +232,9 @@ final class PublishPage {
 		$preview = ( new ChangesetService() )->preview();
 		$more    = $preview['item_count'] - count( $preview['items'] );
 		?>
-		<h2><?php esc_html_e( 'Waiting to be published', 'stillpress' ); ?></h2>
-		<div class="stillpress-card stillpress-changeset">
-			<ul class="stillpress-changes">
+		<h2><?php esc_html_e( 'Waiting to be published', 'glaciate' ); ?></h2>
+		<div class="glaciate-card glaciate-changeset">
+			<ul class="glaciate-changes">
 				<?php foreach ( $preview['items'] as $item ) : ?>
 					<li>
 						<?php if ( '' !== $item['link'] ) : ?>
@@ -248,22 +248,22 @@ final class PublishPage {
 					<li>
 					<?php
 					/* translators: %s: formatted number. */
-					echo esc_html( sprintf( _n( 'and %s more change', 'and %s more changes', $more, 'stillpress' ), number_format_i18n( $more ) ) );
+					echo esc_html( sprintf( _n( 'and %s more change', 'and %s more changes', $more, 'glaciate' ), number_format_i18n( $more ) ) );
 					?>
 					</li>
 				<?php endif; ?>
 			</ul>
 			<?php if ( $preview['full'] ) : ?>
-				<p><?php esc_html_e( 'Publishing these changes rebuilds every page.', 'stillpress' ); ?></p>
+				<p><?php esc_html_e( 'Publishing these changes rebuilds every page.', 'glaciate' ); ?></p>
 			<?php elseif ( $preview['pages'] > 0 ) : ?>
 				<details>
 					<summary>
 						<?php
 						/* translators: %s: formatted number of addresses. */
-						echo esc_html( sprintf( _n( 'Publishing these changes rebuilds %s address', 'Publishing these changes rebuilds %s addresses', $preview['pages'], 'stillpress' ), number_format_i18n( $preview['pages'] ) ) );
+						echo esc_html( sprintf( _n( 'Publishing these changes rebuilds %s address', 'Publishing these changes rebuilds %s addresses', $preview['pages'], 'glaciate' ), number_format_i18n( $preview['pages'] ) ) );
 						?>
 					</summary>
-					<ul class="stillpress-changeset-urls">
+					<ul class="glaciate-changeset-urls">
 						<?php foreach ( $preview['urls'] as $url ) : ?>
 							<li><code><?php echo esc_html( $url ); ?></code></li>
 						<?php endforeach; ?>
@@ -271,17 +271,17 @@ final class PublishPage {
 							<li>
 							<?php
 							/* translators: %s: formatted number of addresses. */
-							echo esc_html( sprintf( _n( 'and %s more', 'and %s more', $preview['pages'] - count( $preview['urls'] ), 'stillpress' ), number_format_i18n( $preview['pages'] - count( $preview['urls'] ) ) ) );
+							echo esc_html( sprintf( _n( 'and %s more', 'and %s more', $preview['pages'] - count( $preview['urls'] ), 'glaciate' ), number_format_i18n( $preview['pages'] - count( $preview['urls'] ) ) ) );
 							?>
 							</li>
 						<?php endif; ?>
 					</ul>
 				</details>
 			<?php else : ?>
-				<p><?php esc_html_e( 'No published page uses what changed, so publishing them rebuilds nothing.', 'stillpress' ); ?></p>
+				<p><?php esc_html_e( 'No published page uses what changed, so publishing them rebuilds nothing.', 'glaciate' ); ?></p>
 			<?php endif; ?>
 			<?php if ( ! $preview['complete'] ) : ?>
-				<p class="description"><?php esc_html_e( 'There are too many changes to show them all; the list is incomplete.', 'stillpress' ); ?></p>
+				<p class="description"><?php esc_html_e( 'There are too many changes to show them all; the list is incomplete.', 'glaciate' ); ?></p>
 			<?php endif; ?>
 		</div>
 		<?php
@@ -298,26 +298,26 @@ final class PublishPage {
 			return;
 		}
 		$kinds    = array(
-			'full'        => __( 'Full rebuild', 'stillpress' ),
-			'incremental' => __( 'Changes', 'stillpress' ),
-			'urls'        => __( 'Selected pages', 'stillpress' ),
+			'full'        => __( 'Full rebuild', 'glaciate' ),
+			'incremental' => __( 'Changes', 'glaciate' ),
+			'urls'        => __( 'Selected pages', 'glaciate' ),
 		);
 		$statuses = array(
-			'queued'    => __( 'Waiting', 'stillpress' ),
-			'running'   => __( 'Running', 'stillpress' ),
-			'done'      => __( 'Done', 'stillpress' ),
-			'failed'    => __( 'Failed', 'stillpress' ),
-			'cancelled' => __( 'Cancelled', 'stillpress' ),
+			'queued'    => __( 'Waiting', 'glaciate' ),
+			'running'   => __( 'Running', 'glaciate' ),
+			'done'      => __( 'Done', 'glaciate' ),
+			'failed'    => __( 'Failed', 'glaciate' ),
+			'cancelled' => __( 'Cancelled', 'glaciate' ),
 		);
 		?>
-		<h2><?php esc_html_e( 'Recent activity', 'stillpress' ); ?></h2>
-		<table class="widefat striped stillpress-history">
+		<h2><?php esc_html_e( 'Recent activity', 'glaciate' ); ?></h2>
+		<table class="widefat striped glaciate-history">
 			<thead>
 				<tr>
-					<th scope="col"><?php esc_html_e( 'Started', 'stillpress' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'What', 'stillpress' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'Result', 'stillpress' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'Details', 'stillpress' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Started', 'glaciate' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'What', 'glaciate' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Result', 'glaciate' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Details', 'glaciate' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -332,18 +332,18 @@ final class PublishPage {
 							<br><span class="description">
 							<?php
 							/* translators: 1: added files, 2: changed files, 3: deleted files. All are formatted numbers. */
-							echo esc_html( sprintf( __( 'Files added: %1$s, changed: %2$s, removed: %3$s', 'stillpress' ), number_format_i18n( (int) ( $summary['deploy']['added'] ?? 0 ) ), number_format_i18n( (int) ( $summary['deploy']['modified'] ?? 0 ) ), number_format_i18n( (int) ( $summary['deploy']['deleted'] ?? 0 ) ) ) );
+							echo esc_html( sprintf( __( 'Files added: %1$s, changed: %2$s, removed: %3$s', 'glaciate' ), number_format_i18n( (int) ( $summary['deploy']['added'] ?? 0 ) ), number_format_i18n( (int) ( $summary['deploy']['modified'] ?? 0 ) ), number_format_i18n( (int) ( $summary['deploy']['deleted'] ?? 0 ) ) ) );
 							?>
 							</span>
 						<?php endif; ?>
 						<?php if ( ! empty( $build['error'] ) ) : ?>
-							<br><span class="stillpress-error"><?php echo esc_html( $build['error'] ); ?></span>
+							<br><span class="glaciate-error"><?php echo esc_html( $build['error'] ); ?></span>
 						<?php endif; ?>
 					</td>
 					<td>
-						<details data-stillpress-log="<?php echo esc_attr( (string) $build['id'] ); ?>">
-							<summary><?php esc_html_e( 'Log', 'stillpress' ); ?></summary>
-							<pre class="stillpress-log"><?php esc_html_e( 'Loading…', 'stillpress' ); ?></pre>
+						<details data-glaciate-log="<?php echo esc_attr( (string) $build['id'] ); ?>">
+							<summary><?php esc_html_e( 'Log', 'glaciate' ); ?></summary>
+							<pre class="glaciate-log"><?php esc_html_e( 'Loading…', 'glaciate' ); ?></pre>
 						</details>
 					</td>
 				</tr>

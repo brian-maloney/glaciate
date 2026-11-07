@@ -2,13 +2,13 @@
 /**
  * Contract for form adapters.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms\Adapter;
+namespace Glaciate\Forms\Adapter;
 
-use Stillpress\Forms\Result;
-use Stillpress\Forms\Submission;
+use Glaciate\Forms\Result;
+use Glaciate\Forms\Submission;
 
 /**
  * An adapter recognizes one kind of form in published pages and, when a submission arrives at WordPress, hands it

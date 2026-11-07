@@ -2,12 +2,12 @@
 /**
  * The origin site's addresses and the public address they map to.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Rewrite;
+namespace Glaciate\Rewrite;
 
-use Stillpress\Support\Url;
+use Glaciate\Support\Url;
 
 /**
  * Describes where the site is rendered from (origin) and where it will be served (public).

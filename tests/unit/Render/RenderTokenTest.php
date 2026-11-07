@@ -2,13 +2,13 @@
 /**
  * Render token signing (threat T7).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Render;
+namespace Glaciate\Tests\Unit\Render;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Render\RenderToken;
+use Glaciate\Render\RenderToken;
 
 final class RenderTokenTest extends TestCase {
 

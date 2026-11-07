@@ -2,12 +2,12 @@
 /**
  * The form adapters.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms;
+namespace Glaciate\Forms;
 
-use Stillpress\Forms\Adapter\AdapterInterface;
+use Glaciate\Forms\Adapter\AdapterInterface;
 
 /**
  * Holds the adapters, in order: the first that recognizes a form wins.
@@ -35,7 +35,7 @@ final class Adapters {
 	}
 
 	/**
-	 * The built-in adapters plus any added with the `stillpress_form_adapters` filter.
+	 * The built-in adapters plus any added with the `glaciate_form_adapters` filter.
 	 *
 	 * @param Config $config Forms configuration.
 	 * @return Adapters
@@ -55,11 +55,11 @@ final class Adapters {
 		 *
 		 * @since 0.4.0
 		 *
-		 * @param \Stillpress\Forms\Adapter\AdapterInterface[] $adapters Adapters for Contact Form 7, WPForms, Gravity
+		 * @param \Glaciate\Forms\Adapter\AdapterInterface[] $adapters Adapters for Contact Form 7, WPForms, Gravity
 		 *                                                                Forms, comments and forms marked with
-		 *                                                                data-stillpress-form.
+		 *                                                                data-glaciate-form.
 		 */
-		return new self( (array) apply_filters( 'stillpress_form_adapters', $adapters ) );
+		return new self( (array) apply_filters( 'glaciate_form_adapters', $adapters ) );
 	}
 
 	/**

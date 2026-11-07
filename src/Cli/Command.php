@@ -2,16 +2,16 @@
 /**
  * WP-CLI commands.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Cli;
+namespace Glaciate\Cli;
 
-use Stillpress\Build\BuildService;
-use Stillpress\Deps\DependencyStore;
-use Stillpress\Storage\BuildRepository;
-use Stillpress\Storage\UrlRepository;
-use Stillpress\Support\Logger;
+use Glaciate\Build\BuildService;
+use Glaciate\Deps\DependencyStore;
+use Glaciate\Storage\BuildRepository;
+use Glaciate\Storage\UrlRepository;
+use Glaciate\Support\Logger;
 use WP_CLI;
 
 /**
@@ -20,10 +20,10 @@ use WP_CLI;
  * ## EXAMPLES
  *
  *     # Build and deploy the whole site, waiting until it is done.
- *     $ wp stillpress build --sync
+ *     $ wp glaciate build --sync
  *
  *     # Show what a page depended on when it was last rendered.
- *     $ wp stillpress why /about/
+ *     $ wp glaciate why /about/
  */
 final class Command {
 
@@ -54,8 +54,8 @@ final class Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     $ wp stillpress build --full --sync
-	 *     $ wp stillpress build --url=/about/,/contact/ --sync
+	 *     $ wp glaciate build --full --sync
+	 *     $ wp glaciate build --url=/about/,/contact/ --sync
 	 *
 	 * @param string[]             $args  Positional arguments.
 	 * @param array<string,string> $assoc Options.
@@ -65,7 +65,7 @@ final class Command {
 		$kind = 'incremental';
 		if ( ! empty( $assoc['url'] ) ) {
 			$kind = 'urls';
-		} elseif ( WP_CLI\Utils\get_flag_value( $assoc, 'full', false ) || ! get_option( 'stillpress_published_once' ) ) {
+		} elseif ( WP_CLI\Utils\get_flag_value( $assoc, 'full', false ) || ! get_option( 'glaciate_published_once' ) ) {
 			$kind = 'full';
 		}
 		$urls = array();
@@ -91,7 +91,7 @@ final class Command {
 		);
 
 		if ( ! $sync ) {
-			WP_CLI::success( sprintf( 'Build #%d queued. Follow it with "wp stillpress status".', $id ) );
+			WP_CLI::success( sprintf( 'Build #%d queued. Follow it with "wp glaciate status".', $id ) );
 			return;
 		}
 
@@ -100,7 +100,7 @@ final class Command {
 			$id,
 			static function ( $build ) {
 				$urls = $build['stats']['urls'] ?? array();
-				WP_CLI::debug( sprintf( '%s: %d done, %d pending', $build['phase'], (int) ( $urls['done'] ?? 0 ), (int) ( $urls['pending'] ?? 0 ) ), 'stillpress' );
+				WP_CLI::debug( sprintf( '%s: %d done, %d pending', $build['phase'], (int) ( $urls['done'] ?? 0 ), (int) ( $urls['pending'] ?? 0 ) ), 'glaciate' );
 			}
 		);
 		Logger::echo_to_cli( false );
@@ -236,10 +236,10 @@ final class Command {
 	 * @return void
 	 */
 	public function deploy( $args, $assoc ): void {
-		$target   = (string) ( $assoc['target'] ?? \Stillpress\Support\Settings::get( 'target' ) );
-		$deployer = \Stillpress\Deploy\Registry::instance()->get( $target );
+		$target   = (string) ( $assoc['target'] ?? \Glaciate\Support\Settings::get( 'target' ) );
+		$deployer = \Glaciate\Deploy\Registry::instance()->get( $target );
 		if ( null === $deployer ) {
-			WP_CLI::error( sprintf( 'Unknown target "%s". Known: %s', $target, implode( ', ', array_keys( \Stillpress\Deploy\Registry::instance()->all() ) ) ) );
+			WP_CLI::error( sprintf( 'Unknown target "%s". Known: %s', $target, implode( ', ', array_keys( \Glaciate\Deploy\Registry::instance()->all() ) ) ) );
 		}
 		$problem = $deployer->problem();
 		if ( null !== $problem ) {
@@ -247,15 +247,15 @@ final class Command {
 		}
 		$manifest = iterator_to_array( ( new UrlRepository() )->published_files() );
 		if ( ! $manifest ) {
-			WP_CLI::error( 'Nothing has been built yet. Run "wp stillpress build" first.' );
+			WP_CLI::error( 'Nothing has been built yet. Run "wp glaciate build" first.' );
 		}
 		// Show the deployer's warnings and per-file errors here, as a build does.
 		Logger::echo_to_cli( true );
 		try {
-			$result = $deployer->deploy( $manifest, \Stillpress\Support\Paths::cache_dir(), new Logger() );
+			$result = $deployer->deploy( $manifest, \Glaciate\Support\Paths::cache_dir(), new Logger() );
 		} catch ( \RuntimeException $e ) {
 			// A refusal or a remote failure is an answer for the operator, not a crash.
-			WP_CLI::error( \Stillpress\Security\Redactor::scrub( $e->getMessage() ) );
+			WP_CLI::error( \Glaciate\Security\Redactor::scrub( $e->getMessage() ) );
 		} finally {
 			Logger::echo_to_cli( false );
 		}
@@ -277,13 +277,13 @@ final class Command {
 	public function zip( $args, $assoc ): void {
 		$manifest = iterator_to_array( ( new UrlRepository() )->published_files() );
 		if ( ! $manifest ) {
-			WP_CLI::error( 'Nothing has been built yet. Run "wp stillpress build --no-deploy" first.' );
+			WP_CLI::error( 'Nothing has been built yet. Run "wp glaciate build --no-deploy" first.' );
 		}
 		Logger::echo_to_cli( true );
 		try {
-			$result = ( new \Stillpress\Deploy\Zip() )->deploy( $manifest, \Stillpress\Support\Paths::cache_dir(), new Logger() );
+			$result = ( new \Glaciate\Deploy\Zip() )->deploy( $manifest, \Glaciate\Support\Paths::cache_dir(), new Logger() );
 		} catch ( \RuntimeException $e ) {
-			WP_CLI::error( \Stillpress\Security\Redactor::scrub( $e->getMessage() ) );
+			WP_CLI::error( \Glaciate\Security\Redactor::scrub( $e->getMessage() ) );
 		} finally {
 			Logger::echo_to_cli( false );
 		}
@@ -351,9 +351,9 @@ final class Command {
 			WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, array( 'url', 'kind', 'status_code', 'path', 'deps_state', 'error' ) );
 			return;
 		}
-		$extra = (array) \Stillpress\Support\Settings::get( 'additional_urls' );
+		$extra = (array) \Glaciate\Support\Settings::get( 'additional_urls' );
 		$extra = 'add' === $action ? array_merge( $extra, $args ) : array_values( array_diff( $extra, $args ) );
-		$saved = \Stillpress\Support\Settings::update( array( 'additional_urls' => $extra ) );
+		$saved = \Glaciate\Support\Settings::update( array( 'additional_urls' => $extra ) );
 		WP_CLI::success( sprintf( '%d extra URLs configured.', count( $saved['additional_urls'] ) ) );
 	}
 
@@ -382,13 +382,13 @@ final class Command {
 	 * @return void
 	 */
 	public function changes( $args, $assoc ): void {
-		$repo = new \Stillpress\Storage\ChangeRepository();
+		$repo = new \Glaciate\Storage\ChangeRepository();
 		if ( 'flush' === ( $args[0] ?? '' ) ) {
 			WP_CLI::success( sprintf( 'Discarded %d pending changes.', $repo->flush() ) );
 			return;
 		}
 		if ( 'preview' === ( $args[0] ?? '' ) ) {
-			$preview = ( new \Stillpress\Service\ChangesetService() )->preview( 1000 );
+			$preview = ( new \Glaciate\Service\ChangesetService() )->preview( 1000 );
 			if ( 'json' === ( $assoc['format'] ?? 'table' ) ) {
 				WP_CLI::line( (string) wp_json_encode( $preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) );
 				return;
@@ -442,9 +442,9 @@ final class Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     $ wp stillpress settings set public_url https://www.example.org
-	 *     $ wp stillpress settings set target zip
-	 *     $ wp stillpress settings get full_rebuild
+	 *     $ wp glaciate settings set public_url https://www.example.org
+	 *     $ wp glaciate settings set target zip
+	 *     $ wp glaciate settings get full_rebuild
 	 *
 	 * @param string[]             $args  Positional arguments.
 	 * @param array<string,string> $assoc Options.
@@ -452,40 +452,40 @@ final class Command {
 	 */
 	public function settings( $args, $assoc ): void {
 		$action   = $args[0] ?? 'list';
-		$settings = \Stillpress\Support\Settings::all();
+		$settings = \Glaciate\Support\Settings::all();
 		if ( 'list' === $action ) {
 			$rows = array();
 			foreach ( $settings as $key => $value ) {
 				$rows[] = array(
 					'key'    => $key,
 					'value'  => is_scalar( $value ) ? var_export( $value, true ) : wp_json_encode( $value ), // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- Display formatting.
-					'pinned' => \Stillpress\Support\Settings::is_pinned( $key ) ? 'wp-config.php' : '',
+					'pinned' => \Glaciate\Support\Settings::is_pinned( $key ) ? 'wp-config.php' : '',
 				);
 			}
 			WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, array( 'key', 'value', 'pinned' ) );
 			return;
 		}
 		$key = (string) ( $args[1] ?? '' );
-		if ( ! array_key_exists( $key, \Stillpress\Support\Settings::defaults() ) ) {
-			WP_CLI::error( sprintf( 'Unknown setting "%s". Known: %s', $key, implode( ', ', array_keys( \Stillpress\Support\Settings::defaults() ) ) ) );
+		if ( ! array_key_exists( $key, \Glaciate\Support\Settings::defaults() ) ) {
+			WP_CLI::error( sprintf( 'Unknown setting "%s". Known: %s', $key, implode( ', ', array_keys( \Glaciate\Support\Settings::defaults() ) ) ) );
 		}
 		if ( 'get' === $action ) {
 			$value = $settings[ $key ];
 			WP_CLI::log( is_scalar( $value ) ? (string) var_export( $value, true ) : (string) wp_json_encode( $value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- Display formatting.
 			return;
 		}
-		if ( \Stillpress\Support\Settings::is_pinned( $key ) ) {
-			WP_CLI::error( sprintf( '%s is set in wp-config.php (%s).', $key, \Stillpress\Support\Settings::CONSTANTS[ $key ] ) );
+		if ( \Glaciate\Support\Settings::is_pinned( $key ) ) {
+			WP_CLI::error( sprintf( '%s is set in wp-config.php (%s).', $key, \Glaciate\Support\Settings::CONSTANTS[ $key ] ) );
 		}
 		$raw     = (string) ( $args[2] ?? '' );
 		$decoded = json_decode( $raw, true );
 		$value   = is_array( $decoded ) ? $decoded : $raw;
-		if ( is_bool( \Stillpress\Support\Settings::defaults()[ $key ] ) ) {
+		if ( is_bool( \Glaciate\Support\Settings::defaults()[ $key ] ) ) {
 			$value = in_array( strtolower( $raw ), array( '1', 'true', 'yes', 'on' ), true );
 		}
-		$saved = \Stillpress\Support\Settings::update( array( $key => $value ) );
+		$saved = \Glaciate\Support\Settings::update( array( $key => $value ) );
 		if ( 'local_path' === $key && '' !== $saved['local_path'] ) {
-			$problem = \Stillpress\Security\TargetPolicy::for_wordpress()->problem( $saved['local_path'] );
+			$problem = \Glaciate\Security\TargetPolicy::for_wordpress()->problem( $saved['local_path'] );
 			if ( null !== $problem ) {
 				WP_CLI::warning( $problem );
 			}
@@ -496,7 +496,7 @@ final class Command {
 	/**
 	 * Shows when changes are published and when the next full rebuild runs, in the site's timezone.
 	 *
-	 * Change the schedule with `wp stillpress settings set`: publish_mode (immediate, scheduled or manual),
+	 * Change the schedule with `wp glaciate settings set`: publish_mode (immediate, scheduled or manual),
 	 * publish_times, publish_days, full_rebuild (off, daily or weekly), full_rebuild_time and full_rebuild_day.
 	 *
 	 * ## OPTIONS
@@ -512,19 +512,19 @@ final class Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     $ wp stillpress settings set publish_mode scheduled
-	 *     $ wp stillpress settings set publish_times "09:00, 17:30"
-	 *     $ wp stillpress settings set publish_days "mon,tue,wed,thu,fri"
-	 *     $ wp stillpress settings set full_rebuild_time 02:30
-	 *     $ wp stillpress schedule
+	 *     $ wp glaciate settings set publish_mode scheduled
+	 *     $ wp glaciate settings set publish_times "09:00, 17:30"
+	 *     $ wp glaciate settings set publish_days "mon,tue,wed,thu,fri"
+	 *     $ wp glaciate settings set full_rebuild_time 02:30
+	 *     $ wp glaciate schedule
 	 *
 	 * @param string[]             $args  Positional arguments.
 	 * @param array<string,string> $assoc Options.
 	 * @return void
 	 */
 	public function schedule( $args, $assoc ): void {
-		$settings = \Stillpress\Support\Settings::all();
-		$next     = \Stillpress\Build\Queue::next_runs();
+		$settings = \Glaciate\Support\Settings::all();
+		$next     = \Glaciate\Build\Queue::next_runs();
 		$format   = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		$when     = static function ( $time ) use ( $format ) {
 			return null === $time ? '' : wp_date( $format, (int) $time );
@@ -539,12 +539,12 @@ final class Command {
 			array(
 				'job'      => 'publish changes',
 				'schedule' => $modes[ $settings['publish_mode'] ] ?? $settings['publish_mode'],
-				'next'     => $when( $next[ \Stillpress\Build\Queue::WINDOW_HOOK ] ),
+				'next'     => $when( $next[ \Glaciate\Build\Queue::WINDOW_HOOK ] ),
 			),
 			array(
 				'job'      => 'full rebuild',
 				'schedule' => $rebuild,
-				'next'     => $when( $next[ \Stillpress\Build\Queue::SCHEDULED_HOOK ] ),
+				'next'     => $when( $next[ \Glaciate\Build\Queue::SCHEDULED_HOOK ] ),
 			),
 		);
 		WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, array( 'job', 'schedule', 'next' ) );
@@ -556,8 +556,8 @@ final class Command {
 	/**
 	 * Shows and changes the settings of deploy targets.
 	 *
-	 * Every field can also be pinned with a constant or environment variable named STILLPRESS_<TARGET>_<FIELD>.
-	 * Secret fields are set with "wp stillpress secret set" and never printed.
+	 * Every field can also be pinned with a constant or environment variable named GLACIATE_<TARGET>_<FIELD>.
+	 * Secret fields are set with "wp glaciate secret set" and never printed.
 	 *
 	 * ## OPTIONS
 	 *
@@ -588,34 +588,34 @@ final class Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     $ wp stillpress target show s3
-	 *     $ wp stillpress target set s3 bucket www.example.org
-	 *     $ wp stillpress target set s3 region eu-west-1
-	 *     $ printf %s "$AWS_SECRET_ACCESS_KEY" | wp stillpress secret set s3 secret_access_key
-	 *     $ wp stillpress target check s3
-	 *     $ wp stillpress settings set target s3
+	 *     $ wp glaciate target show s3
+	 *     $ wp glaciate target set s3 bucket www.example.org
+	 *     $ wp glaciate target set s3 region eu-west-1
+	 *     $ printf %s "$AWS_SECRET_ACCESS_KEY" | wp glaciate secret set s3 secret_access_key
+	 *     $ wp glaciate target check s3
+	 *     $ wp glaciate settings set target s3
 	 *
 	 *     # SFTP: check shows the server's host key fingerprint until one is saved.
-	 *     $ wp stillpress target set sftp host deploy.example.org
-	 *     $ wp stillpress target set sftp username deploy
-	 *     $ wp stillpress target set sftp remote_path /var/www/static
-	 *     $ wp stillpress secret set sftp private_key < ~/.ssh/stillpress_deploy
-	 *     $ wp stillpress target check sftp
-	 *     $ wp stillpress target set sftp host_key SHA256:...
+	 *     $ wp glaciate target set sftp host deploy.example.org
+	 *     $ wp glaciate target set sftp username deploy
+	 *     $ wp glaciate target set sftp remote_path /var/www/static
+	 *     $ wp glaciate secret set sftp private_key < ~/.ssh/glaciate_deploy
+	 *     $ wp glaciate target check sftp
+	 *     $ wp glaciate target set sftp host_key SHA256:...
 	 *
 	 *     # Git: publish to the gh-pages branch of a repository.
-	 *     $ wp stillpress target set git repository_url https://github.com/example/site.git
-	 *     $ printf %s "$GITHUB_TOKEN" | wp stillpress secret set git token
-	 *     $ wp stillpress target check git
+	 *     $ wp glaciate target set git repository_url https://github.com/example/site.git
+	 *     $ printf %s "$GITHUB_TOKEN" | wp glaciate secret set git token
+	 *     $ wp glaciate target check git
 	 *
 	 *     # Netlify: the site's API ID and a personal access token.
-	 *     $ wp stillpress target set netlify site_id 0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b
-	 *     $ printf %s "$NETLIFY_TOKEN" | wp stillpress secret set netlify token
+	 *     $ wp glaciate target set netlify site_id 0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b
+	 *     $ printf %s "$NETLIFY_TOKEN" | wp glaciate secret set netlify token
 	 *
 	 *     # Cloudflare: an assets-only Worker in your account.
-	 *     $ wp stillpress target set cloudflare account_id 0123456789abcdef0123456789abcdef
-	 *     $ wp stillpress target set cloudflare worker_name my-site
-	 *     $ printf %s "$CLOUDFLARE_API_TOKEN" | wp stillpress secret set cloudflare api_token
+	 *     $ wp glaciate target set cloudflare account_id 0123456789abcdef0123456789abcdef
+	 *     $ wp glaciate target set cloudflare worker_name my-site
+	 *     $ printf %s "$CLOUDFLARE_API_TOKEN" | wp glaciate secret set cloudflare api_token
 	 *
 	 * @param string[]             $args  Positional arguments.
 	 * @param array<string,string> $assoc Options.
@@ -623,14 +623,14 @@ final class Command {
 	 */
 	public function target( $args, $assoc ): void {
 		$action   = $args[0] ?? 'list';
-		$registry = \Stillpress\Deploy\Registry::instance();
+		$registry = \Glaciate\Deploy\Registry::instance();
 		if ( 'list' === $action ) {
 			$rows = array();
 			foreach ( $registry->all() as $id => $deployer ) {
 				$rows[] = array(
 					'target'  => $id,
 					'label'   => $deployer->label(),
-					'active'  => \Stillpress\Support\Settings::get( 'target' ) === $id ? 'yes' : '',
+					'active'  => \Glaciate\Support\Settings::get( 'target' ) === $id ? 'yes' : '',
 					'problem' => (string) $deployer->problem(),
 				);
 			}
@@ -642,11 +642,11 @@ final class Command {
 		if ( null === $deployer ) {
 			WP_CLI::error( sprintf( 'Unknown target "%s". Known: %s', $id, implode( ', ', array_keys( $registry->all() ) ) ) );
 		}
-		$fields = \Stillpress\Deploy\TargetConfig::fields( $deployer );
+		$fields = \Glaciate\Deploy\TargetConfig::fields( $deployer );
 		if ( 'show' === $action ) {
 			$rows = array();
 			foreach ( $fields as $name => $def ) {
-				$value = \Stillpress\Deploy\TargetConfig::value( $deployer, $name );
+				$value = \Glaciate\Deploy\TargetConfig::value( $deployer, $name );
 				if ( 'secret' === $def['type'] ) {
 					$value = '' === $value ? '' : '(hidden)';
 				} elseif ( is_bool( $value ) ) {
@@ -655,9 +655,9 @@ final class Command {
 				$rows[] = array(
 					'field'    => $name,
 					'value'    => $value,
-					'source'   => \Stillpress\Deploy\TargetConfig::source( $deployer, $name ),
+					'source'   => \Glaciate\Deploy\TargetConfig::source( $deployer, $name ),
 					'required' => $def['required'] ? 'yes' : '',
-					'constant' => \Stillpress\Security\Secrets::name( $id, $name ),
+					'constant' => \Glaciate\Security\Secrets::name( $id, $name ),
 				);
 			}
 			if ( ! $rows ) {
@@ -668,7 +668,7 @@ final class Command {
 			return;
 		}//end if
 		if ( 'check' === $action ) {
-			$problem = $deployer instanceof \Stillpress\Deploy\ConfigurableDeployerInterface ? $deployer->check_connection() : $deployer->problem();
+			$problem = $deployer instanceof \Glaciate\Deploy\ConfigurableDeployerInterface ? $deployer->check_connection() : $deployer->problem();
 			if ( null !== $problem ) {
 				WP_CLI::error( $problem );
 			}
@@ -677,16 +677,16 @@ final class Command {
 		}
 		$field = (string) ( $args[2] ?? '' );
 		if ( isset( $fields[ $field ] ) && 'secret' === $fields[ $field ]['type'] ) {
-			WP_CLI::error( sprintf( '%s is a secret. Use: wp stillpress secret set %s %s', $field, $id, $field ) );
+			WP_CLI::error( sprintf( '%s is a secret. Use: wp glaciate secret set %s %s', $field, $id, $field ) );
 		}
 		try {
-			\Stillpress\Deploy\TargetConfig::set( $deployer, $field, (string) ( $args[3] ?? '' ) );
+			\Glaciate\Deploy\TargetConfig::set( $deployer, $field, (string) ( $args[3] ?? '' ) );
 		} catch ( \InvalidArgumentException $e ) {
 			WP_CLI::error( $e->getMessage() );
 		} catch ( \LogicException $e ) {
 			WP_CLI::error( $e->getMessage() );
 		}
-		$value = \Stillpress\Deploy\TargetConfig::value( $deployer, $field );
+		$value = \Glaciate\Deploy\TargetConfig::value( $deployer, $field );
 		WP_CLI::success( sprintf( '%s %s = %s', $id, $field, is_bool( $value ) ? ( $value ? 'true' : 'false' ) : $value ) );
 	}
 
@@ -694,7 +694,7 @@ final class Command {
 	 * Manages deploy credentials. Values are never printed.
 	 *
 	 * Each secret can also come from a wp-config.php constant or an environment variable named
-	 * STILLPRESS_<DEPLOYER>_<FIELD>, which takes precedence over a stored value.
+	 * GLACIATE_<DEPLOYER>_<FIELD>, which takes precedence over a stored value.
 	 *
 	 * ## OPTIONS
 	 *
@@ -722,13 +722,13 @@ final class Command {
 	 * ## EXAMPLES
 	 *
 	 *     # Prompts for the value without echoing it.
-	 *     $ wp stillpress secret set sftp password
+	 *     $ wp glaciate secret set sftp password
 	 *
 	 *     # Reads the value from standard input.
-	 *     $ printf %s "$TOKEN" | wp stillpress secret set netlify token
+	 *     $ printf %s "$TOKEN" | wp glaciate secret set netlify token
 	 *
-	 *     $ wp stillpress secret list
-	 *     $ wp stillpress secret delete sftp password
+	 *     $ wp glaciate secret list
+	 *     $ wp glaciate secret delete sftp password
 	 *
 	 * @param string[]             $args  Positional arguments.
 	 * @param array<string,string> $assoc Options.
@@ -738,12 +738,12 @@ final class Command {
 		$action = $args[0] ?? 'list';
 		if ( 'list' === $action ) {
 			$rows = array();
-			foreach ( \Stillpress\Security\Secrets::stored_slots() as $slot ) {
+			foreach ( \Glaciate\Security\Secrets::stored_slots() as $slot ) {
 				$rows[] = array(
 					'deployer' => $slot['deployer'],
 					'field'    => $slot['field'],
-					'source'   => \Stillpress\Security\Secrets::source( $slot['deployer'], $slot['field'] ),
-					'name'     => \Stillpress\Security\Secrets::name( $slot['deployer'], $slot['field'] ),
+					'source'   => \Glaciate\Security\Secrets::source( $slot['deployer'], $slot['field'] ),
+					'name'     => \Glaciate\Security\Secrets::name( $slot['deployer'], $slot['field'] ),
 				);
 			}
 			WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, array( 'deployer', 'field', 'source', 'name' ) );
@@ -753,11 +753,11 @@ final class Command {
 		$field    = (string) ( $args[2] ?? '' );
 		try {
 			if ( 'delete' === $action ) {
-				\Stillpress\Security\Secrets::delete( $deployer, $field );
+				\Glaciate\Security\Secrets::delete( $deployer, $field );
 				WP_CLI::success( sprintf( 'Deleted the stored %s %s.', $deployer, $field ) );
 				return;
 			}
-			$name = \Stillpress\Security\Secrets::name( $deployer, $field );
+			$name = \Glaciate\Security\Secrets::name( $deployer, $field );
 			if ( stream_isatty( STDIN ) ) {
 				$value = (string) \cli\prompt( sprintf( 'Value for %s', $name ), false, ': ', true );
 			} else {
@@ -768,7 +768,7 @@ final class Command {
 			if ( '' === $value ) {
 				WP_CLI::error( 'No value given. Use "secret delete" to remove a secret.' );
 			}
-			\Stillpress\Security\Secrets::set( $deployer, $field, $value );
+			\Glaciate\Security\Secrets::set( $deployer, $field, $value );
 		} catch ( \InvalidArgumentException $e ) {
 			WP_CLI::error( $e->getMessage() );
 		} catch ( \LogicException $e ) {
@@ -780,9 +780,9 @@ final class Command {
 	/**
 	 * Shows how forms on the static site are received, or writes a standalone receiver.
 	 *
-	 * Turn forms on with `wp stillpress settings set forms site` (this site's REST API receives them) or `forms
-	 * receiver` with `forms_endpoint` set to a receiver you run. The shared secret is `wp stillpress secret set forms
-	 * secret`; the captcha secret is `wp stillpress secret set forms captcha_secret`. Changing these settings rebuilds
+	 * Turn forms on with `wp glaciate settings set forms site` (this site's REST API receives them) or `forms
+	 * receiver` with `forms_endpoint` set to a receiver you run. The shared secret is `wp glaciate secret set forms
+	 * secret`; the captcha secret is `wp glaciate secret set forms captcha_secret`. Changing these settings rebuilds
 	 * the site at the next publish.
 	 *
 	 * ## OPTIONS
@@ -810,19 +810,19 @@ final class Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     $ wp stillpress forms
-	 *     $ wp stillpress forms receiver php --out=stillpress-form.php
-	 *     $ wp stillpress forms receiver cloudflare > worker.mjs
+	 *     $ wp glaciate forms
+	 *     $ wp glaciate forms receiver php --out=glaciate-form.php
+	 *     $ wp glaciate forms receiver cloudflare > worker.mjs
 	 *
 	 * @param string[]             $args  Positional arguments.
 	 * @param array<string,string> $assoc Options.
 	 * @return void
 	 */
 	public function forms( $args, $assoc ): void {
-		$config = new \Stillpress\Forms\Config();
+		$config = new \Glaciate\Forms\Config();
 		if ( 'receiver' === ( $args[0] ?? 'status' ) ) {
 			try {
-				$code = \Stillpress\Forms\ReceiverExport::build( (string) ( $args[1] ?? 'php' ), $config );
+				$code = \Glaciate\Forms\ReceiverExport::build( (string) ( $args[1] ?? 'php' ), $config );
 			} catch ( \InvalidArgumentException $e ) {
 				WP_CLI::error( $e->getMessage() );
 			}
@@ -833,11 +833,11 @@ final class Command {
 			if ( false === file_put_contents( (string) $assoc['out'], $code ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- A file the operator named.
 				WP_CLI::error( 'Could not write ' . $assoc['out'] );
 			}
-			WP_CLI::success( sprintf( 'Wrote %s. Set STILLPRESS_FORMS_SECRET where it runs to the same value as here; it never goes into the file.', $assoc['out'] ) );
+			WP_CLI::success( sprintf( 'Wrote %s. Set GLACIATE_FORMS_SECRET where it runs to the same value as here; it never goes into the file.', $assoc['out'] ) );
 			return;
 		}
 		$source = static function ( string $field ): string {
-			$where = \Stillpress\Security\Secrets::source( \Stillpress\Forms\Config::SECRETS, $field );
+			$where = \Glaciate\Security\Secrets::source( \Glaciate\Forms\Config::SECRETS, $field );
 			return '' === $where ? 'not set' : $where;
 		};
 		$rows   = array(
@@ -873,7 +873,7 @@ final class Command {
 	 */
 	public function doctor(): void {
 		$failed = 0;
-		foreach ( ( new \Stillpress\Service\HealthChecks() )->all() as $id => $check ) {
+		foreach ( ( new \Glaciate\Service\HealthChecks() )->all() as $id => $check ) {
 			$line = sprintf( '%-11s %s', $id, $check['label'] );
 			if ( 'good' === $check['status'] ) {
 				WP_CLI::log( WP_CLI::colorize( '%G✔%n ' ) . $line );
@@ -931,17 +931,17 @@ final class Command {
 		global $wpdb;
 		WP_CLI::confirm( 'Delete the build cache and all build records? Deployed sites are not touched.', $assoc );
 		if ( null !== ( new BuildRepository() )->active() ) {
-			WP_CLI::error( 'A build is running. Cancel it first with "wp stillpress cancel".' );
+			WP_CLI::error( 'A build is running. Cancel it first with "wp glaciate cancel".' );
 		}
-		foreach ( \Stillpress\Storage\Schema::TABLES as $table ) {
+		foreach ( \Glaciate\Storage\Schema::TABLES as $table ) {
 			if ( 'target_files' === $table ) {
 				continue;
 				// Keep deploy records so files we put in a target can still be cleaned up.
 			}
-			$wpdb->query( $wpdb->prepare( 'TRUNCATE TABLE %i', \Stillpress\Storage\Schema::table( $table ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Our own tables.
+			$wpdb->query( $wpdb->prepare( 'TRUNCATE TABLE %i', \Glaciate\Storage\Schema::table( $table ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Our own tables.
 		}
-		\Stillpress\Support\Paths::delete_tree( \Stillpress\Support\Paths::cache_dir() );
-		delete_option( 'stillpress_published_once' );
+		\Glaciate\Support\Paths::delete_tree( \Glaciate\Support\Paths::cache_dir() );
+		delete_option( 'glaciate_published_once' );
 		WP_CLI::success( 'Build state cleared.' );
 	}
 
@@ -954,8 +954,8 @@ final class Command {
 	 */
 	private static function find_url( string $input ): ?array {
 		$url = preg_match( '#^https?://#i', $input ) ? $input : home_url( '/' . ltrim( $input, '/' ) );
-		$set = new \Stillpress\Rewrite\OriginSet( home_url( '/' ), home_url( '/' ) );
-		$url = ( new \Stillpress\Security\UrlPolicy( $set->origins() ) )->normalize( $url );
+		$set = new \Glaciate\Rewrite\OriginSet( home_url( '/' ), home_url( '/' ) );
+		$url = ( new \Glaciate\Security\UrlPolicy( $set->origins() ) )->normalize( $url );
 		return null === $url ? null : ( new UrlRepository() )->find( $url );
 	}
 }

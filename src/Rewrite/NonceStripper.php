@@ -2,10 +2,10 @@
 /**
  * Blanks WordPress nonces in inline script settings.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Rewrite;
+namespace Glaciate\Rewrite;
 
 /**
  * Anonymous renders still print nonces: core's `wp.apiFetch.createNonceMiddleware( "…" )`, `wpApiSettings.nonce`,

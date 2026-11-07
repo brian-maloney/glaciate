@@ -2,7 +2,7 @@
 /**
  * Benchmark theme: one template that renders like a plain blog (lists, single posts, term and author archives).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 ?><!doctype html>

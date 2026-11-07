@@ -3,7 +3,7 @@
  * E2E fixture for forms: a page with a Contact Form 7 form that skips sending mail (the test site has no mail
  * server), so a valid submission ends as "sent". Run with `wp eval-file` after content.php.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals -- WP-CLI script scope.

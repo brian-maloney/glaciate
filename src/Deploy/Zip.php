@@ -2,15 +2,15 @@
 /**
  * Packages the site as a ZIP archive.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Deploy;
+namespace Glaciate\Deploy;
 
-use Stillpress\Output\PathMapper;
-use Stillpress\Output\UnsafePathException;
-use Stillpress\Support\Logger;
-use Stillpress\Support\Paths;
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
+use Glaciate\Support\Logger;
+use Glaciate\Support\Paths;
 
 // phpcs:disable WordPress.WP.AlternativeFunctions -- File operations in our private data directory (see DECISIONS.md D9).
 
@@ -22,7 +22,7 @@ use Stillpress\Support\Paths;
 final class Zip implements DeployerInterface {
 
 	/** Option holding the current archive's file name. */
-	const OPTION = 'stillpress_zip_file';
+	const OPTION = 'glaciate_zip_file';
 
 	/**
 	 * {@inheritDoc}
@@ -35,7 +35,7 @@ final class Zip implements DeployerInterface {
 	 * {@inheritDoc}
 	 */
 	public function label(): string {
-		return __( 'ZIP file to download', 'stillpress' );
+		return __( 'ZIP file to download', 'glaciate' );
 	}
 
 	/**
@@ -43,7 +43,7 @@ final class Zip implements DeployerInterface {
 	 */
 	public function problem(): ?string {
 		if ( ! class_exists( \ZipArchive::class ) ) {
-			return __( 'The PHP zip extension is not installed. Ask your host to enable it.', 'stillpress' );
+			return __( 'The PHP zip extension is not installed. Ask your host to enable it.', 'glaciate' );
 		}
 		return null;
 	}
@@ -77,7 +77,7 @@ final class Zip implements DeployerInterface {
 			throw new \RuntimeException( $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		if ( ! Paths::ensure_private_dir( Paths::zip_dir() ) ) {
-			throw new \RuntimeException( __( 'Could not create the ZIP folder.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Could not create the ZIP folder.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 
 		$name = 'site-' . get_current_blog_id() . '-' . bin2hex( random_bytes( 16 ) ) . '.zip';
@@ -85,7 +85,7 @@ final class Zip implements DeployerInterface {
 		$tmp  = $file . '.tmp';
 		$zip  = new \ZipArchive();
 		if ( true !== $zip->open( $tmp, \ZipArchive::CREATE | \ZipArchive::OVERWRITE ) ) {
-			throw new \RuntimeException( __( 'Could not create the ZIP file.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Could not create the ZIP file.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 
 		$source = new PathMapper( $source_root );
@@ -97,7 +97,7 @@ final class Zip implements DeployerInterface {
 				$from = $source->absolute_path( (string) $path );
 			} catch ( UnsafePathException $e ) {
 				/* translators: 1: file path, 2: error message. */
-				$logger->error( sprintf( __( 'Skipped %1$s in the ZIP: %2$s', 'stillpress' ), $path, $e->getMessage() ) );
+				$logger->error( sprintf( __( 'Skipped %1$s in the ZIP: %2$s', 'glaciate' ), $path, $e->getMessage() ) );
 				continue;
 			}
 			if ( $zip->addFile( $from, (string) $path ) ) {
@@ -108,7 +108,7 @@ final class Zip implements DeployerInterface {
 			if ( file_exists( $tmp ) ) {
 				unlink( $tmp );
 			}
-			throw new \RuntimeException( __( 'Could not finish the ZIP file.', 'stillpress' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
+			throw new \RuntimeException( __( 'Could not finish the ZIP file.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 
 		$previous = self::current_file();

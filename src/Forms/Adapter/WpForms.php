@@ -2,13 +2,13 @@
 /**
  * WPForms (Lite and paid versions).
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Forms\Adapter;
+namespace Glaciate\Forms\Adapter;
 
-use Stillpress\Forms\Result;
-use Stillpress\Forms\Submission;
+use Glaciate\Forms\Result;
+use Glaciate\Forms\Submission;
 
 /**
  * Recognizes WPForms forms (class `wpforms-form`, `data-formid`) and processes them with WPForms' own
@@ -16,8 +16,8 @@ use Stillpress\Forms\Submission;
  *
  * WPForms' anti-spam features expect a page rendered moments ago: a signed render-time token, a JavaScript token and
  * a check that the submission came through its own AJAX action. A published page is hours or days old and the
- * submission comes through Stillpress, so those checks are bypassed for this call through the filters WPForms
- * provides for that (and `wp_doing_ajax`, which its AJAX check reads); Stillpress's receiver has already applied
+ * submission comes through Glaciate, so those checks are bypassed for this call through the filters WPForms
+ * provides for that (and `wp_doing_ajax`, which its AJAX check reads); Glaciate's receiver has already applied
  * its honeypot, time trap, rate limit and optional captcha. WPForms' own hidden honeypot field still applies.
  *
  * Page and redirect confirmations end in `wp_redirect()` and `exit`; the redirect address is caught through

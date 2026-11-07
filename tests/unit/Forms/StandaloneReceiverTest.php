@@ -1,23 +1,23 @@
 <?php
 /**
- * The standalone PHP receiver (receivers/stillpress-form-php.txt): the shared rules, forwarding, email and the rate limit,
+ * The standalone PHP receiver (receivers/glaciate-form-php.txt): the shared rules, forwarding, email and the rate limit,
  * and one real request through PHP's built-in web server.
  *
- * @package Stillpress
+ * @package Glaciate
  */
 
-namespace Stillpress\Tests\Unit\Forms;
+namespace Glaciate\Tests\Unit\Forms;
 
 use PHPUnit\Framework\TestCase;
-use Stillpress\Forms\Signature;
-use StillpressReceiver as R;
+use Glaciate\Forms\Signature;
+use GlaciateReceiver as R;
 
 // phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter, WordPress.PHP.DiscouragedPHPFunctions.system_calls_proc_open, Generic.CodeAnalysis.ForLoopWithTestFunctionCall -- Fakes take the real signatures; the last test runs a web server.
 
-if ( ! defined( 'STILLPRESS_RECEIVER_LIBRARY' ) ) {
-	define( 'STILLPRESS_RECEIVER_LIBRARY', true );
+if ( ! defined( 'GLACIATE_RECEIVER_LIBRARY' ) ) {
+	define( 'GLACIATE_RECEIVER_LIBRARY', true );
 }
-require_once dirname( __DIR__, 3 ) . '/receivers/stillpress-form-php.txt';
+require_once dirname( __DIR__, 3 ) . '/receivers/glaciate-form-php.txt';
 
 final class StandaloneReceiverTest extends TestCase {
 
@@ -56,10 +56,10 @@ final class StandaloneReceiverTest extends TestCase {
 	private static function contact( array $extra = array() ): array {
 		return array_merge(
 			array(
-				array( 'stillpress_form', 'form:contact' ),
-				array( 'stillpress_page', 'https://static.example.org/contact/' ),
-				array( 'stillpress_hp', '' ),
-				array( 'stillpress_t', '8' ),
+				array( 'glaciate_form', 'form:contact' ),
+				array( 'glaciate_page', 'https://static.example.org/contact/' ),
+				array( 'glaciate_hp', '' ),
+				array( 'glaciate_t', '8' ),
 				array( 'email', 'ada@example.com' ),
 				array( 'message', 'Hi' ),
 			),
@@ -83,7 +83,7 @@ final class StandaloneReceiverTest extends TestCase {
 		);
 		$config          = self::config(
 			array(
-				'forward_url' => 'https://wp.example.org/wp-json/stillpress/v1/forms/relay',
+				'forward_url' => 'https://wp.example.org/wp-json/glaciate/v1/forms/relay',
 				'secret'      => 's',
 			)
 		);
@@ -93,9 +93,9 @@ final class StandaloneReceiverTest extends TestCase {
 		$this->assertSame( array( 'email' => 'Bad' ), $result['errors'] );
 
 		$request = $this->sent[0];
-		$this->assertSame( 'https://wp.example.org/wp-json/stillpress/v1/forms/relay', $request['url'] );
-		$header = substr( (string) end( $request['headers'] ), strlen( 'X-Stillpress-Signature: ' ) );
-		$this->assertTrue( Signature::verify( $header, $request['body'], 's', 1900000000 ), 'Stillpress accepts the signature' );
+		$this->assertSame( 'https://wp.example.org/wp-json/glaciate/v1/forms/relay', $request['url'] );
+		$header = substr( (string) end( $request['headers'] ), strlen( 'X-Glaciate-Signature: ' ) );
+		$this->assertTrue( Signature::verify( $header, $request['body'], 's', 1900000000 ), 'Glaciate accepts the signature' );
 		$payload = json_decode( $request['body'], true );
 		$this->assertSame( 'form:contact', $payload['form'] );
 		$this->assertSame( '192.0.2.1', $payload['ip'] );
@@ -118,7 +118,7 @@ final class StandaloneReceiverTest extends TestCase {
 		$this->assertSame( 'owner@example.org', $mail['to'] );
 		$this->assertSame( 'New message from the form:contact form', $mail['subject'] );
 		$this->assertStringContainsString( "message: Hi\nnotes: two\nlines", $mail['body'] );
-		$this->assertStringNotContainsString( 'stillpress_', $mail['body'] );
+		$this->assertStringNotContainsString( 'glaciate_', $mail['body'] );
 		$this->assertStringContainsString( 'Reply-To: ada@example.com', $mail['headers'] );
 
 		$this->mails = array();
@@ -129,7 +129,7 @@ final class StandaloneReceiverTest extends TestCase {
 	public function test_refusals_and_limits(): void {
 		$config = self::config( array( 'email_to' => 'owner@example.org' ) );
 		$this->assertSame( 'spam', R\handle( $config, self::contact(), '192.0.2.1', 'UA', 'https://evil.example', $this->io() )['status'] );
-		$this->assertSame( 'spam', R\handle( $config, array_merge( array( array( 'stillpress_hp', 'x' ) ), self::contact() ), '192.0.2.1', 'UA', '', $this->io() )['status'] );
+		$this->assertSame( 'spam', R\handle( $config, array_merge( array( array( 'glaciate_hp', 'x' ) ), self::contact() ), '192.0.2.1', 'UA', '', $this->io() )['status'] );
 		$this->assertSame( 'limited', R\handle( $config, self::contact(), '192.0.2.1', 'UA', '', $this->io( false ) )['status'] );
 		$this->assertSame( array(), $this->mails );
 		$this->assertSame( 'error', R\handle( self::config(), self::contact(), '192.0.2.1', 'UA', '', $this->io() )['status'], 'nowhere to send it' );
@@ -166,7 +166,7 @@ final class StandaloneReceiverTest extends TestCase {
 	}
 
 	public function test_rate_limit_files(): void {
-		$dir    = sys_get_temp_dir() . '/stillpress-receiver-test-' . bin2hex( random_bytes( 4 ) );
+		$dir    = sys_get_temp_dir() . '/glaciate-receiver-test-' . bin2hex( random_bytes( 4 ) );
 		$config = self::config(
 			array(
 				'data_dir'   => $dir,
@@ -208,9 +208,9 @@ final class StandaloneReceiverTest extends TestCase {
 		if ( ! function_exists( 'proc_open' ) ) {
 			$this->markTestSkipped( 'proc_open() is disabled.' );
 		}
-		$root = sys_get_temp_dir() . '/stillpress-receiver-root-' . bin2hex( random_bytes( 4 ) );
+		$root = sys_get_temp_dir() . '/glaciate-receiver-root-' . bin2hex( random_bytes( 4 ) );
 		mkdir( $root );
-		copy( dirname( __DIR__, 3 ) . '/receivers/stillpress-form-php.txt', $root . '/form.php' );
+		copy( dirname( __DIR__, 3 ) . '/receivers/glaciate-form-php.txt', $root . '/form.php' );
 		$port    = 20000 + random_int( 0, 20000 );
 		$mailbox = $root . '/mail.txt';
 		$server  = proc_open(
@@ -222,9 +222,9 @@ final class StandaloneReceiverTest extends TestCase {
 			$pipes,
 			null,
 			array(
-				'STILLPRESS_EMAIL_TO'       => 'owner@example.org',
-				'STILLPRESS_ALLOWED_ORIGIN' => 'https://static.example.org',
-				'STILLPRESS_FORMS_SECRET'   => 'from-env',
+				'GLACIATE_EMAIL_TO'       => 'owner@example.org',
+				'GLACIATE_ALLOWED_ORIGIN' => 'https://static.example.org',
+				'GLACIATE_FORMS_SECRET'   => 'from-env',
 			)
 		);
 		try {
@@ -238,7 +238,7 @@ final class StandaloneReceiverTest extends TestCase {
 						'http' => array(
 							'method'          => 'POST',
 							'header'          => "Content-Type: application/x-www-form-urlencoded\r\nAccept: {$accept}\r\nOrigin: {$origin}",
-							'content'         => 'stillpress_form=form%3Acontact&stillpress_page=https%3A%2F%2Fstatic.example.org%2Fcontact%2F&stillpress_hp=&stillpress_t=&email=ada%40example.com&message=Hi%3Cb%3E',
+							'content'         => 'glaciate_form=form%3Acontact&glaciate_page=https%3A%2F%2Fstatic.example.org%2Fcontact%2F&glaciate_hp=&glaciate_t=&email=ada%40example.com&message=Hi%3Cb%3E',
 							'ignore_errors'   => true,
 							'follow_location' => 0,
 						),

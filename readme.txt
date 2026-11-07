@@ -157,27 +157,28 @@ Glaciate contacts no outside service on its own. Each service below is used only
 and only for what is described.
 
 * **Amazon S3 and CloudFront** (Amazon Web Services), when the deploy target is Amazon S3 or an S3-compatible
-  service. Each deploy lists the bucket and sends the built site's files, signed with the access key you entered; with a
-  CloudFront distribution set, it then asks CloudFront to refresh the changed paths. An S3-compatible service you name
-  receives the same requests instead of Amazon.
+  service. Each deploy lists the bucket and sends the built site's files to the S3 endpoint of the bucket's region
+  (`s3.<region>.amazonaws.com`), signed with the access key you entered; with a CloudFront distribution set, it then
+  asks CloudFront (`cloudfront.amazonaws.com`) to refresh the changed paths. An S3-compatible service whose endpoint
+  you enter receives the same requests instead of Amazon.
   [Terms](https://aws.amazon.com/service-terms/), [privacy policy](https://aws.amazon.com/privacy/).
 * **Git hosting** (for example GitHub), when the deploy target is Git. Each deploy reads the branch Glaciate publishes
   to and pushes the built site to it, with the token you entered, at the repository address you entered. For GitHub:
   [terms](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service),
   [privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 * **Netlify**, when the deploy target is Netlify. Each deploy sends the list of the built site's files and their
-  hashes, then the files Netlify doesn't have yet, with the access token you entered.
+  hashes, then the files Netlify doesn't have yet, to `api.netlify.com` with the access token you entered.
   [Terms](https://www.netlify.com/legal/terms-of-use/), [privacy policy](https://www.netlify.com/privacy/).
 * **Cloudflare**, when the deploy target is Cloudflare. Each deploy sends the built site's file list and changed files to
-  the Workers API of the account you entered, with your API token.
+  the Workers API (`api.cloudflare.com`) of the account you entered, with your API token.
   [Terms](https://www.cloudflare.com/terms/), [privacy policy](https://www.cloudflare.com/privacypolicy/).
 * **Cloudflare Turnstile**, when you choose it as the form captcha. Visitors' browsers load its script from
-  challenges.cloudflare.com on static pages with forms; each form answer is sent to Cloudflare for checking, with the
-  visitor's IP address, when the form is submitted.
+  challenges.cloudflare.com on static pages with forms; each form answer is sent there for checking
+  (`challenges.cloudflare.com/turnstile/v0/siteverify`), with the visitor's IP address, when the form is submitted.
   [Terms](https://www.cloudflare.com/website-terms/), [Turnstile privacy policy](https://www.cloudflare.com/turnstile-privacy-policy/).
 * **hCaptcha**, when you choose it as the form captcha. Visitors' browsers load its script from js.hcaptcha.com on
-  static pages with forms; each form answer is sent to hCaptcha for checking, with the visitor's IP address, when the
-  form is submitted. [Terms](https://www.hcaptcha.com/terms), [privacy policy](https://www.hcaptcha.com/privacy).
+  static pages with forms; each form answer is sent to hCaptcha for checking (`api.hcaptcha.com/siteverify`), with the
+  visitor's IP address, when the form is submitted. [Terms](https://www.hcaptcha.com/terms), [privacy policy](https://www.hcaptcha.com/privacy).
 
 A webhook address or SFTP server you enter receives what is described in Settings next to it; those are your own
 services.

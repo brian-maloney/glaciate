@@ -250,6 +250,9 @@ final class Recorder {
 			2
 		);
 
+		// These callbacks, like every observer here, only note which object was read and return the value unchanged,
+		// so they don't escape it: core and themes escape titles and names where they print them, and escaping here
+		// as well would double-escape every title on the page (an "&" would show as "&amp;").
 		$post_id = function ( $value, $post = null ) {
 			$id = $post instanceof \WP_Post ? $post->ID : (int) $post;
 			$this->add( 'post', $id );

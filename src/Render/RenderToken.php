@@ -18,12 +18,6 @@ final class RenderToken {
 	/** Request header name. */
 	const HEADER = 'X-Glaciate-Render';
 
-	/** Response header name echoed by the recorder. */
-	const RECORDED_HEADER = 'X-Glaciate-Recorded';
-
-	/** Response header the recorder sends when the page must not be published. */
-	const EXCLUDE_HEADER = 'X-Glaciate-Exclude';
-
 	/** Option holding the HMAC key. */
 	const KEY_OPTION = 'glaciate_render_key';
 
@@ -74,6 +68,17 @@ final class RenderToken {
 		$expires = ( $now > 0 ? $now : time() ) + $ttl;
 		$payload = $build_id . '.' . $url_id . '.' . $expires;
 		return $payload . '.' . hash_hmac( 'sha256', $payload, $this->key );
+	}
+
+	/**
+	 * The mark a render stores for a token: the crawler compares it with the token it sent to tell that this render
+	 * produced the response, rather than a page cache or an earlier request.
+	 *
+	 * @param string $token Header value.
+	 * @return string SHA-256 hex digest.
+	 */
+	public static function mark( string $token ): string {
+		return hash( 'sha256', $token );
 	}
 
 	/**

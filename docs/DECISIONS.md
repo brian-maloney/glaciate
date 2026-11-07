@@ -729,6 +729,8 @@ unique actions carry the build ID, and only one build runs at a time, so nothing
 
 ## D44. The page recorder closes its own output buffer
 
+*Superseded by D45: the recorder no longer buffers output.*
+
 The recorder buffers a render's output so it can add the confirmation and exclusion headers at shutdown, after the
 page has run; the build reads them from the response. It used to leave closing the buffer to
 WordPress's `wp_ob_end_flush_all()` at shutdown priority 1; the WordPress.org review flagged that as an unclosed
@@ -737,3 +739,22 @@ together with any buffer opened after it, right after setting the headers.
 
 WordPress 6.9's template enhancement output buffer would avoid a buffer of our own, but it only wraps responses
 rendered from a theme template. Feeds, sitemaps and robots.txt are rendered too, and need the same headers.
+
+
+## D45. The page recorder reports through the database, not response headers
+
+D44 kept the recorder's output buffer, which spans the whole render request, and closed it in the shutdown callback.
+The WordPress.org guidelines ask for every `ob_start()` to be closed in the same function. The buffer existed only so
+the recorder could send two response headers after the page had run: `X-Glaciate-Recorded`, which proved the render
+(not a page cache) answered, and `X-Glaciate-Exclude`.
+
+The recorder now writes both into the URL's row, in the update that already stored the dependency state: `render_mark`,
+the SHA-256 of the render token the request carried, and `render_exclude`. The runner already reloaded the row after
+each response; it now compares the mark with the token it sent (`hash_equals`). The token includes the build and an
+expiry time, so a mark from an earlier build or an earlier attempt doesn't match. No queries are added, and pages are
+no longer held in memory while they render.
+
+PHP runs shutdown callbacks before it ends the response, so the row is written by the time the crawler has the whole
+page. A host or plugin that ends the response early (`fastcgi_finish_request()`) can make the crawler read the row
+first; the mark then doesn't match and the page falls back to `deps=unknown`, as a missing header did before. A
+theme that flushes output early, which used to prevent the headers and so the confirmation, is now recorded normally.

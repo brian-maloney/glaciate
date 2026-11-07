@@ -15,7 +15,7 @@ namespace Glaciate\Storage;
 final class Schema {
 
 	/** Bump when the table definitions change. */
-	const VERSION = 3;
+	const VERSION = 4;
 
 	/** Option holding the installed schema version. */
 	const OPTION = 'glaciate_schema_version';
@@ -99,6 +99,8 @@ content_type varchar(100) NOT NULL DEFAULT '',
 content_hash char(64) NULL DEFAULT NULL,
 size bigint(20) unsigned NOT NULL DEFAULT 0,
 deps_state varchar(10) NOT NULL DEFAULT 'none',
+render_mark char(64) NULL DEFAULT NULL,
+render_exclude varchar(64) NOT NULL DEFAULT '',
 redirect_to text NULL,
 last_build_id bigint(20) unsigned NOT NULL DEFAULT 0,
 rendered_at datetime NULL DEFAULT NULL,

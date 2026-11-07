@@ -55,6 +55,13 @@ final class RenderResult {
 	public $recorded = false;
 
 	/**
+	 * Why the recorder left the page out of the static site, or "" to publish it. Only meaningful when recorded.
+	 *
+	 * @var string
+	 */
+	public $exclude = '';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param string $url Requested URL.

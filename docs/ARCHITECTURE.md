@@ -35,16 +35,19 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   stored in an option with `autoload=no`. The render-side `Recorder` boots only when the token verifies (`hash_equals`)
   and the build is active. The token **grants no privileges**. It only turns on recording, hides the admin bar and
   sets `DONOTCACHEPAGE`.
-- At shutdown, the Recorder writes the deps for (build, URL) into the DB and sends back `X-Glaciate-Recorded: <build_id>`.
-  If that header is missing, a page cache answered the request instead of WordPress. The URL is then marked `deps=unknown`
-  (always rebuilt on any change) and Site Health warns.
+- At shutdown, the Recorder writes the deps for (build, URL) into the DB, and in the URL's row the render's mark
+  (SHA-256 of the token it carried) and any exclusion reason. Nothing is buffered and no response header is sent (D45).
+  The crawler reloads the row after the response and compares the mark with the token it sent. If they differ, a page
+  cache answered the request instead of WordPress. The URL is then marked `deps=unknown` (always rebuilt on any change)
+  and Site Health warns.
 - Response checks: status, content-type, size cap (default 20 MB), `logged-in` body class (must not appear), redirect target.
 - Back-off (`Build\Backoff`): a 429, 500, 502, 503 or 504 answer puts the address back in the queue (three tries in all,
   then it fails and its published file stays), pauses the build for `Retry-After` (at most 300 s) or 5, 10, 20 … up to
   120 s (`glaciate_backoff_seconds`), and halves the requests sent at once for the rest of the build. The slice ends
   with `Runner::WAIT`; the queue schedules the next one for when the wait is over, and `--sync` sleeps.
-- The recorder can also mark a page as excluded with `X-Glaciate-Exclude` (password-protected posts by default, or
-  anything the `glaciate_exclude_render` filter decides); excluded pages are removed like 404s.
+- The recorder can also mark a page as excluded through the row's `render_exclude` (password-protected posts by
+  default, or anything the `glaciate_exclude_render` filter decides); excluded pages are removed like 404s. It counts
+  only when the mark matches.
 
 ## URL rewriting
 - `OriginSet` holds every form of the origin: `home_url` and `site_url`, http and https, protocol-relative `//host`,

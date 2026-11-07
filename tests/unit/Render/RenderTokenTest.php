@@ -60,6 +60,15 @@ final class RenderTokenTest extends TestCase {
 		);
 	}
 
+	public function test_each_token_has_its_own_mark(): void {
+		$tokens = new RenderToken( str_repeat( 'k', 64 ) );
+		$first  = RenderToken::mark( $tokens->issue( 7, 42, 900, 1000 ) );
+		$this->assertMatchesRegularExpression( '/^[0-9a-f]{64}$/', $first );
+		$this->assertSame( $first, RenderToken::mark( $tokens->issue( 7, 42, 900, 1000 ) ) );
+		$this->assertNotSame( $first, RenderToken::mark( $tokens->issue( 8, 42, 900, 1000 ) ), 'Another build.' );
+		$this->assertNotSame( $first, RenderToken::mark( $tokens->issue( 7, 42, 900, 1001 ) ), 'A later request.' );
+	}
+
 	public function test_short_key_is_refused(): void {
 		$this->expectException( \InvalidArgumentException::class );
 		new RenderToken( 'short' );

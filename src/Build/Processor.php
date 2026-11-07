@@ -15,7 +15,6 @@ use Glaciate\Forms\FormMarkup;
 use Glaciate\Output\Cache;
 use Glaciate\Output\UnsafePathException;
 use Glaciate\Render\RenderResult;
-use Glaciate\Render\RenderToken;
 use Glaciate\Rewrite\NonceStripper;
 use Glaciate\Rewrite\OriginSet;
 use Glaciate\Rewrite\UrlRewriter;
@@ -232,7 +231,7 @@ final class Processor {
 			return self::outcome( 'gone' );
 		}
 
-		$exclude = $result->recorded ? ( $result->headers[ strtolower( RenderToken::EXCLUDE_HEADER ) ] ?? '' ) : '';
+		$exclude = $result->recorded ? $result->exclude : '';
 		if ( '' !== $exclude ) {
 			/* translators: 1: address, 2: reason. */
 			$this->logger->info( sprintf( __( 'Left out %1$s (%2$s).', 'glaciate' ), $row['url'], $exclude ) );

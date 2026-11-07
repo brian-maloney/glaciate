@@ -10,6 +10,7 @@ namespace Glaciate\Tests\Integration\Render;
 use Glaciate\Deps\DependencyStore;
 use Glaciate\Deps\QuerySignature;
 use Glaciate\Render\Recorder;
+use Glaciate\Render\RenderToken;
 use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Settings;
 
@@ -17,7 +18,7 @@ final class RecorderTest extends \WP_UnitTestCase {
 
 	private function record( callable $render ): array {
 		$url_id   = ( new UrlRepository() )->ensure( 'https://example.test/x/' );
-		$recorder = new Recorder( 1, $url_id );
+		$recorder = new Recorder( $url_id );
 		$recorder->observe();
 		$render();
 		$recorder->finish();
@@ -176,27 +177,44 @@ final class RecorderTest extends \WP_UnitTestCase {
 	public function test_dependency_state_is_recorded(): void {
 		$urls = new UrlRepository();
 		$id   = $urls->ensure( 'https://example.test/state/' );
-		$r    = new Recorder( 1, $id );
+		$r    = new Recorder( $id );
 		$r->observe();
 		$r->finish();
 		$this->assertSame( 'recorded', $urls->get( $id )['deps_state'] );
 	}
 
-	public function test_closes_its_output_buffer_when_it_finishes(): void {
+	public function test_stores_the_render_mark_and_buffers_nothing(): void {
+		$urls     = new UrlRepository();
+		$id       = $urls->ensure( 'https://example.test/marked/' );
+		$mark     = RenderToken::mark( '1.' . $id . '.9999999999.' . str_repeat( 'b', 64 ) );
 		$level    = ob_get_level();
-		$recorder = new Recorder( 1, ( new UrlRepository() )->ensure( 'https://example.test/buffered/' ) );
+		$recorder = new Recorder( $id, $mark );
 		$start    = new \ReflectionMethod( Recorder::class, 'start' );
 		$start->setAccessible( true );
 		$start->invoke( $recorder );
-		$this->assertSame( $level + 1, ob_get_level(), 'The render is buffered.' );
+		$this->assertSame( $level, ob_get_level(), 'The render opens no output buffer.' );
 
-		echo 'page';
-		ob_start(); // A buffer someone else left open.
-		echo ' end';
 		$recorder->finish();
 
-		$this->assertSame( $level, ob_get_level() );
-		$this->expectOutputString( 'page end' );
+		$row = $urls->get( $id );
+		$this->assertSame( $mark, $row['render_mark'] );
+		$this->assertSame( '', $row['render_exclude'] );
+	}
+
+	public function test_stores_the_exclusion_reason(): void {
+		$urls = new UrlRepository();
+		$id   = $urls->ensure( 'https://example.test/left-out/' );
+		add_filter(
+			'glaciate_exclude_render',
+			static function () {
+				return 'Members-Only!';
+			}
+		);
+		$recorder = new Recorder( $id, RenderToken::mark( 'token' ) );
+		$recorder->observe();
+		$recorder->finish();
+
+		$this->assertSame( 'members-only', $urls->get( $id )['render_exclude'] );
 	}
 
 	public function test_render_header_without_valid_token_does_not_start_recording(): void {
@@ -217,7 +235,7 @@ final class RecorderTest extends \WP_UnitTestCase {
 		Settings::update( array( 'feeds' => $feeds ) );
 		$clean = new \ReflectionMethod( Recorder::class, 'clean_output' );
 		$clean->setAccessible( true );
-		$clean->invoke( new Recorder( 1, 1 ) );
+		$clean->invoke( new Recorder( 1 ) );
 		$this->go_to( $url );
 		$supported = current_theme_supports( 'automatic-feed-links' );
 		add_theme_support( 'automatic-feed-links' );

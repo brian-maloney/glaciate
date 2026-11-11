@@ -141,4 +141,33 @@ final class AdminActionsTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'sat', 'sun' ), $clean['publish_days'] );
 		$this->assertContains( 'glaciate_publish_times', wp_list_pluck( get_settings_errors( Settings::OPTION ), 'code' ) );
 	}
+
+	public function test_settings_errors_are_escaped_before_wordpress_prints_them(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		if ( is_multisite() ) {
+			grant_super_admin( $admin );
+		}
+		wp_set_current_user( $admin );
+		$GLOBALS['wp_settings_errors'] = array(); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Errors from earlier tests.
+		$_POST['option_page']          = SettingsPage::GROUP;
+
+		// settings_errors() prints a message as it is, so markup in a translation or a label would reach the page.
+		$markup = static function ( $translation, $text, $domain ) {
+			return 'glaciate' === $domain && 'Choose at least one day to publish on.' === $text ? 'Choose <b>a day</b> & "save"' : $translation;
+		};
+		add_filter( 'gettext', $markup, 10, 3 );
+		SettingsPage::sanitize(
+			array(
+				'target'        => 'local',
+				'local_path'    => WP_CONTENT_DIR,
+				'publish_mode'  => 'scheduled',
+				'publish_times' => '9:00',
+			)
+		);
+		remove_filter( 'gettext', $markup, 10 );
+
+		$messages = wp_list_pluck( get_settings_errors( Settings::OPTION ), 'message', 'code' );
+		$this->assertSame( 'Choose &lt;b&gt;a day&lt;/b&gt; &amp; &quot;save&quot;', $messages['glaciate_publish_days'] );
+		$this->assertArrayHasKey( 'glaciate_local_path', $messages, 'the folder problem is still reported' );
+	}
 }

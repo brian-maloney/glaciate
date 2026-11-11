@@ -184,7 +184,7 @@ final class SettingsPage {
 		if ( 'local' === $clean['target'] && '' !== $clean['local_path'] ) {
 			$problem = TargetPolicy::for_wordpress()->problem( $clean['local_path'] );
 			if ( null !== $problem ) {
-				add_settings_error( Settings::OPTION, 'glaciate_local_path', $problem );
+				self::error( 'glaciate_local_path', $problem );
 				$clean['local_path'] = $current['local_path'] ?? '';
 			}
 		}
@@ -228,7 +228,7 @@ final class SettingsPage {
 				$clean = TargetConfig::clean( $def, $raw );
 				if ( null === $clean ) {
 					/* translators: 1: target name, 2: field label. */
-					add_settings_error( Settings::OPTION, 'glaciate_' . $id . '_' . $name, sprintf( __( '%1$s: that is not a valid %2$s. The previous value was kept.', 'glaciate' ), $deployer->label(), $def['label'] ) );
+					self::error( 'glaciate_' . $id . '_' . $name, sprintf( __( '%1$s: that is not a valid %2$s. The previous value was kept.', 'glaciate' ), $deployer->label(), $def['label'] ) );
 					continue;
 				}
 				$out[ $id ][ $name ] = $clean;
@@ -254,13 +254,13 @@ final class SettingsPage {
 		$days  = \Glaciate\Build\Schedule::parse_days( $input['publish_days'] ?? array() );
 		if ( ! $times ) {
 			if ( 'scheduled' === $input['publish_mode'] ) {
-				add_settings_error( Settings::OPTION, 'glaciate_publish_times', __( 'Enter at least one publishing time, such as 09:00.', 'glaciate' ) );
+				self::error( 'glaciate_publish_times', __( 'Enter at least one publishing time, such as 09:00.', 'glaciate' ) );
 			}
 			$times = $current['publish_times'] ?? $defaults['publish_times'];
 		}
 		if ( ! $days ) {
 			if ( 'scheduled' === $input['publish_mode'] ) {
-				add_settings_error( Settings::OPTION, 'glaciate_publish_days', __( 'Choose at least one day to publish on.', 'glaciate' ) );
+				self::error( 'glaciate_publish_days', __( 'Choose at least one day to publish on.', 'glaciate' ) );
 			}
 			$days = $current['publish_days'] ?? $defaults['publish_days'];
 		}
@@ -341,6 +341,18 @@ final class SettingsPage {
 		do_settings_sections( Admin::SETTINGS_PAGE );
 		submit_button();
 		echo '</form></div>';
+	}
+
+	/**
+	 * Reports a problem with what was entered. WordPress prints these messages as HTML, without escaping them
+	 * (`settings_errors()`), so they are escaped here.
+	 *
+	 * @param string $code    Error code.
+	 * @param string $message Plain text.
+	 * @return void
+	 */
+	private static function error( string $code, string $message ): void {
+		add_settings_error( Settings::OPTION, $code, esc_html( $message ) );
 	}
 
 	/**

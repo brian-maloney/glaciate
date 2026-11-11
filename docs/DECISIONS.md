@@ -758,3 +758,20 @@ PHP runs shutdown callbacks before it ends the response, so the row is written b
 page. A host or plugin that ends the response early (`fastcgi_finish_request()`) can make the crawler read the row
 first; the mark then doesn't match and the page falls back to `deps=unknown`, as a missing header did before. A
 theme that flushes output early, which used to prevent the headers and so the confirmation, is now recorded normally.
+
+
+## D46. Form adapters never copy a whole superglobal
+
+`Forms\Adapter\Request` sets `$_POST`, `$_REQUEST` and four `$_SERVER` entries from a submission while a form plugin
+runs. To put the request back afterwards it used to copy all three arrays first. The WordPress.org review flagged the
+copy of `$_SERVER`: input read without being sanitized. Nothing used the copies, but a whole superglobal can't be
+sanitized in any meaningful way, so the adapter no longer takes one.
+
+- **`$_SERVER`.** Only the entries a submission replaces (`REQUEST_METHOD`, `HTTP_USER_AGENT`, `REMOTE_ADDR`,
+  `HTTP_REFERER`) are read, each unslashed and sanitized, and written back slashed, as WordPress keeps them. An entry
+  that wasn't set is removed again. A restored value can differ from the original only where sanitizing changes it
+  (tags or control characters in a User-Agent).
+- **`$_POST` and `$_REQUEST`.** They are emptied afterwards instead of restored. The only callers are the two form
+  routes, where the request's own POST data is the submission (or its signed envelope) and the receiver has already
+  taken it from the `WP_REST_Request`. Leaving the submission in place was the alternative; emptying means a
+  visitor's fields are never in `$_POST` once the current user is back.

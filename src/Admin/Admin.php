@@ -159,7 +159,7 @@ final class Admin {
 	 */
 	public static function handle_build(): void {
 		self::guard( 'build', Capabilities::PUBLISH );
-		$kind = isset( $_GET['kind'] ) && 'full' === $_GET['kind'] ? 'full' : 'incremental'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Verified in guard().
+		$kind = isset( $_GET['kind'] ) && 'full' === sanitize_key( wp_unslash( $_GET['kind'] ) ) ? 'full' : 'incremental'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Verified in guard().
 		if ( ! get_option( 'glaciate_published_once' ) ) {
 			$kind = 'full';
 		}

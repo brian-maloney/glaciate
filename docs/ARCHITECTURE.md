@@ -259,7 +259,8 @@ from the internet at its own address) or `receiver` (a receiver run elsewhere, a
   `WPForms_Process::process()`), Gravity Forms (`gravityforms:<id>`, through `GFAPI::submit_form()`), the comment form
   (`comments`, through `wp_handle_comment_submission()`) and any form marked `data-glaciate-form="<name>"`
   (`form:<name>`, emailed to `forms_email`). `glaciate_form_adapters` adds more. Each runs the plugin with `$_POST`,
-  the visitor's IP address and User-Agent set from the submission and no logged-in user (`Adapter\Request`).
+  the visitor's IP address and User-Agent set from the submission and no logged-in user (`Adapter\Request`), then
+  puts back the `$_SERVER` entries it changed and the user, and empties `$_POST` and `$_REQUEST` (D46).
 - **Rewriting** (`Forms\FormMarkup`) runs in the processor right after URL rewriting, so a receiver on the origin keeps
   its address. A recognized form gets the receiver as `action`, `method="post"`, `data-glaciate-form`, and four fields
   inserted after its start tag: `glaciate_form` (key), `glaciate_page` (public page address), an empty

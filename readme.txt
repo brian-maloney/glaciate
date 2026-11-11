@@ -4,7 +4,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,10 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 2.0.1 =
+* Fixed: backslashes a visitor typed into a Contact Form 7 form on the static site were removed from the message.
+* Changed: while a form plugin handles a submission, Glaciate reads and restores only the request details it replaces (the visitor's address, browser and page) instead of copying all of `$_SERVER`, and it empties `$_POST` and `$_REQUEST` afterwards.
 
 = 2.0.0 =
 * Changed: the plugin has a new name, Glaciate. It's a clean break: 2.0.0 reads nothing that 1.x stored, so to move a site over, delete the 1.x plugin, then install this one and set it up again. Hooks, options, constants (`GLACIATE_…`), the REST namespace (`glaciate/v1`) and the WP-CLI command (`wp glaciate`) are renamed to match.

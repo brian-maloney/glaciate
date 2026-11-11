@@ -69,7 +69,7 @@ final class FormPluginsTest extends WP_UnitTestCase {
 				array( 'your-name', 'Ada' ),
 				array( 'your-email', $email ),
 				array( 'your-subject', 'Hello' ),
-				array( 'your-message', 'From the static site.' ),
+				array( 'your-message', 'From the static site. It\'s in C:\new\site.' ),
 			);
 		};
 
@@ -84,7 +84,7 @@ final class FormPluginsTest extends WP_UnitTestCase {
 		$this->assertSame( Result::text( $form->message( 'mail_sent_ok' ) ), $sent->message );
 		$mail = tests_retrieve_phpmailer_instance()->get_sent();
 		$this->assertSame( 'owner@example.org', $mail->to[0][0] );
-		$this->assertStringContainsString( 'From the static site.', $mail->body );
+		$this->assertStringContainsString( 'From the static site. It\'s in C:\new\site.', $mail->body, 'quotes and backslashes arrive as typed' );
 	}
 
 	public function test_wpforms(): void {
@@ -151,7 +151,7 @@ final class FormPluginsTest extends WP_UnitTestCase {
 				array( 'glaciate_t', '9' ),
 				array( 'wpforms[fields][1]', 'Ada' ),
 				array( 'wpforms[fields][2]', $email ),
-				array( 'wpforms[fields][3]', 'From the static site.' ),
+				array( 'wpforms[fields][3]', 'From the static site, in C:\new\site.' ),
 				array( 'wpforms[id]', (string) $id ),
 				array( 'wpforms[time_token]', '' ),
 				array( 'wpforms[post_id]', '0' ),
@@ -169,6 +169,8 @@ final class FormPluginsTest extends WP_UnitTestCase {
 		$mail = tests_retrieve_phpmailer_instance()->get_sent();
 		$this->assertSame( 'owner@example.org', $mail->to[0][0] );
 		$this->assertStringContainsString( 'ada@example.com', $mail->body );
+		// The HTML notification is quoted-printable, which wraps lines anywhere.
+		$this->assertStringContainsString( 'From the static site, in C:\new\site.', quoted_printable_decode( $mail->body ), 'backslashes arrive as typed' );
 		$this->assertFalse( has_filter( 'wp_doing_ajax', '__return_true' ), 'bypass filters are removed' );
 	}
 

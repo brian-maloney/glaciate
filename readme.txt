@@ -86,6 +86,7 @@ Drafts, private posts and password-protected posts are never published. You can 
 == Changelog ==
 
 = 2.0.1 =
+* Fixed: backslashes a visitor typed into a Contact Form 7 form on the static site were removed from the message.
 * Changed: while a form plugin handles a submission, Glaciate reads and restores only the request details it replaces (the visitor's address, browser and page) instead of copying all of `$_SERVER`, and it empties `$_POST` and `$_REQUEST` afterwards.
 
 = 2.0.0 =

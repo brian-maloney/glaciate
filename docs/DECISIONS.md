@@ -775,3 +775,18 @@ sanitized in any meaningful way, so the adapter no longer takes one.
   routes, where the request's own POST data is the submission (or its signed envelope) and the receiver has already
   taken it from the `WP_REST_Request`. Leaving the submission in place was the alternative; emptying means a
   visitor's fields are never in `$_POST` once the current user is back.
+
+
+## D47. Form adapters set the superglobals slashed
+
+WordPress adds slashes to `$_GET`, `$_POST`, `$_COOKIE` and `$_SERVER` when it starts (`wp_magic_quotes()`), and
+plugins remove them from what they read (`wp_unslash()`). A submission's fields come from the `WP_REST_Request` or a
+relayed body, without slashes. `Forms\Adapter\Request` used to put them in `$_POST` as they were, so a plugin that
+reads `$_POST` removed slashes that had never been added: Contact Form 7 turned a visitor's `C:\new\site` into
+`C:newsite`. Quotes were unaffected, which is why it went unnoticed.
+
+`Request::run()` now takes the fields as the visitor sent them and passes them through `wp_slash()` on the way into
+`$_POST`, `$_REQUEST` and `$_SERVER`. Values handed to a plugin's function instead of a superglobal stay as they are:
+`wp_handle_comment_submission()` and `WPForms_Process::process()` expect data without slashes, and tests cover both.
+`GFAPI::submit_form()` also gets its input values without slashes, as its documentation shows them; that one is
+untested against the real plugin, which isn't on WordPress.org.

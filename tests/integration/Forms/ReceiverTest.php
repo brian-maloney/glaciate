@@ -229,7 +229,7 @@ final class ReceiverTest extends WP_UnitTestCase {
 			array( 'comment_parent', '0' ),
 			array( 'author', 'Grace' ),
 			array( 'email', 'grace@example.com' ),
-			array( 'comment', 'A static comment.' ),
+			array( 'comment', 'A static comment: it\'s in C:\new\site.' ),
 		);
 		$result = $this->receiver()->direct( $pairs, '203.0.113.11', 'Mozilla/5.0', '' );
 		$this->assertTrue( $result->ok(), $result->message );
@@ -239,6 +239,7 @@ final class ReceiverTest extends WP_UnitTestCase {
 		$this->assertSame( '0', $comments[0]->user_id );
 		$this->assertSame( '203.0.113.11', $comments[0]->comment_author_IP );
 		$this->assertSame( '0', $comments[0]->comment_approved );
+		$this->assertSame( 'A static comment: it\'s in C:\new\site.', $comments[0]->comment_content, 'quotes and backslashes are stored as typed' );
 		$this->assertSame( $admin, get_current_user_id(), 'the current user is restored' );
 
 		$missing = $this->receiver()->direct( array( array( 'glaciate_form', 'comments' ), array( 'comment_post_ID', (string) $post ), array( 'comment', 'x' ) ), '203.0.113.12', 'UA', '' );

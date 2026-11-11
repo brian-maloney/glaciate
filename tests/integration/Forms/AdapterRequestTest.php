@@ -99,6 +99,29 @@ final class AdapterRequestTest extends WP_UnitTestCase {
 		);
 	}
 
+	public function test_the_callback_sees_slashed_values_as_wordpress_sets_them(): void {
+		$typed      = array(
+			'name'    => 'Grace O\'Brien',
+			'message' => 'It is in C:\\new\\site, she said "there".',
+			'choices' => array( 'a\\b', 'plain' ),
+		);
+		$submission = Submission::from_pairs( array( array( 'glaciate_form', 'form:contact' ) ), '203.0.113.7', 'Visitor\\1.0 (O\'Brien)', true );
+
+		$seen = Request::run(
+			$submission,
+			$typed,
+			static function () {
+				return self::seen();
+			}
+		);
+
+		$this->assertSame( 'Grace O\\\'Brien', $seen['post']['name'], 'slashed, like a field WordPress received itself' );
+		$this->assertSame( $typed, wp_unslash( $seen['post'] ), 'a plugin that removes the slashes gets what the visitor typed' );
+		$this->assertSame( $typed, wp_unslash( $seen['request'] ) );
+		$this->assertSame( 'Visitor\\1.0 (O\'Brien)', wp_unslash( $seen['HTTP_USER_AGENT'] ) );
+		$this->assertNotSame( 'Visitor\\1.0 (O\'Brien)', $seen['HTTP_USER_AGENT'] );
+	}
+
 	public function test_the_request_is_put_back_afterwards(): void {
 		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		wp_set_current_user( $admin );

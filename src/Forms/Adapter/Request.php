@@ -14,8 +14,11 @@ use Glaciate\Forms\Submission;
  * the submitted fields, the visitor's IP address and User-Agent (which matter when a separate receiver forwarded the
  * submission), and no logged-in user, so nothing is attributed to an account.
  *
+ * WordPress adds slashes to these arrays when it starts (wp_magic_quotes()) and plugins remove them from what they
+ * read, so the values are set slashed too. Without that a plugin would strip the backslashes a visitor typed.
+ *
  * Afterwards it puts back the `$_SERVER` entries it changed and the current user, and empties `$_POST` and
- * `$_REQUEST`. It never copies a whole superglobal: see DECISIONS.md D46.
+ * `$_REQUEST`. It never copies a whole superglobal: see DECISIONS.md D46 and D47.
  */
 final class Request {
 
@@ -23,7 +26,7 @@ final class Request {
 	 * Calls a function with the request set up from a submission.
 	 *
 	 * @param Submission          $submission Submission.
-	 * @param array<string,mixed> $post       Value for `$_POST`.
+	 * @param array<string,mixed> $post       Fields for `$_POST`, as the visitor sent them (without slashes).
 	 * @param callable            $callback   Function to run.
 	 * @return mixed What the callback returned.
 	 */
@@ -42,10 +45,10 @@ final class Request {
 		$user  = get_current_user_id();
 
 		foreach ( $server as $name => $value ) {
-			$_SERVER[ $name ] = $value;
+			$_SERVER[ $name ] = wp_slash( $value );
 		}
-		$_POST    = $post;
-		$_REQUEST = $post;
+		$_POST    = wp_slash( $post );
+		$_REQUEST = wp_slash( $post );
 		wp_set_current_user( 0 );
 		try {
 			return $callback();
@@ -56,7 +59,6 @@ final class Request {
 				if ( null === $value ) {
 					unset( $_SERVER[ $name ] );
 				} else {
-					// WordPress keeps this array slashed, as it does the posted fields.
 					$_SERVER[ $name ] = wp_slash( $value );
 				}
 			}

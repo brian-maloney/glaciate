@@ -7,6 +7,8 @@
 
 namespace Glaciate\Search;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Groups terms into shards by prefix. Pure: no WordPress calls.
  *

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Storage;
 
+defined( 'ABSPATH' ) || exit;
+
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table; change queue must always be read fresh.
 
 /**

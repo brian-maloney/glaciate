@@ -7,6 +7,8 @@
 
 namespace Glaciate\Service;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\Pipeline;
 use Glaciate\Build\Queue;
 use Glaciate\Deploy\Registry;

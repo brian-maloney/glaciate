@@ -7,6 +7,8 @@
 
 namespace Glaciate\Search;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Extracts a rendered page's text, scores its terms and stores them in the index.
  */

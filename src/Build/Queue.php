@@ -7,6 +7,8 @@
 
 namespace Glaciate\Build;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Storage\BuildRepository;
 use Glaciate\Support\Settings;
 
@@ -162,7 +164,7 @@ final class Queue {
 	 */
 	public static function handle_kick(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Authenticated by an HMAC instead of a nonce: the request comes from the server itself, without cookies.
-		$build_id = isset( $_POST['build'] ) ? absint( $_POST['build'] ) : 0;
+		$build_id = isset( $_POST['build'] ) ? absint( wp_unslash( $_POST['build'] ) ) : 0;
 		$token    = isset( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : '';
 		// phpcs:enable
 		if ( $build_id <= 0 || ! hash_equals( self::kick_token( $build_id ), $token ) || ! ( new BuildRepository() )->is_active( $build_id ) ) {

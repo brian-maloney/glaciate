@@ -7,6 +7,8 @@
 
 namespace Glaciate\Security;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Keeps a process-wide list of secret values and scrubs them from any string (threat T10).
  *

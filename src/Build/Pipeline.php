@@ -7,6 +7,8 @@
 
 namespace Glaciate\Build;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Crawl\AssetCopier;
 use Glaciate\Crawl\LinkExtractor;
 use Glaciate\Crawl\UrlClassifier;

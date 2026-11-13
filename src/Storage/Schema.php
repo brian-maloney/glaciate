@@ -7,6 +7,8 @@
 
 namespace Glaciate\Storage;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Creates and upgrades the plugin's custom tables with dbDelta().
  *

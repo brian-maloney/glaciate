@@ -7,6 +7,8 @@
 
 namespace Glaciate\Crawl;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Output\PathMapper;
 use Glaciate\Output\UnsafePathException;
 use Glaciate\Support\Paths;

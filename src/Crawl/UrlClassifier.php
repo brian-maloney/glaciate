@@ -7,6 +7,8 @@
 
 namespace Glaciate\Crawl;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Rewrite\OriginSet;
 use Glaciate\Security\UrlPolicy;
 

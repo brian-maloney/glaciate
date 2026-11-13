@@ -7,6 +7,8 @@
 
 namespace Glaciate\Render;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Security\UrlPolicy;
 use WpOrg\Requests\Exception as RequestsException;
 use WpOrg\Requests\Exception\Transport\Curl as CurlException;

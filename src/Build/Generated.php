@@ -7,6 +7,8 @@
 
 namespace Glaciate\Build;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Output\UnsafePathException;
 use Glaciate\Storage\Schema;
 use Glaciate\Storage\UrlRepository;

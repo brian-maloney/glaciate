@@ -7,6 +7,8 @@
 
 namespace Glaciate\Rewrite;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Replaces every encoded form of the origin address, and of its aliases, with the public address.
  *

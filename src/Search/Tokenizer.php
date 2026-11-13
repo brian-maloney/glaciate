@@ -7,6 +7,8 @@
 
 namespace Glaciate\Search;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Turns text into the terms the search index stores. Pure: no WordPress calls.
  *

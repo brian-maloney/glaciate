@@ -7,6 +7,8 @@
 
 namespace Glaciate\Build;
 
+defined( 'ABSPATH' ) || exit;
+
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Atomic compare-and-set on the options table; the options API has no such primitive.
 
 /**

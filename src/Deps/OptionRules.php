@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deps;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Classifies options for dependency tracking.
  *

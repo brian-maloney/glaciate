@@ -7,6 +7,8 @@
 
 namespace Glaciate\Crawl;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Support\Settings;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Paged ID scans over core tables; caching would only waste memory.

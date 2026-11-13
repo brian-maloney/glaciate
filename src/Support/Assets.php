@@ -7,6 +7,8 @@
 
 namespace Glaciate\Support;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Gives each asset the plugin version as its cache-busting `ver`. Development builds (a version ending in "-dev")
  * keep that version while their files change, so browsers would serve stale scripts after an update from git; there

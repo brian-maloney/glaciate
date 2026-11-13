@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Produces a ready-to-deploy receiver from the files in receivers/, with this site's settings filled in: the public
  * site as the only allowed page origin, this site's relay route as the forward address, and the captcha provider and

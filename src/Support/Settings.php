@@ -7,6 +7,8 @@
 
 namespace Glaciate\Support;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Reads, sanitizes and stores the settings array.
  *

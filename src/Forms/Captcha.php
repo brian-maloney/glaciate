@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Verifies a Cloudflare Turnstile or hCaptcha answer with the provider. Both are outside services, so a captcha is
  * only used when the site owner turns it on (`forms_captcha`); then visitors' browsers load the provider's script

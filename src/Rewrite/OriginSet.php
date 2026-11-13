@@ -7,6 +7,8 @@
 
 namespace Glaciate\Rewrite;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Support\Url;
 
 /**

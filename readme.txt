@@ -4,7 +4,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.0.1
+Stable tag: 2.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,11 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 2.0.2 =
+* Changed: while a page is rendered for the static site, Glaciate no longer adds filters to titles, links, author names or anything else on the page to learn what the page uses. It watches the same hooks without being able to change their values.
+* Changed: the page a visitor without JavaScript sees after sending a form is escaped where it is printed.
+* Changed: every PHP file of the plugin stops when it is requested directly instead of loaded by WordPress.
 
 = 2.0.1 =
 * Fixed: backslashes a visitor typed into a Contact Form 7 form on the static site were removed from the message.

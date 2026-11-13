@@ -72,15 +72,14 @@ final class EndpointTest extends WP_UnitTestCase {
 	public function test_html_answer_without_javascript(): void {
 		$response = self::submit( 'text/html,application/xhtml+xml', self::contact() );
 		$this->assertSame( Endpoint::HTML, $response->get_headers()['Content-Type'] );
-		$html = (string) $response->get_data();
-		$this->assertStringContainsString( 'Your message was sent', $html );
-		$this->assertStringContainsString( 'href="https://static.example.org/contact/"', $html );
-
 		$request = new WP_REST_Request( 'POST', '/glaciate/v1/forms/submit' );
 		ob_start();
 		$served = Endpoint::serve_html( false, $response, $request, rest_get_server() );
+		$html   = (string) ob_get_clean();
 		$this->assertTrue( $served );
-		$this->assertSame( $html, ob_get_clean() );
+		$this->assertStringStartsWith( '<!doctype html>', $html );
+		$this->assertStringContainsString( 'Your message was sent', $html );
+		$this->assertStringContainsString( 'href="https://static.example.org/contact/"', $html );
 
 		// Answers of other routes are left to the REST server.
 		$other = new WP_REST_Request( 'GET', '/glaciate/v1/status' );
@@ -88,9 +87,17 @@ final class EndpointTest extends WP_UnitTestCase {
 	}
 
 	public function test_back_link_stays_on_the_public_site(): void {
-		$html = (string) self::submit( 'text/html', array( 'glaciate_page' => 'https://evil.example/' ) + self::contact() )->get_data();
-		$this->assertStringContainsString( 'href="https://static.example.org"', $html );
-		$this->assertStringNotContainsString( 'evil.example', $html );
+		$response = self::submit( 'text/html', array( 'glaciate_page' => 'https://evil.example/' ) + self::contact() );
+		$this->assertSame( 'https://static.example.org', $response->get_data()['back'] );
+	}
+
+	public function test_the_html_page_escapes_every_part_where_it_prints_it(): void {
+		ob_start();
+		Endpoint::page( 'Tom & <b>Jerry</b>', array( '<script>alert(1)</script>', array( 'not text' ) ), 'javascript:alert(1)' );
+		$html = (string) ob_get_clean();
+		$this->assertStringContainsString( '<p>Tom &amp; &lt;b&gt;Jerry&lt;/b&gt;</p>', $html );
+		$this->assertStringContainsString( '<li>&lt;script&gt;alert(1)&lt;/script&gt;</li>', $html );
+		$this->assertStringNotContainsString( 'javascript:', $html );
 	}
 
 	public function test_relay_route(): void {

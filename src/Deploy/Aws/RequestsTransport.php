@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy\Aws;
 
+defined( 'ABSPATH' ) || exit;
+
 use WpOrg\Requests\Exception as RequestsException;
 use WpOrg\Requests\Hooks;
 use WpOrg\Requests\Requests;

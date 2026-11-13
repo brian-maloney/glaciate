@@ -7,6 +7,8 @@
 
 namespace Glaciate\Search;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Render\Recorder;
 use Glaciate\Support\Assets;
 use Glaciate\Support\Settings;

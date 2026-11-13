@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\Pipeline;
 use Glaciate\Rest\Controller;
 use Glaciate\Security\Secrets;

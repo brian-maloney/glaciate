@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\Pipeline;
 use Glaciate\Rewrite\UrlRewriter;
 use Glaciate\Support\Logger;

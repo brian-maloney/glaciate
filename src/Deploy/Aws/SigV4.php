@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy\Aws;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Signs requests to AWS (and S3-compatible) APIs with Signature Version 4.
  *

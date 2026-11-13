@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms\Adapter;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Forms\Config;
 use Glaciate\Forms\Result;
 use Glaciate\Forms\Submission;

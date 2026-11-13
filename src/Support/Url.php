@@ -7,6 +7,8 @@
 
 namespace Glaciate\Support;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Pure functions for working with URLs (RFC 3986). No WordPress calls.
  */

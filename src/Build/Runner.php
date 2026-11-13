@@ -7,6 +7,8 @@
 
 namespace Glaciate\Build;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Crawl\Seeds;
 use Glaciate\Deploy\Registry;
 use Glaciate\Deps\DependencyStore;

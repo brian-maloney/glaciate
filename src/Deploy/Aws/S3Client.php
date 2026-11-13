@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy\Aws;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Builds signed S3 requests and reads S3's XML answers. Only the calls a static-site deploy needs: HeadBucket,
  * PutObject, DeleteObjects and the multipart upload calls. Works with AWS and S3-compatible services (custom

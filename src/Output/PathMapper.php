@@ -7,6 +7,8 @@
 
 namespace Glaciate\Output;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * The only way the plugin turns a URL into a filesystem path (threat T2).
  *

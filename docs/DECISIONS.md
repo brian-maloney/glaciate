@@ -815,3 +815,21 @@ mechanism instead of two. `the_post` stays an action.
 - **Cost.** The callback runs for every hook of a render request (not of any other request) and returns after one
   array lookup for hooks it doesn't watch.
 
+
+## D49. Output is escaped where it is printed, with no exceptions to explain
+
+Three places printed HTML that was escaped earlier and silenced the coding standard's warning with a comment. They
+were correct, but a reviewer has to trace each one to see that. They now escape in the statement that prints:
+
+- `Forms\Endpoint`: the page for a visitor without JavaScript was built as a string in `page()` and printed by
+  `serve_html()`. The response now carries the message, the errors and the back link, and `page()` prints them.
+- `Admin\SettingsPage`: the receiver download links are printed one by one, and `disabled()` is called where its
+  result is printed instead of being kept in a variable.
+
+One remains: `Admin::handle_form_receiver()` sends a generated source file as a download (`Content-Disposition:
+attachment`, `nosniff`). Escaping it for HTML would corrupt it.
+
+Every file under `src/` now starts with `defined( 'ABSPATH' ) || exit;`. They only declare classes, so requesting one
+directly did nothing before either, but the guard makes that plain without reading the file. The unit suite, which
+runs without WordPress, defines `ABSPATH` in its bootstrap.
+

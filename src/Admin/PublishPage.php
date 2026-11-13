@@ -7,6 +7,8 @@
 
 namespace Glaciate\Admin;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Deploy\LocalDirectory;
 use Glaciate\Deploy\Registry;
 use Glaciate\Security\Capabilities;

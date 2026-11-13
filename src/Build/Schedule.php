@@ -7,6 +7,8 @@
 
 namespace Glaciate\Build;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Finds the next time a "these weekdays at these times" schedule fires, in a given timezone.
  *

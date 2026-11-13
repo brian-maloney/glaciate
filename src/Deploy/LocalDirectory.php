@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Output\Cache;
 use Glaciate\Output\PathMapper;
 use Glaciate\Output\UnsafePathException;

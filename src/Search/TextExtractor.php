@@ -7,6 +7,8 @@
 
 namespace Glaciate\Search;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Reads a page's title, text and excerpt with core's WP_HTML_Tag_Processor.
  *

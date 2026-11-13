@@ -7,6 +7,8 @@
 
 namespace Glaciate\Rest;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\BuildService;
 use Glaciate\Plugin;
 use Glaciate\Security\Capabilities;

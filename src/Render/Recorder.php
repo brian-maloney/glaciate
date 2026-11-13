@@ -7,6 +7,8 @@
 
 namespace Glaciate\Render;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Deps\DependencyStore;
 use Glaciate\Deps\OptionRules;
 use Glaciate\Deps\QuerySignature;

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Admin;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Security\Capabilities;
 use Glaciate\Service\StatusService;
 

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Storage\Schema;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table.

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Service;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\Pipeline;
 use Glaciate\Deps\Invalidator;
 use Glaciate\Storage\ChangeRepository;

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Counts of what a deploy changed, plus an optional location for the user (a directory, a download, a URL).
  */

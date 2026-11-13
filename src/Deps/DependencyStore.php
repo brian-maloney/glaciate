@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deps;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Storage\Schema;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom tables; dependency data must always be read fresh.

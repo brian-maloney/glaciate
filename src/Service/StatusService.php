@@ -7,6 +7,8 @@
 
 namespace Glaciate\Service;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\Frontier;
 use Glaciate\Build\Pipeline;
 use Glaciate\Deploy\LocalDirectory;

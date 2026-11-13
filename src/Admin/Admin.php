@@ -7,6 +7,8 @@
 
 namespace Glaciate\Admin;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\BuildService;
 use Glaciate\Deploy\Zip;
 use Glaciate\Plugin;

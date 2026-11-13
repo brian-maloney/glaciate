@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy\Git;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Writes a version 2 packfile of whole (undeltified) objects: "PACK", version, count, then for each object a
  * type-and-size header and its zlib-compressed body, then the SHA-1 of everything before it.

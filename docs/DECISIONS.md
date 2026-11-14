@@ -566,6 +566,15 @@ The overrides cross version ranges their parents declare. `rimraf@5` uses only `
 called with its `glob` option, which `@wordpress/env` doesn't pass. `qs@6.16+` keeps the parse and stringify behavior
 that Express uses. Remove each override once `@wordpress/env` depends on fixed versions itself (`npm ls qs glob`).
 
+`isomorphic-git` joined the list in 2.0.2: `@wp-playground/storage` (under `@wordpress/env`, still as of 3.1.64) pins
+`isomorphic-git@1.37.6` exactly, and the fixes for GHSA-9qw7-j9xw-fv9c
+(symlink checkout escape) and GHSA-cw2g-2vwq-88w6 (`..` path traversal) start at 1.38.6.
+The override stays inside major version 1, and the lockfile only loses browser polyfills (`buffer`, `readable-stream`
+and friends) that Node never needed. wp-env's own code doesn't import `isomorphic-git`; it comes in only through the
+Playground runtime, which we don't use (`.wp-env.json` runs Docker with local mappings). So nothing here reached the
+vulnerable code, but the override clears the alerts and lets Dependabot's security jobs succeed. Check with
+`npm ls isomorphic-git` too.
+
 ## D34. Nonces in inline scripts are emptied, not kept or stabilized
 
 Anonymous renders still print nonces: core's `wp.apiFetch.createNonceMiddleware( "…" )` wherever `wp-api-fetch` loads,

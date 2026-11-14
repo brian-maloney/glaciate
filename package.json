@@ -12,7 +12,8 @@
   },
   "overrides": {
     "glob": "^14.0.3",
-    "qs": "^6.16.1"
+    "qs": "^6.16.1",
+    "isomorphic-git": "^1.38.6"
   },
   "scripts": {
     "env": "wp-env",

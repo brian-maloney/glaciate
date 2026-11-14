@@ -7,6 +7,8 @@
 
 namespace Glaciate\Rewrite;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Anonymous renders still print nonces: core's `wp.apiFetch.createNonceMiddleware( "…" )`, `wpApiSettings.nonce`,
  * and the `*_nonce` keys plugins pass through `wp_localize_script()`. A nonce changes every twelve hours, so a page

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Admin;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Service\HealthChecks;
 
 /**

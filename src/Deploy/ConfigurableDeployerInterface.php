@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * A deployer that needs settings of its own (a bucket, a host, credentials). TargetConfig stores, validates and
  * resolves the values; the settings screen and `wp glaciate target` are generated from fields().

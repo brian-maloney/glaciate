@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Vendor\phpseclib3\Crypt\PublicKeyLoader;
 use Glaciate\Vendor\phpseclib3\Net\SFTP as SftpConnection;
 use Glaciate\Output\PathMapper;

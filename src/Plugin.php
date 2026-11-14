@@ -7,6 +7,8 @@
 
 namespace Glaciate;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\Queue;
 use Glaciate\Deps\ChangeListener;
 use Glaciate\Render\Recorder;

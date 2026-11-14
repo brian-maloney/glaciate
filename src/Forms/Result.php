@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * What the visitor is told. Messages are plain text: plugins' messages can contain HTML written for their own pages,
  * and the client shows answers with textContent, so markup is removed here.

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * A deployer whose work can take longer than one background slice (thousands of uploads). The build runner sets a
  * deadline before calling deploy(); the deployer stops starting new work once it passes and returns a result with

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Security;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Resolves deployer secrets (threat T10).
  *

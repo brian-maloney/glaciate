@@ -7,6 +7,8 @@
 
 namespace Glaciate\Security;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Guards against destructive deploy targets (threat T5).
  *

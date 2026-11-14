@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Field names Glaciate adds to published forms, the limits on a submission and the spam checks, as pure functions.
  *

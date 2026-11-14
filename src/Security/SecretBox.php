@@ -7,6 +7,8 @@
 
 namespace Glaciate\Security;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Seals and opens secrets with libsodium `secretbox` (XSalsa20-Poly1305).
  *

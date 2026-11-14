@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy\Git;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Deploy\Aws\Transport;
 
 /**

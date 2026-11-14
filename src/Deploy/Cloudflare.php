@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Deploy\Aws\RequestsTransport;
 use Glaciate\Deploy\Aws\Transport;
 use Glaciate\Output\PathMapper;

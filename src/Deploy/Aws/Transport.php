@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy\Aws;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Sends a batch of fully built (already signed) requests and returns their responses.
  *

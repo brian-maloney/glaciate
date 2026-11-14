@@ -7,6 +7,8 @@
 
 namespace Glaciate\Admin;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Deploy\ConfigurableDeployerInterface;
 use Glaciate\Deploy\DeployerInterface;
 use Glaciate\Deploy\LocalDirectory;
@@ -709,11 +711,13 @@ final class SettingsPage {
 			'cloudflare' => __( 'Cloudflare Worker', 'glaciate' ),
 			'netlify'    => __( 'Netlify Function', 'glaciate' ),
 		);
-		$links     = array();
+		echo '<p>' . esc_html__( 'Download a receiver:', 'glaciate' );
+		$separator = ' ';
 		foreach ( $downloads as $kind => $label ) {
-			$links[] = '<a href="' . esc_url( Admin::action_url( 'form_receiver', array( 'kind' => $kind ) ) ) . '">' . esc_html( $label ) . '</a>';
+			echo esc_html( $separator ) . '<a href="' . esc_url( Admin::action_url( 'form_receiver', array( 'kind' => $kind ) ) ) . '">' . esc_html( $label ) . '</a>';
+			$separator = ' · ';
 		}
-		echo '<p>' . esc_html__( 'Download a receiver:', 'glaciate' ) . ' ' . implode( ' · ', $links ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+		echo '</p>';
 	}
 
 	/**
@@ -920,7 +924,6 @@ final class SettingsPage {
 		$source   = TargetConfig::source( $deployer, $name );
 		$pinned   = in_array( $source, array( Secrets::SOURCE_CONSTANT, Secrets::SOURCE_ENVIRONMENT ), true );
 		$locked   = $pinned || ( $def['restricted'] && ! self::can_edit_paths() );
-		$disabled = disabled( $locked, true, false );
 		$describe = $input_id . '-description';
 
 		if ( 'secret' === $def['type'] ) {
@@ -934,7 +937,7 @@ final class SettingsPage {
 					esc_attr( $field ),
 					esc_attr( $describe ),
 					esc_attr( $saved ? __( 'Saved. Leave empty to keep it.', 'glaciate' ) : '' ),
-					$disabled // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- disabled() returns a fixed attribute.
+					disabled( $locked, true, false )
 				);
 			} else {
 				printf(
@@ -943,7 +946,7 @@ final class SettingsPage {
 					esc_attr( $field ),
 					esc_attr( $describe ),
 					esc_attr( $saved ? __( 'Saved. Leave empty to keep it.', 'glaciate' ) : '' ),
-					$disabled // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- disabled() returns a fixed attribute.
+					disabled( $locked, true, false )
 				);
 			}
 			echo '<p class="description" id="' . esc_attr( $describe ) . '">';
@@ -975,11 +978,11 @@ final class SettingsPage {
 				esc_attr( $field ),
 				esc_attr( $describe ),
 				checked( (bool) $value, true, false ),
-				$disabled, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- disabled() returns a fixed attribute.
+				disabled( $locked, true, false ),
 				esc_html( $def['label'] )
 			);
 		} elseif ( 'select' === $def['type'] ) {
-			echo '<select id="' . esc_attr( $input_id ) . '" name="' . esc_attr( $field ) . '" aria-describedby="' . esc_attr( $describe ) . '" ' . $disabled . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- disabled() returns a fixed attribute.
+			echo '<select id="' . esc_attr( $input_id ) . '" name="' . esc_attr( $field ) . '" aria-describedby="' . esc_attr( $describe ) . '" ' . disabled( $locked, true, false ) . '>';
 			foreach ( (array) $def['options'] as $option => $label ) {
 				echo '<option value="' . esc_attr( (string) $option ) . '"' . selected( (string) $value, (string) $option, false ) . '>' . esc_html( (string) $label ) . '</option>';
 			}
@@ -993,7 +996,7 @@ final class SettingsPage {
 				esc_attr( $stored ? (string) $value : '' ),
 				esc_attr( (string) $def['default'] ),
 				esc_attr( $describe ),
-				$disabled // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- disabled() returns a fixed attribute.
+				disabled( $locked, true, false )
 			);
 		}//end if
 		$notes = array();

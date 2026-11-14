@@ -790,3 +790,46 @@ reads `$_POST` removed slashes that had never been added: Contact Form 7 turned 
 `wp_handle_comment_submission()` and `WPForms_Process::process()` expect data without slashes, and tests cover both.
 `GFAPI::submit_form()` also gets its input values without slashes, as its documentation shows them; that one is
 untested against the real plugin, which isn't on WordPress.org.
+
+
+## D48. The page recorder watches hooks; it filters nothing
+
+To learn which posts, terms, users, options and queries a page uses, the recorder used to add pass-through filters
+(priority `PHP_INT_MAX`) to hooks such as `the_title`, `post_link` and `get_the_author_display_name`: each callback
+noted the object and returned the value unchanged. The WordPress.org review flagged the `the_title` callback twice for
+returning an unescaped value. Escaping there would be wrong (themes escape titles where they print them, so every `&`
+would be escaped twice, and titles may hold markup), but a callback that returns a value it didn't make can't be shown
+to be safe by reading it either.
+
+The recorder now registers one callback on WordPress's `all` hook, which core calls with the hook name and arguments
+before every filter and action, and whose return value is discarded. `Recorder::WATCHED` lists the hooks it looks at
+and what each tells it; `watch()` reads the arguments and returns nothing. So the recorder can't alter any value on
+the page, whatever it does. That goes for every hook it used to filter, not only the rendered ones, so there is one
+mechanism instead of two. `the_post` stays an action.
+
+- **Order.** `all` runs before the hook's own callbacks, where the old filters ran last. The recorder only reads
+  arguments that callbacks can't replace (the post, term or user a value belongs to, an option's name, a query
+  object), plus the value of `get_term`, `get_object_terms` and `render_block_data` before other filters see it.
+- **Query hooks.** `posts_pre_query` and the other `*_pre_query` hooks run through `apply_filters_ref_array()`, which
+  passes its arguments to `all` as one array; `watch()` unpacks it.
+- **Cost.** The callback runs for every hook of a render request (not of any other request) and returns after one
+  array lookup for hooks it doesn't watch.
+
+
+## D49. Output is escaped where it is printed, with no exceptions to explain
+
+Three places printed HTML that was escaped earlier and silenced the coding standard's warning with a comment. They
+were correct, but a reviewer has to trace each one to see that. They now escape in the statement that prints:
+
+- `Forms\Endpoint`: the page for a visitor without JavaScript was built as a string in `page()` and printed by
+  `serve_html()`. The response now carries the message, the errors and the back link, and `page()` prints them.
+- `Admin\SettingsPage`: the receiver download links are printed one by one, and `disabled()` is called where its
+  result is printed instead of being kept in a variable.
+
+One remains: `Admin::handle_form_receiver()` sends a generated source file as a download (`Content-Disposition:
+attachment`, `nosniff`). Escaping it for HTML would corrupt it.
+
+Every file under `src/` now starts with `defined( 'ABSPATH' ) || exit;`. They only declare classes, so requesting one
+directly did nothing before either, but the guard makes that plain without reading the file. The unit suite, which
+runs without WordPress, defines `ABSPATH` in its bootstrap.
+

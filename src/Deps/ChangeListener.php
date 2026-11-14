@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deps;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Render\Recorder;
 use Glaciate\Storage\ChangeRepository;
 

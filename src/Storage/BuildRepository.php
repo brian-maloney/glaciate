@@ -7,6 +7,8 @@
 
 namespace Glaciate\Storage;
 
+defined( 'ABSPATH' ) || exit;
+
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom tables; results are build state that must not be cached.
 
 /**

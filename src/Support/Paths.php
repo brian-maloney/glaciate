@@ -7,6 +7,8 @@
 
 namespace Glaciate\Support;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Resolves the data directory (build cache, ZIP archives, default local target).
  *

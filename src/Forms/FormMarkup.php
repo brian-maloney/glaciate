@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Forms\Adapter\VolatileMarkupInterface;
 
 /**

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Security;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Defines the plugin's capabilities.
  *

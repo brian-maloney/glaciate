@@ -123,6 +123,72 @@ final class RecorderTest extends \WP_UnitTestCase {
 		$this->assertSame( array( '*' ), $deps['cq'] );
 	}
 
+	public function test_titles_author_names_terms_and_blocks_read_by_id_are_recorded(): void {
+		$user  = self::factory()->user->create( array( 'display_name' => 'Ada' ) );
+		$post  = self::factory()->post->create();
+		$block = self::factory()->post->create( array( 'post_type' => 'wp_block' ) );
+		$cat   = self::factory()->category->create();
+		$deps  = $this->record(
+			static function () use ( $user, $post, $block, $cat ) {
+				get_the_title( $post );
+				get_the_author_meta( 'display_name', $user );
+				get_term_link( $cat, 'category' );
+				render_block(
+					array(
+						'blockName'    => 'core/block',
+						'attrs'        => array( 'ref' => $block ),
+						'innerBlocks'  => array(),
+						'innerHTML'    => '',
+						'innerContent' => array(),
+					)
+				);
+			}
+		);
+		$this->assertContains( (string) $post, $deps['post'] );
+		$this->assertContains( (string) $block, $deps['post'] );
+		$this->assertContains( (string) $user, $deps['user'] );
+		$this->assertContains( (string) $cat, $deps['term'] );
+	}
+
+	public function test_watching_adds_no_filter_and_leaves_every_value_as_it_was(): void {
+		$count  = static function (): array {
+			$out = array();
+			foreach ( array_keys( Recorder::WATCHED ) as $hook ) {
+				$out[ $hook ] = isset( $GLOBALS['wp_filter'][ $hook ] ) ? count( $GLOBALS['wp_filter'][ $hook ]->callbacks, COUNT_RECURSIVE ) : 0;
+			}
+			return $out;
+		};
+		$id     = self::factory()->post->create( array( 'post_title' => 'Tom & Jerry <em>again</em>' ) );
+		$title  = get_the_title( $id );
+		$link   = get_permalink( $id );
+		$before = $count();
+		$during = array();
+		$deps   = $this->record(
+			static function () use ( $id, $count, &$during ) {
+				$during = array( $count(), get_the_title( $id ), get_permalink( $id ) );
+			}
+		);
+		$this->assertSame( array( $before, $title, $link ), $during );
+		$this->assertContains( (string) $id, $deps['post'] );
+	}
+
+	public function test_a_hook_called_with_unexpected_arguments_is_ignored(): void {
+		$deps = $this->record(
+			static function () {
+				// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core hooks, called the way a careless plugin might.
+				apply_filters( 'the_title', 'No ID' );
+				apply_filters( 'the_title', 'An object', new \stdClass() );
+				apply_filters( 'author_link', 'https://example.test/', array( 'x' ) );
+				apply_filters( 'get_object_terms', 'not a list' );
+				apply_filters( 'posts_pre_query', null );
+				// phpcs:enable
+			}
+		);
+		$this->assertArrayNotHasKey( 'post', $deps );
+		$this->assertArrayNotHasKey( 'user', $deps );
+		$this->assertArrayNotHasKey( 'term', $deps );
+	}
+
 	public function test_a_feed_without_posts_depends_on_the_newest_change_to_any_post(): void {
 		self::factory()->post->create( array( 'post_type' => 'page' ) );
 		$empty = $this->record(

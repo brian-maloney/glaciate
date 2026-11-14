@@ -7,6 +7,8 @@
 
 namespace Glaciate\Storage;
 
+defined( 'ABSPATH' ) || exit;
+
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom tables; crawl state must always be read fresh.
 
 /**

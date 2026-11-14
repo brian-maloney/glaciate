@@ -7,6 +7,8 @@
 
 namespace Glaciate\Support;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Security\Redactor;
 use Glaciate\Storage\Schema;
 

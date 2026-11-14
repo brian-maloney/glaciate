@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Signs a request body with the forms secret: header `X-Glaciate-Signature: t=<unix time>,v1=<hex>`, where v1 is
  * HMAC-SHA256 over "<t>.<body>". The time binds the signature to a five-minute window; the relay also remembers

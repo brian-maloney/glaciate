@@ -7,6 +7,8 @@
 
 namespace Glaciate\Search;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\Pipeline;
 use Glaciate\Storage\Schema;
 use Glaciate\Storage\UrlRepository;

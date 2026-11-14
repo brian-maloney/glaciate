@@ -7,6 +7,8 @@
 
 namespace Glaciate\Render;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Plain data holder.
  */

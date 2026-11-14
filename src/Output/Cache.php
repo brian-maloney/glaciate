@@ -7,6 +7,8 @@
 
 namespace Glaciate\Output;
 
+defined( 'ABSPATH' ) || exit;
+
 // phpcs:disable WordPress.WP.AlternativeFunctions -- Bulk file writes in our own data directory; WP_Filesystem would add an indirection per file with no benefit (see DECISIONS.md D9).
 
 /**

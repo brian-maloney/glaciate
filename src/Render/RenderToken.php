@@ -7,6 +7,8 @@
 
 namespace Glaciate\Render;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Issues and verifies the X-Glaciate-Render header value (threat T7).
  *

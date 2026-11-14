@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Deploy\Aws\CloudFrontClient;
 use Glaciate\Deploy\Aws\RequestsTransport;
 use Glaciate\Deploy\Aws\S3Client;

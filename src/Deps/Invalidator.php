@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deps;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Storage\ChangeRepository;
 use Glaciate\Storage\UrlRepository;
 

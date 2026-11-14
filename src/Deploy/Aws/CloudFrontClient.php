@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy\Aws;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Builds signed CreateInvalidation requests. CloudFront is a global service: the API lives at
  * cloudfront.amazonaws.com and is signed for region us-east-1.

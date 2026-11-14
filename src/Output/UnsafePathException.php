@@ -7,6 +7,8 @@
 
 namespace Glaciate\Output;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * The message is safe to log: it never contains file contents.
  */

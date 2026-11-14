@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Rest\Controller;
 
 /**
@@ -24,7 +26,7 @@ use Glaciate\Rest\Controller;
  */
 final class Endpoint {
 
-	/** Content type of HTML answers, which rest_pre_serve_request prints as they are. */
+	/** Content type of HTML answers, which serve_html() prints as a page. */
 	const HTML = 'text/html; charset=UTF-8';
 
 	/**
@@ -105,14 +107,22 @@ final class Endpoint {
 			$response->header( 'Location', $result->redirect );
 			return $response;
 		}
-		$response = new \WP_REST_Response( self::page( $result, self::back_link( $page ) ), $result->http_status() );
+		// The page is printed in serve_html(), where each part is escaped as it is output.
+		$response = new \WP_REST_Response(
+			array(
+				'message' => $result->message,
+				'errors'  => array_values( $result->errors ),
+				'back'    => self::back_link( $page ),
+			),
+			$result->http_status()
+		);
 		$response->header( 'Content-Type', self::HTML );
 		$response->header( 'X-Robots-Tag', 'noindex' );
 		return $response;
 	}
 
 	/**
-	 * Prints HTML answers as they are instead of as JSON.
+	 * Prints HTML answers as a page instead of as JSON.
 	 *
 	 * @param bool              $served  Whether the request has been served.
 	 * @param \WP_HTTP_Response $result  Response.
@@ -129,28 +139,32 @@ final class Endpoint {
 		if ( '/' . Controller::NAMESPACE . '/forms/submit' !== $request->get_route() || self::HTML !== ( $headers['Content-Type'] ?? '' ) ) {
 			return false;
 		}
-		echo (string) $result->get_data(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from escaped parts in page().
+		$data = (array) $result->get_data();
+		self::page( (string) ( $data['message'] ?? '' ), (array) ( $data['errors'] ?? array() ), (string) ( $data['back'] ?? '' ) );
 		return true;
 	}
 
 	/**
-	 * The HTML page for a visitor without JavaScript.
+	 * Prints the HTML page for a visitor without JavaScript.
 	 *
-	 * @param Result $result Result.
-	 * @param string $back   Address to go back to.
-	 * @return string
+	 * @param string   $message What happened to the submission.
+	 * @param string[] $errors  Problems with what was entered.
+	 * @param string   $back    Address to go back to.
+	 * @return void
 	 */
-	public static function page( Result $result, string $back ): string {
-		$items = '';
-		foreach ( $result->errors as $text ) {
-			$items .= '<li>' . esc_html( $text ) . '</li>';
+	public static function page( string $message, array $errors, string $back ): void {
+		echo '<!doctype html><html lang="' . esc_attr( get_bloginfo( 'language' ) ) . '"><head><meta charset="utf-8">';
+		echo '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">';
+		echo '<title>' . esc_html( $message ) . '</title></head><body>';
+		echo '<p>' . esc_html( $message ) . '</p>';
+		if ( $errors ) {
+			echo '<ul>';
+			foreach ( $errors as $text ) {
+				echo '<li>' . esc_html( is_scalar( $text ) ? (string) $text : '' ) . '</li>';
+			}
+			echo '</ul>';
 		}
-		return '<!doctype html><html lang="' . esc_attr( get_bloginfo( 'language' ) ) . '"><head><meta charset="utf-8">'
-			. '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">'
-			. '<title>' . esc_html( $result->message ) . '</title></head><body>'
-			. '<p>' . esc_html( $result->message ) . '</p>'
-			. ( '' === $items ? '' : '<ul>' . $items . '</ul>' )
-			. '<p><a href="' . esc_url( $back ) . '">' . esc_html__( 'Back to the page', 'glaciate' ) . '</a></p></body></html>';
+		echo '<p><a href="' . esc_url( $back ) . '">' . esc_html__( 'Back to the page', 'glaciate' ) . '</a></p></body></html>';
 	}
 
 	/**

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deps;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * A query signature records what a post query asked for, so that when a post changes we can tell whether that
  * post could appear in (or disappear from) the query's results.

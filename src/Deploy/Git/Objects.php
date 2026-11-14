@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy\Git;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Builds Git blob, tree and commit objects (SHA-1 object format) and their IDs.
  *

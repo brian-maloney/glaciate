@@ -7,6 +7,8 @@
 
 namespace Glaciate\Deploy;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Holds every registered deployer. Built-in deployers are registered first; extensions add theirs through the
  * `glaciate_register_deployers` action.

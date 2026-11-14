@@ -7,6 +7,8 @@
 
 namespace Glaciate\Search;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Removes accents the way the search client does in the browser: decompose (NFD), drop combining diacritical marks
  * (U+0300 to U+036F), recompose (NFC).

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms\Adapter;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Some form plugins print tokens that change on every render (a signed render time, say). On the static copy those
  * tokens are stale anyway, and they would make every build of the page look changed, so FormMarkup removes them

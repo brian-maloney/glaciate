@@ -7,6 +7,8 @@
 
 namespace Glaciate;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Security\Capabilities;
 use Glaciate\Storage\Schema;
 use Glaciate\Support\Paths;

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Build;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * When the origin answers 429 or 5xx, the build stops sending requests for a while and continues with half as many
  * at once. The wait honors `Retry-After` (up to MAX_WAIT seconds); without it, it doubles from FIRST_WAIT seconds

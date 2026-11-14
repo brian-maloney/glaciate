@@ -7,6 +7,8 @@
 
 namespace Glaciate\Render;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Deps\DependencyStore;
 use Glaciate\Deps\OptionRules;
 use Glaciate\Deps\QuerySignature;
@@ -27,6 +29,35 @@ use Glaciate\Support\Settings;
  * sense on a live WordPress site (RSD, shortlink, REST API discovery, oEmbed discovery, pingback).
  */
 final class Recorder {
+
+	/**
+	 * Hooks the recorder watches, and what each tells it. For "post", "user" and "option" the object is the hook's
+	 * second argument (an ID, a WP_Post or an option name); for the queries it is the query object.
+	 *
+	 * @var array<string,string>
+	 */
+	const WATCHED = array(
+		'pre_option'                  => 'option',
+		'posts_pre_query'             => 'post_query',
+		'terms_pre_query'             => 'term_query',
+		'users_pre_query'             => 'user_query',
+		'comments_pre_query'          => 'comment_query',
+		'the_title'                   => 'post',
+		'post_link'                   => 'post',
+		'page_link'                   => 'post',
+		'post_type_link'              => 'post',
+		'attachment_link'             => 'post',
+		'wp_get_attachment_url'       => 'post',
+		'get_post_metadata'           => 'post',
+		'render_block_data'           => 'block',
+		'get_term'                    => 'term',
+		'get_object_terms'            => 'terms',
+		'term_link'                   => 'term_link',
+		'get_user_metadata'           => 'user',
+		'author_link'                 => 'user',
+		'get_the_author_display_name' => 'user',
+		'get_feed_build_date'         => 'feed_date',
+	);
 
 	/**
 	 * URL ID.
@@ -208,52 +239,16 @@ final class Recorder {
 	}
 
 	/**
-	 * Attaches the hooks that observe reads. Public so tests can record without buffering output.
+	 * Starts observing reads. Public so tests can record without a render request.
+	 *
+	 * The recorder watches through WordPress's "all" hook, which runs before every filter and action and whose
+	 * callbacks return nothing. It registers no filter of its own on any of the hooks in WATCHED, so it can't change
+	 * a title, a link or any other value on the page; core and themes escape those where they print them (D48).
 	 *
 	 * @return void
 	 */
 	public function observe(): void {
-		$pass = PHP_INT_MAX;
-
-		add_filter(
-			'pre_option',
-			function ( $pre, $name ) {
-				if ( is_string( $name ) && ! OptionRules::is_ignored( $name ) && ! OptionRules::is_global( $name ) ) {
-					$this->add( 'option', $name );
-				}
-				return $pre;
-			},
-			$pass,
-			2
-		);
-
-		add_filter(
-			'posts_pre_query',
-			function ( $posts, $query ) {
-				if ( $query instanceof \WP_Query ) {
-					$this->queries[ spl_object_hash( $query ) ] = $query;
-				}
-				return $posts;
-			},
-			$pass,
-			2
-		);
-
-		// These callbacks, like every observer here, only note which object was read and return the value unchanged,
-		// so they don't escape it: core and themes escape titles and names where they print them, and escaping here
-		// as well would double-escape every title on the page (an "&" would show as "&amp;").
-		$post_id = function ( $value, $post = null ) {
-			$id = $post instanceof \WP_Post ? $post->ID : (int) $post;
-			$this->add( 'post', $id );
-			return $value;
-		};
-		add_filter( 'the_title', $post_id, $pass, 2 );
-		add_filter( 'post_link', $post_id, $pass, 2 );
-		add_filter( 'page_link', $post_id, $pass, 2 );
-		add_filter( 'post_type_link', $post_id, $pass, 2 );
-		add_filter( 'attachment_link', $post_id, $pass, 2 );
-		add_filter( 'wp_get_attachment_url', $post_id, $pass, 2 );
-		add_filter( 'get_post_metadata', $post_id, $pass, 2 );
+		add_action( 'all', array( $this, 'watch' ) );
 
 		add_action(
 			'the_post',
@@ -262,109 +257,98 @@ final class Recorder {
 					$this->add( 'post', $post->ID );
 				}
 			},
-			$pass
+			PHP_INT_MAX
 		);
+	}
 
-		add_filter(
-			'render_block_data',
-			function ( $block ) {
-				if ( isset( $block['attrs']['ref'] ) && is_numeric( $block['attrs']['ref'] ) ) {
-					$this->add( 'post', (int) $block['attrs']['ref'] );
-				}
-				return $block;
-			},
-			$pass
-		);
+	/**
+	 * "all" hook callback: notes which post, term, user, option or query a watched hook is about. Returns nothing.
+	 *
+	 * @param mixed $hook    Name of the hook that is about to run.
+	 * @param mixed ...$args The hook's arguments: for a filter, the value first.
+	 * @return void
+	 */
+	public function watch( $hook = '', ...$args ): void {
+		if ( ! is_string( $hook ) || ! isset( self::WATCHED[ $hook ] ) ) {
+			return;
+		}
+		$what = self::WATCHED[ $hook ];
+		// The query hooks run through apply_filters_ref_array(), which hands over its arguments as one array.
+		if ( 'query' === substr( $what, -5 ) && 1 === count( $args ) && is_array( $args[0] ) ) {
+			$args = array_values( $args[0] );
+		}
+		$value = $args[0] ?? null;
+		$about = $args[1] ?? null;
 
-		add_filter(
-			'terms_pre_query',
-			function ( $terms, $query ) {
-				if ( $query instanceof \WP_Term_Query ) {
-					$this->term_queries[ spl_object_hash( $query ) ] = $query;
+		switch ( $what ) {
+			case 'option':
+				if ( is_string( $about ) && ! OptionRules::is_ignored( $about ) && ! OptionRules::is_global( $about ) ) {
+					$this->add( 'option', $about );
 				}
-				return $terms;
-			},
-			$pass,
-			2
-		);
-		add_filter(
-			'get_term',
-			function ( $term ) {
-				if ( $term instanceof \WP_Term ) {
-					$this->add( 'term', $term->term_id );
+				break;
+			case 'post_query':
+				if ( $about instanceof \WP_Query ) {
+					$this->queries[ spl_object_hash( $about ) ] = $about;
 				}
-				return $term;
-			},
-			$pass
-		);
-		add_filter(
-			'get_object_terms',
-			function ( $terms ) {
-				foreach ( (array) $terms as $term ) {
+				break;
+			case 'term_query':
+				if ( $about instanceof \WP_Term_Query ) {
+					$this->term_queries[ spl_object_hash( $about ) ] = $about;
+				}
+				break;
+			case 'user_query':
+				$this->add( 'uq', '*' );
+				break;
+			case 'comment_query':
+				$this->add( 'cq', '*' );
+				break;
+			case 'post':
+				$this->add( 'post', $about instanceof \WP_Post ? $about->ID : self::id( $about ) );
+				break;
+			case 'block':
+				if ( is_array( $value ) && isset( $value['attrs']['ref'] ) ) {
+					$this->add( 'post', self::id( $value['attrs']['ref'] ) );
+				}
+				break;
+			case 'term':
+				if ( $value instanceof \WP_Term ) {
+					$this->add( 'term', $value->term_id );
+				}
+				break;
+			case 'terms':
+				foreach ( is_array( $value ) ? $value : array() as $term ) {
 					if ( $term instanceof \WP_Term ) {
 						$this->add( 'term', $term->term_id );
 					}
 				}
-				return $terms;
-			},
-			$pass
-		);
-		add_filter(
-			'term_link',
-			function ( $link, $term ) {
-				if ( $term instanceof \WP_Term ) {
-					$this->add( 'term', $term->term_id );
+				break;
+			case 'term_link':
+				if ( $about instanceof \WP_Term ) {
+					$this->add( 'term', $about->term_id );
 				}
-				return $link;
-			},
-			$pass,
-			2
-		);
-
-		$user_id = function ( $value, $id = 0 ) {
-			$this->add( 'user', (int) $id );
-			return $value;
-		};
-		add_filter( 'get_user_metadata', $user_id, $pass, 2 );
-		add_filter( 'author_link', $user_id, $pass, 2 );
-		add_filter(
-			'get_the_author_display_name',
-			function ( $value, $id ) {
-				$this->add( 'user', (int) $id );
-				return $value;
-			},
-			$pass,
-			2
-		);
-		add_filter(
-			'users_pre_query',
-			function ( $results ) {
-				$this->add( 'uq', '*' );
-				return $results;
-			},
-			$pass
-		);
-		add_filter(
-			'comments_pre_query',
-			function ( $results ) {
-				$this->add( 'cq', '*' );
-				return $results;
-			},
-			$pass
-		);
-		// A feed with no posts takes its build date from get_lastpostmodified(), the newest change to any post type,
-		// which reads the database directly. The condition is have_posts() without its end-of-loop side effects.
-		add_filter(
-			'get_feed_build_date',
-			function ( $date ) {
+				break;
+			case 'user':
+				$this->add( 'user', self::id( $about ) );
+				break;
+			case 'feed_date':
+				// A feed with no posts takes its build date from get_lastpostmodified(), the newest change to any post
+				// type, which reads the database directly. The condition is have_posts() without its side effects.
 				global $wp_query;
 				if ( ! $wp_query instanceof \WP_Query || $wp_query->current_post + 1 >= $wp_query->post_count ) {
 					$this->add( 'lastmod', '*' );
 				}
-				return $date;
-			},
-			$pass
-		);
+				break;
+		}//end switch
+	}
+
+	/**
+	 * An object ID from a hook argument; 0 (which add() ignores) for anything that isn't a number.
+	 *
+	 * @param mixed $value Hook argument.
+	 * @return int
+	 */
+	private static function id( $value ): int {
+		return is_numeric( $value ) ? (int) $value : 0;
 	}
 
 	/**

@@ -7,6 +7,8 @@
 
 namespace Glaciate\Forms;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * What adapters receive. `pairs` and `fields` exclude the fields Glaciate and captcha widgets added.
  */

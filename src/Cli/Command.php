@@ -7,6 +7,8 @@
 
 namespace Glaciate\Cli;
 
+defined( 'ABSPATH' ) || exit;
+
 use Glaciate\Build\BuildService;
 use Glaciate\Deps\DependencyStore;
 use Glaciate\Storage\BuildRepository;

@@ -68,3 +68,15 @@ test( 'allowed errors are matched by file, code and count; warnings never fail',
 	const twice = parseReport( report.replace( 'src/B.php', 'src/A.php' ) );
 	assert.equal( unexpectedErrors( twice, [ { file: 'src/A.php', code: 'X.Offloading', count: 1 } ] ).length, 1, 'A second error in an allowed file fails.' );
 } );
+
+test( 'readme.txt keeps each paragraph and list item on one line', () => {
+	// The directory turns every newline inside a paragraph into a line break, so hard-wrapped text shows ragged there.
+	const real = readFileSync( new URL( '../../readme.txt', import.meta.url ), 'utf8' );
+	const body = real.split( /^== Description ==\s*$/m )[ 1 ];
+	const wrapped = body.split( '\n' ).filter( ( line, i, lines ) => {
+		const next = lines[ i + 1 ];
+		return '' !== line.trim() && ! /^=+ .+ =+\s*$/.test( line ) && undefined !== next && '' !== next.trim() &&
+			! /^(=+ .+ =+|\* |\d+\. )/.test( next );
+	} );
+	assert.deepEqual( wrapped, [], 'Lines continued on the next line.' );
+} );

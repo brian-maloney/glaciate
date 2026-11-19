@@ -4,7 +4,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.0.2
+Stable tag: 2.0.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,9 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 2.0.3 =
+* Changed: the Privacy and External services sections of the readme show as paragraphs on WordPress.org instead of breaking every line.
 
 = 2.0.2 =
 * Changed: while a page is rendered for the static site, Glaciate no longer adds filters to titles, links, author names or anything else on the page to learn what the page uses. It watches the same hooks without being able to change their values.

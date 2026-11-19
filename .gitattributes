@@ -20,3 +20,4 @@
 /.gitattributes export-ignore
 /.gitignore export-ignore
 /tools export-ignore
+/.wordpress-org export-ignore

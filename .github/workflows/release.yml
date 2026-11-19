@@ -1,6 +1,7 @@
 name: Release
 
-# Builds the release ZIP once from a version tag, checks it, and publishes it as a GitHub Release (DECISIONS.md D40).
+# Builds the release ZIP once from a version tag, checks it, and publishes it as a GitHub Release (DECISIONS.md D40)
+# and, after approval, to the WordPress.org plugin directory (D50).
 # A pushed x.y.z tag starts it; "Run workflow" releases an existing tag, using the tools from this commit.
 
 on:
@@ -102,3 +103,45 @@ jobs:
           fi
           gh release create "$TAG" "glaciate-$TAG.zip" "glaciate-$TAG.zip.sha256" \
             --verify-tag --title "Glaciate $TAG" --notes-file notes.md
+
+  wordpress-org:
+    name: Publish to WordPress.org
+    needs: publish
+    # Opt-in until the repository has the wordpress-org environment and its SVN secrets (D50).
+    if: ${{ vars.WORDPRESS_ORG_PUBLISH == 'true' }}
+    # One Subversion commit at a time, from either workflow.
+    concurrency:
+      group: wordpress-org-svn
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    # Required reviewers on this environment make every directory release wait for a person: a commit here reaches
+    # every site's updates. Its secrets exist only for this job.
+    environment:
+      name: wordpress-org
+      url: https://wordpress.org/plugins/glaciate/
+    steps:
+      - name: Check out the publishing script from this workflow's commit
+        uses: actions/checkout@v7
+        with:
+          path: .release-tools
+          sparse-checkout: bin
+      - name: Check out the directory assets from the tag
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          path: .tag
+          sparse-checkout: .wordpress-org
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+      - name: Subversion
+        run: command -v svn > /dev/null || { sudo apt-get update -q && sudo apt-get install -yq subversion; }
+      - name: Commit trunk, tags/${{ env.TAG }} and assets
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+        run: |
+          sha256sum -c "glaciate-$TAG.zip.sha256"
+          unzip -q "glaciate-$TAG.zip" -d plugin
+          .release-tools/bin/svn-publish.sh release https://plugins.svn.wordpress.org/glaciate "$TAG" \
+            plugin/glaciate .tag/.wordpress-org

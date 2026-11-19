@@ -1,0 +1,53 @@
+name: WordPress.org readme and assets
+
+# Updates readme.txt and the directory assets on WordPress.org between releases, without publishing code (D50):
+# readme.txt goes to trunk and to tags/<Stable tag>, .wordpress-org/ is mirrored into assets/. For a "Tested up to"
+# bump or new screenshots. Code changes need a release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or tag to take readme.txt and .wordpress-org/ from
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  meta:
+    name: Update readme and assets
+    # One Subversion commit at a time, from either workflow.
+    concurrency:
+      group: wordpress-org-svn
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    environment:
+      name: wordpress-org
+      url: https://wordpress.org/plugins/glaciate/
+    steps:
+      - name: Check out the publishing script from this workflow's commit
+        uses: actions/checkout@v7
+        with:
+          path: .release-tools
+          sparse-checkout: bin
+      - name: Check out readme.txt and the assets
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          path: .source
+          sparse-checkout: |
+            readme.txt
+            .wordpress-org
+          sparse-checkout-cone-mode: false
+      - name: Subversion
+        run: command -v svn > /dev/null || { sudo apt-get update -q && sudo apt-get install -yq subversion; }
+      - name: Commit readme.txt and assets
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+        run: |
+          .release-tools/bin/svn-publish.sh meta https://plugins.svn.wordpress.org/glaciate .source/readme.txt \
+            .source/.wordpress-org

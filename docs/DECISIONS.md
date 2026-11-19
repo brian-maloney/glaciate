@@ -842,3 +842,30 @@ Every file under `src/` now starts with `defined( 'ABSPATH' ) || exit;`. They on
 directly did nothing before either, but the guard makes that plain without reading the file. The unit suite, which
 runs without WordPress, defines `ABSPATH` in its bootstrap.
 
+
+## D50. Releases are published to WordPress.org by CI, after approval
+
+The plugin was approved for the WordPress.org directory, where releases are commits to its Subversion repository. 2.0.2
+was committed by hand. From now on `release.yml` has a `wordpress-org` job after the GitHub Release, so the directory
+gets the same ZIP that passed CI and Plugin Check (D40), never a checkout of the tree.
+
+- **A person approves each one.** The job runs in the `wordpress-org` environment, whose required reviewers must
+  approve it. A directory commit reaches every site's update screen within hours and can't be withdrawn the way a
+  GitHub Release can be deleted. The SVN credentials are secrets of that environment only, so no other job, including
+  the ones that run `npm ci` and the build, can read them. Like `publish`, the job runs no project code from the tag:
+  the script comes from the workflow's own commit, and the tag provides only the images in `.wordpress-org/`.
+- **Our own script, not a marketplace action.** `bin/svn-publish.sh` is about 130 lines of shell. A third-party
+  deploy action would be handed a password that can ship code to every install, and we would have to review it again
+  on every update.
+- **Released versions are never replaced.** The script refuses when `tags/<version>` exists or when the Version header
+  or Stable tag disagrees with the version. It mirrors the ZIP into `trunk/` (deletions included, with svn's default
+  ignore list turned off so no shipped file is skipped), copies trunk to the tag, and commits once. The password reaches
+  svn on stdin, not in its arguments.
+- **Readme and images without a release.** "Tested up to" has to rise with each WordPress release, and the directory
+  reads it from the stable tag's `readme.txt`. `wordpress-org-meta.yml` (run by hand, same environment) replaces
+  `readme.txt` in `trunk/` and `tags/<Stable tag>/` and mirrors `.wordpress-org/` into `assets/`. It refuses when the
+  readme's Stable tag isn't the one trunk already has, so it can't be used to switch versions without a release.
+- **Opt-in until set up.** The job runs only when the repository variable `WORDPRESS_ORG_PUBLISH` is `true`, so tags
+  pushed before the environment and secrets exist still release to GitHub.
+
+`tests/js/svn-publish.test.mjs` runs the script against a throwaway `file://` repository; CI installs Subversion for it.

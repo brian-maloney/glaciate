@@ -73,7 +73,10 @@ jobs:
         name: Translatable strings extract without warnings
         run: npm run i18n:check
       - if: ${{ matrix.lint }}
-        name: Search and forms clients (Node)
+        name: Subversion, for the WordPress.org publishing tests
+        run: command -v svnadmin > /dev/null || { sudo apt-get update -q && sudo apt-get install -yq subversion; }
+      - if: ${{ matrix.lint }}
+        name: Search and forms clients, release tools (Node)
         run: npm run test:js
       - name: Start the test SFTP and Git servers
         run: npm run sftp:start && npm run git:start

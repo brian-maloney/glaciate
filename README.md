@@ -111,6 +111,18 @@ changelog entry, commit, and push an `x.y.z` tag. The Release workflow runs CI o
 Check on it and publishes a GitHub Release with the ZIP and its checksum. To release an existing tag, run the workflow
 by hand with that tag.
 
+The same ZIP then goes to the WordPress.org directory's Subversion repository (trunk, `tags/<version>` and the images in
+`.wordpress-org/` as `assets/`) once someone approves the `wordpress-org` environment in the run. To change only
+`readme.txt` or the images between releases, for example to raise "Tested up to", run the "WordPress.org readme and
+assets" workflow. `bin/svn-publish.sh` does the work and can be run by hand; `SVN_DRY_RUN=1` shows what it would
+commit. One-time setup, in the repository's settings:
+
+1. Create the `wordpress-org` environment with yourself as a required reviewer, and limit it to tags matching
+   `[0-9]*.[0-9]*.[0-9]*` and the `main` branch.
+2. Add the environment secrets `SVN_USERNAME` (the WordPress.org username) and `SVN_PASSWORD` (the SVN password from
+   the WordPress.org profile's Account & Security page, not the login password).
+3. Set the repository variable `WORDPRESS_ORG_PUBLISH` to `true`. Until then the Release workflow skips this step.
+
 ## Security
 
 Please report vulnerabilities privately; see [SECURITY.md](SECURITY.md).

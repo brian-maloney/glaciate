@@ -869,3 +869,18 @@ gets the same ZIP that passed CI and Plugin Check (D40), never a checkout of the
   pushed before the environment and secrets exist still release to GitHub.
 
 `tests/js/svn-publish.test.mjs` runs the script against a throwaway `file://` repository; CI installs Subversion for it.
+
+## D51. Directory artwork is drawn by a script, without text
+
+The WordPress.org page needs an icon and a banner. `tools/artwork/build.mjs` draws them as SVG (a faceted glacier
+whose reflection breaks into square blocks, a site frozen into static files) and renders the PNG sizes the directory
+asks for into `.wordpress-org/`, which D50 mirrors into the Subversion `assets/` folder. `icon.svg` goes too, and the
+directory prefers it where browsers support it.
+
+- **Source, not just pixels.** The picture is code, so a colour or proportion change is a diff and a rerun, and the
+  PNGs can always be rebuilt the same way.
+- **No text.** The directory prints the plugin name over the banner's lower left, so a wordmark would be duplicated and
+  the name would need a font with a compatible licence. That corner is kept to flat water.
+- **Rendered by Chromium, through a canvas** of the exact output size, so the browser's window size can't crop or
+  repeat the image. Playwright is already a development dependency; `CHROMIUM_PATH` can point at another
+  Chromium-based browser.

@@ -32,7 +32,9 @@ stable_tag() {
 
 # Makes the versioned folder $2 hold exactly what $1 holds, and schedules the additions and deletions.
 mirror() {
-	rsync -a --delete --exclude=.svn "$1"/ "$2"/
+	# --checksum: rsync's usual size-and-time check would skip a changed file of the same size whose time matches,
+	# which a ZIP's stored times make possible.
+	rsync -a --checksum --delete --exclude=.svn "$1"/ "$2"/
 	# --no-ignore: svn's default global-ignores would silently skip some names a plugin may ship.
 	svn add -q --force --no-ignore --depth infinity "$2"
 	# Deepest paths first, so a removed folder's contents are removed before the folder itself.

@@ -90,6 +90,7 @@ test( 'the next release removes what the ZIP no longer has and keeps earlier tag
 	assert.equal( result.status, 0, result.out );
 	assert.deepEqual( list( 'trunk' ), [ 'glaciate.php', 'readme.txt', 'src/', 'src/A.php', 'src/with space@2x.php' ] );
 	assert.equal( cat( 'trunk/src/A.php' ), 'a2' );
+	assert.match( cat( 'trunk/readme.txt' ), /Stable tag: 1\.1\.0/, 'A changed file of the same size and time is still copied.' );
 	assert.equal( cat( 'tags/1.0.0/src/A.php' ), 'a' );
 	assert.ok( list( 'assets' ).includes( 'icon-256x256.png' ), 'Without an assets folder, assets/ is left alone.' );
 } );

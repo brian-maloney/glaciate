@@ -884,3 +884,22 @@ directory prefers it where browsers support it.
 - **Rendered by Chromium, through a canvas** of the exact output size, so the browser's window size can't crop or
   repeat the image. Playwright is already a development dependency; `CHROMIUM_PATH` can point at another
   Chromium-based browser.
+
+## D52. The PHP 7.4 cells build their Composer image from the current composer:2
+
+The 7.4 CI cells run Composer from the official `composer` Docker image (Strauss needs PHP 8.1 wherever Composer runs,
+D29). On 2026-11-20 the floating `composer:2` tag moved from PHP 8.5 to a PHP 8.6 build without `mbstring`, which
+PHPUnit requires. Every 7.4 cell then failed at install, though nothing in the repository had changed.
+
+`tools/ci/composer.Dockerfile` builds on `composer:2` and compiles `mbstring` in. CI builds it with `--pull` on every
+run, which adds about 20 seconds.
+
+- **Current, not pinned.** Pinning the image by digest would keep runs repeatable, but nothing would ever move the
+  pin (Dependabot doesn't follow `docker run` lines), so Composer and PHP would quietly age. Following the tag means
+  an upstream change can still break the nightly run, but it shows up the next morning and the fix is a line in the
+  Dockerfile.
+- **Fails at build time.** The Dockerfile ends by checking that `mbstring` loads, so a broken extension build stops
+  the step with a clear error instead of a Composer platform message.
+- **Not hidden with `--ignore-platform-req`.** Skipping the check would install, but it would also hide a real missing
+  extension the next time the image changes.
+- **Kept out of the release.** `/tools` is `export-ignore`, so the Dockerfile never reaches the plugin ZIP.

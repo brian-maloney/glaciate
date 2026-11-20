@@ -884,3 +884,17 @@ directory prefers it where browsers support it.
 - **Rendered by Chromium, through a canvas** of the exact output size, so the browser's window size can't crop or
   repeat the image. Playwright is already a development dependency; `CHROMIUM_PATH` can point at another
   Chromium-based browser.
+
+## D52. The PHP 7.4 cells install with a Composer image pinned by digest
+
+The 7.4 CI cells run Composer from the official `composer` Docker image (Strauss needs PHP 8.1 wherever Composer runs,
+D29). On 2026-11-20 the floating `composer:2` tag moved from PHP 8.5 to a PHP 8.6 build without `mbstring`, which
+PHPUnit requires. Every 7.4 cell then failed at install, though nothing in the repository had changed.
+
+- **Pinned by digest, not by tag.** `composer:2.11` and similar tags also move to newer PHP builds, so only a digest
+  keeps the install the same from one run to the next. The workflow's `COMPOSER_IMAGE` names the digest and the
+  Composer and PHP versions it holds.
+- **Bumped by hand.** Dependabot doesn't follow `docker run` lines in workflows. To move it, run
+  `docker run --rm composer@sha256:<new> php -m` and check that `mbstring` is listed before changing the digest.
+- **Not hidden with `--ignore-platform-req`.** Skipping the check would install, but it would also hide a real missing
+  extension the next time an image changes.

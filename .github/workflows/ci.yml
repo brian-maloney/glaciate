@@ -55,16 +55,14 @@ jobs:
         run: node bin/wp-env-override.js "${{ matrix.php }}" "${{ matrix.wp }}"
       - run: npm run env:start
       - name: Install PHP dependencies
-        env:
-          # composer:2 as of 2026-11-19: Composer 2.11.2 on PHP 8.5.12.
-          COMPOSER_IMAGE: composer@sha256:0c8e663f14c94d07b3c45b175c51f5a14718508f21fe4dd7e54f09488dd0ed71
         # Strauss (D29) needs PHP 8.1 wherever Composer runs, so the 7.4 cells install from a PHP 8 Composer image and
         # still run every test on 7.4. The platform pin (D5) makes the result the same as installing on 7.4.
-        # The image is pinned by digest (D52): composer:2 floats, and its PHP 8.6 build dropped mbstring.
+        # The image is the current composer:2 with mbstring added (D52).
         run: |
           if [ "${{ matrix.php }}" = "7.4" ]; then
+            docker build --pull -q -t glaciate-composer -f tools/ci/composer.Dockerfile tools/ci
             docker run --rm --user "$(id -u):$(id -g)" -e COMPOSER_HOME=/tmp/composer -v "$PWD":/app -w /app \
-              "$COMPOSER_IMAGE" install --no-interaction --no-progress
+              glaciate-composer install --no-interaction --no-progress
           else
             npm run composer -- install --no-interaction --no-progress
           fi

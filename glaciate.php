@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name:       Glaciate
+ * Plugin Name:       Glaciate - Static Site Publisher
  * Plugin URI:        https://github.com/brian-maloney/glaciate
  * Description:       Publish your WordPress site as fast, secure static files. Every feature is free.
  * Version:           2.0.3

@@ -1,4 +1,4 @@
-=== Glaciate ===
+=== Glaciate - Static Site Publisher ===
 Contributors: brianmaloney
 Tags: static site, static html, performance, security, export
 Requires at least: 6.9

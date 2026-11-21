@@ -4,7 +4,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.0.3
+Stable tag: 2.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,9 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 2.0.4 =
+* Changed: the plugin is listed as "Glaciate - Static Site Publisher" on WordPress.org and on the Plugins screen.
 
 = 2.0.3 =
 * Changed: the Privacy and External services sections of the readme show as paragraphs on WordPress.org instead of breaking every line.

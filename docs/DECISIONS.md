@@ -903,3 +903,41 @@ run, which adds about 20 seconds.
 - **Not hidden with `--ignore-platform-req`.** Skipping the check would install, but it would also hide a real missing
   extension the next time the image changes.
 - **Kept out of the release.** `/tools` is `export-ignore`, so the Dockerfile never reaches the plugin ZIP.
+
+## D56. On multisite, the fields that pick a destination are super-admin settings
+
+Target fields resolve from `GLACIATE_<TARGET>_<FIELD>` constants and environment variables, and those names carry no
+site ID. A network operator who pins an S3 key, a Git, Netlify or Cloudflare token, or an SFTP key in `wp-config.php`
+so that site admins never handle credentials therefore hands the same credential to every site. Until 2.0.4 only hosts,
+endpoints and paths were `restricted`; the fields that choose *where* that credential writes were not. A site admin
+could aim it at a sibling site's bucket or prefix, a production branch, Worker or Netlify site, turn on replacing, and
+overwrite what is there. Deletes stayed limited to each deployer's own records, so the harm was overwrite, not removal.
+
+These fields are now `restricted`, so on multisite only a super admin (or a constant) sets them:
+
+- S3: `bucket`, `prefix`, `cloudfront_distribution` (invalidations on another distribution).
+- Git: `branch`, `replace_existing`.
+- Cloudflare: `account_id`, `worker_name`, `replace_existing`.
+- Netlify: `site_id`.
+- SFTP: `username`. Host, port and folder were already restricted, but a pinned key that more than one account on the
+  host accepts would let the user name pick another account's home folder.
+
+Left editable: S3 region, path style and Cache-Control, Git user name, commit author and message, the SFTP host key,
+and Cloudflare's missing-page choice. None of them changes which bucket, branch, account or site receives the files.
+The local directory and ZIP targets have no such fields (the local path was already restricted).
+
+- **Always, not only when a credential is pinned.** Restricting a field only while a constant or environment secret
+  exists for that target sounds kinder to site admins who bring their own keys, but it is not enough: a super admin may
+  also type a shared token into one site's form, where it is stored encrypted for that site and the site admin can't
+  read it, but could redirect it just the same. Telling a "brought my own" secret from one a super admin saved would
+  need ownership tracking. The fixed rule is the same one already used for hosts and paths, and on multisite those
+  were already super-admin settings for SFTP and Git, so SFTP, S3 with a custom endpoint and Git were never
+  self-service there.
+- **Single sites are unchanged.** There, `restricted` means "needs `glaciate_manage`", which the settings screen
+  already requires.
+- **Every write path.** The rule lives in the field definitions, so the existing checks apply: the settings form keeps
+  the stored value and shows the field disabled, `TargetConfig::set()` refuses, and the settings sanitize callback puts
+  restricted fields back for any other settings write during an admin request. The REST API has no settings route, and
+  WP-CLI is trusted at the shell level, as before.
+- **Per-site constants later.** A `GLACIATE_<SITE>_<TARGET>_<FIELD>` naming would let a network give each site its own
+  credential and destination. That is a larger change and isn't needed to close this.

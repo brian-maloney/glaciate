@@ -34,8 +34,10 @@ final class S3DeployTest extends SystemTestCase {
 		$s3       = new FakeS3();
 		$deployer = new S3( $s3 );
 		Registry::instance()->register( $deployer );
+		wp_set_current_user( 1 ); // The bucket is a restricted field: an administrator sets it.
 		TargetConfig::set( $deployer, 'bucket', 'system-test' );
 		TargetConfig::set( $deployer, 'access_key_id', 'AKIAIOSFODNN7EXAMPLE' );
+		wp_set_current_user( 0 );
 		Secrets::set( 's3', 'secret_access_key', 'system-test-secret' );
 		\Glaciate\Support\Settings::update( array( 'target' => 's3' ) );
 

@@ -99,6 +99,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 			'branch'           => array(
 				'label'       => __( 'Branch', 'glaciate' ),
 				'required'    => true,
+				'restricted'  => true,
 				'default'     => 'gh-pages',
 				'pattern'     => '[A-Za-z0-9._\-/]{1,100}',
 				'description' => __( 'Glaciate owns this branch and replaces its files on every publish. Other branches are never touched.', 'glaciate' ),
@@ -135,6 +136,7 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 				'label'       => __( 'Replace the branch\'s contents', 'glaciate' ),
 				'type'        => 'bool',
 				'default'     => false,
+				'restricted'  => true,
 				'description' => __( 'Allow publishing to a branch that already has commits Glaciate didn\'t make. Its files are replaced in a new commit; its history is kept.', 'glaciate' ),
 			),
 		);

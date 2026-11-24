@@ -23,6 +23,13 @@ final class TargetConfigTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		$this->s3 = new S3( new \Glaciate\Tests\Support\FakeS3() );
+		// Some fields below are restricted: an administrator sets them, so a refusal is about the value.
+		\Glaciate\Security\Capabilities::grant_defaults();
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		if ( is_multisite() ) {
+			grant_super_admin( $admin );
+		}
+		wp_set_current_user( $admin );
 	}
 
 	public function tear_down(): void {
@@ -115,8 +122,14 @@ final class TargetConfigTest extends \WP_UnitTestCase {
 		} catch ( \InvalidArgumentException $e ) {
 			$this->assertSame( '', TargetConfig::value( $this->s3, 'endpoint' ) );
 		}
-		TargetConfig::set( $this->s3, 'bucket', 'editor-may-set-this' );
-		$this->assertSame( 'editor-may-set-this', TargetConfig::value( $this->s3, 'bucket' ) );
+		try {
+			TargetConfig::set( $this->s3, 'bucket', 'another-sites-bucket' );
+			$this->fail( 'The bucket chooses where output goes: expected a refusal.' );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->assertSame( '', TargetConfig::value( $this->s3, 'bucket' ) );
+		}
+		TargetConfig::set( $this->s3, 'cache_control', 'public, max-age=60' );
+		$this->assertSame( 'public, max-age=60', TargetConfig::value( $this->s3, 'cache_control' ) );
 	}
 
 	public function test_missing_lists_required_labels(): void {

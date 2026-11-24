@@ -36,6 +36,14 @@ final class CloudflareTest extends \WP_UnitTestCase {
 		file_put_contents( $this->cache . '/_redirects', '/old /new 301' );
 		file_put_contents( $this->cache . '/logo.bin', "\x00\x01binary" );
 
+		// The account, Worker name and replacing are restricted fields: an administrator sets them.
+		\Glaciate\Security\Capabilities::grant_defaults();
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		if ( is_multisite() ) {
+			grant_super_admin( $admin ); // On multisite only a super admin may set them.
+		}
+		wp_set_current_user( $admin );
+
 		$this->api      = new FakeCloudflare();
 		$this->deployer = new Cloudflare( $this->api );
 		TargetConfig::set( $this->deployer, 'account_id', FakeCloudflare::ACCOUNT );

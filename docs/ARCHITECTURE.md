@@ -162,7 +162,9 @@ server) serve these files as `text/html`, which feed readers handle (D19).
   select; required, pattern, default, `restricted`). `TargetConfig` resolves each field from a `GLACIATE_<TARGET>_<FIELD>`
   constant, then the environment, then the `targets` entry of the settings (secret fields: `Secrets`), then the default.
   Every write goes through the field's validation, including direct `Settings::update()` calls. `restricted` fields (hosts,
-  endpoints) follow the filesystem-path rule: super admins only on multisite. `check_connection()` makes one cheap live
+  endpoints, and whatever picks a destination behind them: bucket, prefix, branch, Worker, Netlify site, SFTP user, the
+  replacing switches) follow the filesystem-path rule: super admins only on multisite, because a pinned credential has no
+  site ID (D56). `check_connection()` makes one cheap live
   request. CLI: `wp glaciate target list|show|set|check`.
 - **Resumable deploys.** A deployer that implements `ResumableDeployerInterface` gets the slice deadline and may return with
   `done = false`; the runner keeps the build in `deploying`, adds up the counts in `deploy_progress`, and calls it again in the
@@ -318,7 +320,7 @@ from every log line. `wp glaciate secret list|set|delete` manages stored values;
 - Capabilities: primitive caps `glaciate_manage` (settings, targets) and `glaciate_publish` (build/deploy). They're added to
   administrator (both) and editor (publish) once per site: on activation, or on the first request if activation never
   ran (the plugin was activated before `composer install`). They're removed on uninstall. Meta cap `glaciate_publish_post` is mapped in
-  `map_meta_cap` to `glaciate_publish` + `edit_post`. In multisite, filesystem paths are set **only by a super admin or a constant**.
+  `map_meta_cap` to `glaciate_publish` + `edit_post`. In multisite, filesystem paths and restricted target fields are set **only by a super admin or a constant**.
 - Activation defaults: target = Local directory at `<uploads>/glaciate/public/<site>/`, public URL = current home URL. The one
   onboarding choice: *where to deploy*.
 - WP-CLI: `wp glaciate build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--porcelain]`,

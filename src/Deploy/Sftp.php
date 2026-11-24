@@ -86,9 +86,10 @@ final class Sftp implements ConfigurableDeployerInterface, ResumableDeployerInte
 				'pattern'    => '[0-9]{1,5}',
 			),
 			'username'               => array(
-				'label'    => __( 'User name', 'glaciate' ),
-				'required' => true,
-				'pattern'  => '[A-Za-z0-9._@\-]{1,64}',
+				'label'      => __( 'User name', 'glaciate' ),
+				'required'   => true,
+				'restricted' => true,
+				'pattern'    => '[A-Za-z0-9._@\-]{1,64}',
 			),
 			'password'               => array(
 				'label'       => __( 'Password', 'glaciate' ),

@@ -38,6 +38,14 @@ final class S3Test extends \WP_UnitTestCase {
 		file_put_contents( $this->cache . '/about/index.html', 'about v1' );
 		file_put_contents( $this->cache . '/style.css', 'body{}' );
 
+		// Bucket, prefix and distribution are restricted fields: an administrator sets them.
+		\Glaciate\Security\Capabilities::grant_defaults();
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		if ( is_multisite() ) {
+			grant_super_admin( $admin ); // On multisite only a super admin may set them.
+		}
+		wp_set_current_user( $admin );
+
 		$this->s3       = new FakeS3();
 		$this->deployer = new S3( $this->s3 );
 		TargetConfig::set( $this->deployer, 'bucket', 'example-site' );

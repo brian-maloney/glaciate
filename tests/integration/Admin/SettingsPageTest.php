@@ -21,7 +21,11 @@ final class SettingsPageTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Capabilities::grant_defaults();
-		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		if ( is_multisite() ) {
+			grant_super_admin( $admin ); // Bucket and user name are restricted fields (MultisiteTest covers site admins).
+		}
+		wp_set_current_user( $admin );
 		$_POST['option_page'] = SettingsPage::GROUP;
 		global $wp_settings_errors;
 		$wp_settings_errors = array(); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Reset between tests.

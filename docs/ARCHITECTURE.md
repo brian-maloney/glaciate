@@ -80,8 +80,12 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   by default and reported: the build log lists up to 20 of the linked ones (also kept in the build's stats as
   `query_skipped`), and each one listed under additional URLs gets a warning of its own.
 - Assets under uploads, themes, plugins or wp-includes are **copied from the filesystem**, which is faster than HTTP.
-  This only happens after the path is proven inside an allowed root and its extension is on the allowlist (see the
-  threat model). Anything else is fetched over HTTP.
+  This only happens after the path is proven inside an allowed root, its extension is on the allowlist (see the
+  threat model), and the web server has served a file of the same type from the same directory to an anonymous
+  request in this build (`AccessVerdicts`, D53). Anything else is fetched over HTTP. A file the server refuses (401,
+  403) is left out and its published copy removed; that file type in that directory is then excluded for the rest of
+  the build. Verdicts live in a transient between slices; the refused patterns are also kept in the build's stats as
+  `access_denied`.
 - Redirects: origin 301/302s plus user-defined redirects become a `_redirects` file (a de facto standard) and a
   meta-refresh HTML fallback, written only where the address maps to an HTML file (a static host serves `/old.pdf`
   as a PDF whatever it contains). `/favicon.ico`, which WordPress answers with a redirect to the site icon, is

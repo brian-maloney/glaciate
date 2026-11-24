@@ -904,6 +904,42 @@ run, which adds about 20 seconds.
   extension the next time the image changes.
 - **Kept out of the release.** `/tools` is `export-ignore`, so the Dockerfile never reaches the plugin ZIP.
 
+## D53. Files are copied from disk only where the web server serves them
+
+Copying assets from disk (`AssetCopier`) skipped the web server, and with it every access rule the server applies: an
+`.htaccess` deny or basic auth on a folder in uploads, an nginx `location` block, a download plugin that rewrites its
+folder to PHP. The extension allowlist includes PDFs, office documents and ZIPs, which is what those folders hold, and
+a same-origin URL in any published text (an approved comment is enough) queues the file. So a file the origin refused
+with a 403 could be published and deployed.
+
+Before a file is copied, the build now asks the site for it as an anonymous visitor, through `LoopbackClient` with a
+`Range: bytes=0-0` header, and copies only on 200 (or 206, or a 416 for a range the server can't satisfy).
+`AccessVerdicts` remembers the answer for the rest of the build, keyed by the file's directory and file type
+(`/wp-content/uploads/private/*.pdf`):
+
+- **Directory and file type, not directory alone.** Server rules often target a file type (`<FilesMatch "\.zip$">`, an
+  nginx `location ~ \.pdf$`). A verdict per directory would let one public image vouch for every PDF next to it. The
+  cost stays bounded: one request per directory and file type per build, not one per file.
+- **401 and 403 leave the file out entirely.** The file isn't copied or fetched, any copy an earlier build published is
+  removed (other errors keep the old file), and the pattern is added to the classifier's exclusions for the rest of
+  the build, so other files there aren't queued. The refusal covers subdirectories too, as `.htaccess` does. The same
+  happens when a normal HTTP fetch of an asset answers 401 or 403.
+- **Roots are never excluded as a whole.** A refusal for a file directly in uploads (or in a directory above a root)
+  leaves that file out but sends its neighbours over HTTP one by one, so a single `<Files>` rule or a firewall's
+  false positive can't drop every upload.
+- **Other answers mean "fetch".** A redirect, or a 404 for a file that exists on disk, means the server doesn't serve
+  the file as it is; those files are fetched over HTTP, which records what the server does. Failures, 429 and 5xx
+  aren't remembered: that file is fetched over HTTP, which backs off.
+- **Encoded slashes are refused.** `protected%2Fsecret.pdf` would decode into another directory than the one the
+  verdict is about.
+- **Stored per build.** Verdicts are kept in the transient `glaciate_access_<build>` between slices and deleted when
+  the build stops. The refused patterns are also stored in the build's stats (`access_denied`, up to 200), so they hold
+  even when an object cache evicts the transient. Each build asks again, so a folder that is opened or closed later is
+  seen by the next build.
+
+Rejected: reading `.htaccess` and `web.config` files on the way up from the file (misses nginx and virtual host rules),
+and copying only media types from uploads (narrows the exposure without removing it).
+
 ## D54. Crawled paths with pattern syntax get no `_redirects` or `_headers` rule
 
 Netlify and Cloudflare Pages read the paths in `_redirects` and `_headers` as patterns: `*` is a splat and `:name` a

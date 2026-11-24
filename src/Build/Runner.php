@@ -9,10 +9,12 @@ namespace Glaciate\Build;
 
 defined( 'ABSPATH' ) || exit;
 
+use Glaciate\Crawl\AccessVerdicts;
 use Glaciate\Crawl\Seeds;
 use Glaciate\Deploy\Registry;
 use Glaciate\Deps\DependencyStore;
 use Glaciate\Deps\Invalidator;
+use Glaciate\Render\LoopbackClient;
 use Glaciate\Render\RenderToken;
 use Glaciate\Search\Index;
 use Glaciate\Search\IndexWriter;
@@ -50,6 +52,9 @@ final class Runner {
 
 	/** The build is backing off; run the next slice after wait_seconds(). */
 	const WAIT = 'wait';
+
+	/** Most refused file patterns kept in a build's stats (the rest stay in the transient). */
+	const MAX_DENIED = 200;
 
 	/**
 	 * Builds.
@@ -134,6 +139,7 @@ final class Runner {
 		$logger   = new Logger( $build_id );
 		$frontier = new Frontier( $build_id );
 		$frontier->recover();
+		self::restore_access( $build, $pipeline );
 
 		$out_of_time = static function () use ( $start, $budget ) {
 			return $budget > 0 && ( microtime( true ) - $start ) >= $budget;
@@ -382,7 +388,7 @@ final class Runner {
 		if ( ! $claimed ) {
 			return false;
 		}
-		$client = $concurrency < $configured ? new \Glaciate\Render\LoopbackClient( $pipeline->policy, Pipeline::connect_to( $pipeline->settings ), $concurrency ) : $pipeline->client;
+		$client = $concurrency < $configured ? new LoopbackClient( $pipeline->policy, Pipeline::connect_to( $pipeline->settings ), $concurrency ) : $pipeline->client;
 		$rows      = $this->urls->get_many( array_keys( $claimed ) );
 		$search    = 'builtin' === $pipeline->settings['search'] ? new PageIndexer( new TextExtractor(), new Tokenizer(), new Index() ) : null;
 		$forms     = new \Glaciate\Forms\Config( $pipeline->settings );
@@ -393,11 +399,21 @@ final class Runner {
 		$results   = array();
 		$marks     = array();
 
+		$access = $pipeline->copier->access();
+		$probed = self::probe_access( $rows, $pipeline, $client );
 		foreach ( $rows as $id => $row ) {
-			$source = 'asset' === $row['kind'] ? $pipeline->copier->source_for( (string) wp_parse_url( $row['url'], PHP_URL_PATH ) ) : null;
-			if ( null !== $source ) {
-				$results[ $id ] = $processor->process_file( $row, $source );
-				continue;
+			if ( 'asset' === $row['kind'] ) {
+				$path   = (string) wp_parse_url( $row['url'], PHP_URL_PATH );
+				$status = $probed[ $id ] ?? 0;
+				if ( AccessVerdicts::is_denial( $status ) || $access->is_denied( $path ) ) {
+					$results[ $id ] = $processor->deny( $row, AccessVerdicts::is_denial( $status ) ? $status : 403 );
+					continue;
+				}
+				$source = $pipeline->copier->source_for( $path );
+				if ( null !== $source ) {
+					$results[ $id ] = $processor->process_file( $row, $source );
+					continue;
+				}
 			}
 			$headers = array();
 			if ( 'asset' !== $row['kind'] ) {
@@ -422,6 +438,10 @@ final class Runner {
 			// The recorder wrote to the row during the render (dependency state, its mark, exclusion); reload it. A mark
 			// that matches the token sent proves the render ran rather than a page cache answering (D45).
 			$row = $this->urls->get( (int) $id );
+			if ( null !== $row && 'asset' === $row['kind'] && AccessVerdicts::is_denial( $result->status ) ) {
+				// Refused over HTTP too: leave out the rest of its directory for this file type (D53).
+				$access->record( (string) wp_parse_url( $row['url'], PHP_URL_PATH ), $result->status );
+			}
 			if ( null !== $row && isset( $marks[ $id ] ) ) {
 				$result->recorded = hash_equals( $marks[ $id ], (string) $row['render_mark'] );
 				$result->exclude  = $result->recorded ? (string) $row['render_exclude'] : '';
@@ -455,6 +475,12 @@ final class Runner {
 			'urls'     => $frontier->counts(),
 			'followed' => $followed,
 		);
+		if ( $access->changed() ) {
+			$pipeline->classifier->add_excludes( $access->denied() );
+			set_transient( self::access_key( $build_id ), $access->export(), DAY_IN_SECONDS );
+			$stats['access_denied'] = array_slice( $access->denied(), 0, self::MAX_DENIED );
+			$access->saved();
+		}
 		if ( $overloaded ) {
 			$stats += $this->back_off( $build, $overloaded, $retry, $concurrency, $logger );
 		} elseif ( ! empty( $build['stats']['backoff_count'] ) ) {
@@ -473,6 +499,76 @@ final class Runner {
 		// collects cycles when its root buffer fills, which a long build can outrun, so collect after each batch.
 		gc_collect_cycles();
 		return true;
+	}
+
+	/**
+	 * Asks the site, as an anonymous visitor, for one file of each directory and file type in the batch that could be
+	 * copied from disk but hasn't been asked about in this build. Copying is only allowed where it answered 200, and
+	 * patterns it refused (401/403) are excluded from the rest of the build (threat T3, D53).
+	 *
+	 * A one-byte range keeps the request cheap; a server that ignores ranges sends the file with a 200.
+	 *
+	 * @param array<int,array<string,mixed>> $rows     URL rows by ID.
+	 * @param Pipeline                       $pipeline Components.
+	 * @param LoopbackClient                 $client   Client for this batch.
+	 * @return array<int,int> HTTP status by ID of each row that was requested (0 when the request failed).
+	 */
+	private static function probe_access( array $rows, Pipeline $pipeline, LoopbackClient $client ): array {
+		$access  = $pipeline->copier->access();
+		$probes  = array();
+		$pending = array();
+		foreach ( $rows as $id => $row ) {
+			if ( 'asset' !== $row['kind'] ) {
+				continue;
+			}
+			$path    = (string) wp_parse_url( $row['url'], PHP_URL_PATH );
+			$pattern = AccessVerdicts::pattern( $path );
+			if ( null === $pattern || isset( $pending[ $pattern ] ) || null !== $access->get( $path ) || null === $pipeline->copier->candidate_for( $path ) ) {
+				continue;
+			}
+			$pending[ $pattern ] = true;
+			$probes[ $id ]       = array(
+				'url'     => $row['url'],
+				'headers' => array( 'Range' => 'bytes=0-0' ),
+			);
+		}
+		if ( ! $probes ) {
+			return array();
+		}
+		$statuses = array();
+		foreach ( $client->fetch( $probes ) as $id => $result ) {
+			$statuses[ $id ] = $result->status;
+			$access->record( (string) wp_parse_url( $rows[ $id ]['url'], PHP_URL_PATH ), $result->status );
+		}
+		$pipeline->classifier->add_excludes( $access->denied() );
+		return $statuses;
+	}
+
+	/**
+	 * Loads the site's answers recorded by earlier slices of the build, and excludes the patterns it refused.
+	 *
+	 * @param array<string,mixed> $build    Build.
+	 * @param Pipeline            $pipeline Components.
+	 * @return void
+	 */
+	private static function restore_access( array $build, Pipeline $pipeline ): void {
+		$access = $pipeline->copier->access();
+		$saved  = get_transient( self::access_key( (int) $build['id'] ) );
+		$access->load( is_array( $saved ) ? $saved : array() );
+		// The stats keep the refusals even when the transient is gone (an object cache may evict it).
+		$access->load( array_fill_keys( array_map( 'strval', (array) ( $build['stats']['access_denied'] ?? array() ) ), AccessVerdicts::DENY ) );
+		$access->saved();
+		$pipeline->classifier->add_excludes( $access->denied() );
+	}
+
+	/**
+	 * Transient that holds a build's access verdicts between slices.
+	 *
+	 * @param int $build_id Build ID.
+	 * @return string
+	 */
+	private static function access_key( int $build_id ): string {
+		return 'glaciate_access_' . $build_id;
 	}
 
 	/**
@@ -673,6 +769,7 @@ final class Runner {
 	 */
 	private function finished( int $build_id ): void {
 		( new Frontier( $build_id ) )->clear();
+		delete_transient( self::access_key( $build_id ) );
 		$build = $this->builds->get( $build_id );
 
 		/**

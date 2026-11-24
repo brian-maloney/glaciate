@@ -14,7 +14,8 @@ use Glaciate\Output\UnsafePathException;
 use Glaciate\Support\Paths;
 
 /**
- * Maps asset URLs to files on disk, but only inside allowed roots and only for allowed file types (threat T3).
+ * Maps asset URLs to files on disk, but only inside allowed roots, only for allowed file types, and only where the web
+ * server has shown it serves such files to an anonymous visitor (threat T3, DECISIONS.md D53).
  *
  * Anything that doesn't pass is fetched over HTTP instead, where the web server applies its own access rules.
  */
@@ -92,6 +93,13 @@ final class AssetCopier {
 	private $excluded;
 
 	/**
+	 * What the web server answered for each directory and file type in this build.
+	 *
+	 * @var AccessVerdicts
+	 */
+	private $access;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param array<string,string> $roots    URL path prefix (no trailing slash) => absolute directory.
@@ -110,7 +118,17 @@ final class AssetCopier {
 				return strlen( $b ) - strlen( $a );
 			}
 		);
-		$this->roots = $roots;
+		$this->roots  = $roots;
+		$this->access = new AccessVerdicts( array_keys( $roots ) );
+	}
+
+	/**
+	 * The server's answers that decide whether a candidate file may be copied.
+	 *
+	 * @return AccessVerdicts
+	 */
+	public function access(): AccessVerdicts {
+		return $this->access;
 	}
 
 	/**
@@ -150,12 +168,33 @@ final class AssetCopier {
 	}
 
 	/**
-	 * Returns the file for a URL path, or null when it must be fetched over HTTP.
+	 * Returns the file to copy for a URL path, or null when it must be fetched over HTTP (or left out).
+	 *
+	 * A file is only copied once the web server has answered an anonymous request for a file of the same type in the
+	 * same directory with a 200; see AccessVerdicts. Until then the caller probes, records the answer and asks again.
 	 *
 	 * @param string $url_path URL path (percent-encoded).
 	 * @return string|null Absolute file path.
 	 */
 	public function source_for( string $url_path ): ?string {
+		if ( AccessVerdicts::COPY !== $this->access->get( $url_path ) ) {
+			return null;
+		}
+		return $this->candidate_for( $url_path );
+	}
+
+	/**
+	 * Returns the file on disk a URL path maps to, when the rules on disk allow copying it. The web server hasn't been
+	 * asked yet: use source_for() to copy.
+	 *
+	 * @param string $url_path URL path (percent-encoded).
+	 * @return string|null Absolute file path.
+	 */
+	public function candidate_for( string $url_path ): ?string {
+		// An encoded slash would put the file in another directory than the one the web server was asked about.
+		if ( false !== stripos( $url_path, '%2f' ) ) {
+			return null;
+		}
 		foreach ( $this->roots as $prefix => $dir ) {
 			if ( 0 !== strpos( $url_path, $prefix . '/' ) ) {
 				continue;

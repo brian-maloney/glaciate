@@ -114,6 +114,22 @@ final class UrlClassifier {
 	}
 
 	/**
+	 * Adds exclusion patterns for the rest of this object's life: a build adds the files the site refused it (D53).
+	 * They don't pass through the glaciate_exclude_patterns filter, which applies to the configured patterns.
+	 *
+	 * @param string[] $patterns Glob patterns or "~" regexes.
+	 * @return void
+	 */
+	public function add_excludes( array $patterns ): void {
+		foreach ( $patterns as $pattern ) {
+			$regex = self::compile( $pattern );
+			if ( null !== $regex && ! in_array( $regex, $this->excludes, true ) ) {
+				$this->excludes[] = $regex;
+			}
+		}
+	}
+
+	/**
 	 * Classifies a URL.
 	 *
 	 * @param string $url Absolute URL.

@@ -9,6 +9,7 @@ namespace Glaciate\Build;
 
 defined( 'ABSPATH' ) || exit;
 
+use Glaciate\Crawl\AccessVerdicts;
 use Glaciate\Crawl\AssetCopier;
 use Glaciate\Crawl\LinkExtractor;
 use Glaciate\Crawl\Seeds;
@@ -35,6 +36,7 @@ use Glaciate\Support\Logger;
  * - failed:    transport or server error; the previously published file (if any) is kept.
  * - retry:     the site answered 429 or 5xx and the address gets another try after the build backs off.
  * - refused:   the response is unsafe to publish (rendered logged-in, path conflict, unsafe path).
+ * - denied:    a file the site refuses anonymous visitors (401/403); any old file is removed (D53).
  */
 final class Processor {
 
@@ -178,6 +180,25 @@ final class Processor {
 	}
 
 	/**
+	 * Leaves out a file the site refuses anonymous visitors, and removes any copy an earlier build published.
+	 *
+	 * A refusal is the web server's access rule speaking (an .htaccess deny, basic auth, a download plugin), so unlike
+	 * other errors it doesn't keep the old file (threat T3, D53).
+	 *
+	 * @param array<string,mixed> $row    URL row.
+	 * @param int                 $status HTTP status: 401 or 403.
+	 * @return array{outcome:string,discovered:array<int,array{url:string,kind:string}>}
+	 */
+	public function deny( array $row, int $status ): array {
+		/* translators: %d: HTTP status code. */
+		$reason = sprintf( __( 'the site answers anonymous visitors with HTTP %d', 'glaciate' ), $status );
+		/* translators: 1: address, 2: reason. */
+		$this->logger->info( sprintf( __( 'Left out %1$s (%2$s).', 'glaciate' ), $row['url'], $reason ) );
+		$this->remove( $row, $status );
+		return self::outcome( 'denied' );
+	}
+
+	/**
 	 * Linked addresses this processor skipped because of their query string (a few, as examples).
 	 *
 	 * @return string[]
@@ -239,6 +260,10 @@ final class Processor {
 			$this->logger->info( sprintf( __( 'Left out %1$s (%2$s).', 'glaciate' ), $row['url'], $exclude ) );
 			$this->remove( $row, $result->status );
 			return self::outcome( 'gone' );
+		}
+
+		if ( 'asset' === $row['kind'] && AccessVerdicts::is_denial( $result->status ) ) {
+			return $this->deny( $row, $result->status );
 		}
 
 		if ( 200 !== $result->status ) {

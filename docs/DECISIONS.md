@@ -904,6 +904,35 @@ run, which adds about 20 seconds.
   extension the next time the image changes.
 - **Kept out of the release.** `/tools` is `export-ignore`, so the Dockerfile never reaches the plugin ZIP.
 
+## D54. Crawled paths with pattern syntax get no `_redirects` or `_headers` rule
+
+Netlify and Cloudflare Pages read the paths in `_redirects` and `_headers` as patterns: `*` is a splat and `:name` a
+placeholder. Every origin redirect the crawl records became a rule with its path written as it was, and those paths
+come from links anyone can put on a page. WordPress redirects an unknown slug to the first post whose slug starts with
+the sanitized request, so a link to `/:x` or `/x*` comes back as a redirect to a real post, and the rule it produced
+matched every one-segment address, or every address starting with `/x`, on the static site.
+
+`Generated::origin_redirect_rules()` and `Generated::directory_header_rules()` now skip a crawled path unless
+`Generated::is_literal_path()` accepts it: it must start with `/` and hold no whitespace or control characters, `*`,
+`:`, `#` or `?`, and no `%2A` or `%3A`.
+
+- **Dropped, not percent-encoded.** Writing `%2A` and `%3A` instead would keep the rule, but neither host documents
+  whether it decodes a rule's path before matching, so an encoded rule could match the literal address, nothing, or
+  (if a host decodes first) the pattern again. Nothing is lost by dropping: WordPress permalinks never contain these
+  characters, `PathMapper` refuses them in file names (so the static site can't hold such an address as a page
+  either), and the addresses that do produce such redirects are typos and junk links. The origin still answers them.
+- **Encoded forms count too.** `PathMapper` decodes once and refuses the result, so a path with `%2A` or `%3A` can't be
+  a file, and leaving it out removes any question of decoding.
+- **Checked when the file is written, not when the redirect is recorded.** `Processor::handle_redirect()` still
+  records the origin's answer, which incremental builds use to notice when an address stops redirecting. Filtering in
+  `Generated` also covers rows recorded by earlier versions, which would otherwise stay in `_redirects` until each
+  address was crawled again.
+- **Admins and code may still use patterns.** The redirects setting (`/old/* /new/:splat`) and the
+  `glaciate_redirect_rules` and `glaciate_header_rules` filters are written as given; the filters' documentation says
+  not to pass crawled paths through them.
+- **Targets are unchanged.** A target is an address the origin itself redirected to, so it is written as before
+  (the threat model lists the residual risk of a plugin on the origin that redirects where a visitor asks).
+
 ## D56. On multisite, the fields that pick a destination are super-admin settings
 
 Target fields resolve from `GLACIATE_<TARGET>_<FIELD>` constants and environment variables, and those names carry no

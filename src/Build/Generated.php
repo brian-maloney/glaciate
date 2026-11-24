@@ -10,9 +10,11 @@ namespace Glaciate\Build;
 defined( 'ABSPATH' ) || exit;
 
 use Glaciate\Output\UnsafePathException;
+use Glaciate\Rewrite\OriginSet;
 use Glaciate\Storage\Schema;
 use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Logger;
+use Glaciate\Support\Url;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table.
 
@@ -85,18 +87,13 @@ final class Generated {
 		}
 		$this->remove_stale_redirect_pages( array_filter( $pages ) );
 
-		foreach ( $this->origin_redirects() as $row ) {
-			$path    = (string) wp_parse_url( $row['url'], PHP_URL_PATH );
-			$target  = (string) $row['redirect_to'];
-			$rules[] = array(
-				$this->pipeline->origins->public_path_for( '' === $path ? '/' : $path ),
-				$this->relative_if_public( $target ),
-				in_array( (int) $row['status_code'], array( 301, 302, 307, 308 ), true ) ? (int) $row['status_code'] : 301,
-			);
-		}
+		$rules = array_merge( $rules, self::origin_redirect_rules( $this->pipeline->origins, $this->origin_redirects() ) );
 
 		/**
 		 * Filters redirect rules written to the `_redirects` file.
+		 *
+		 * Origin redirects whose crawled path a static host would read as a pattern (`*`, `:name`) are already left
+		 * out. Rules added here are written as given, patterns included, so never add paths taken from a crawl.
 		 *
 		 * @since 0.1.0
 		 *
@@ -122,14 +119,13 @@ final class Generated {
 	 * @return void
 	 */
 	private function write_headers(): void {
-		$rules = array();
-		foreach ( $this->urls->directory_types() as $file ) {
-			$path    = (string) wp_parse_url( $file['url'], PHP_URL_PATH );
-			$rules[] = array( $this->pipeline->origins->public_path_for( '' === $path ? '/' : $path ), array( 'Content-Type' => $file['type'] ) );
-		}
+		$rules = self::directory_header_rules( $this->pipeline->origins, $this->urls->directory_types() );
 
 		/**
 		 * Filters the rules written to the `_headers` file, which Netlify and Cloudflare read.
+		 *
+		 * Crawled paths a static host would read as a pattern are already left out. Rules added here are written as
+		 * given, patterns included, so never add paths taken from a crawl.
 		 *
 		 * @since 0.2.0
 		 *
@@ -220,13 +216,88 @@ final class Generated {
 	}
 
 	/**
-	 * Turns a public absolute URL into a path when it points at the static site itself.
+	 * Turns recorded origin redirects into `_redirects` rules.
+	 *
+	 * The source paths come from crawled links, so anyone who can put a link on the site chooses them. A source that
+	 * carries pattern syntax is left out (see is_literal_path()): a static host would read it as a rule matching many
+	 * addresses, not the one the origin redirected. Such a path can never be a file on the static site either.
+	 *
+	 * @param OriginSet                      $origins Origins.
+	 * @param array<int,array<string,mixed>> $rows    Rows with url, redirect_to and status_code.
+	 * @return array<int,array{0:string,1:string,2:int}> From path, target, status code.
+	 */
+	public static function origin_redirect_rules( OriginSet $origins, array $rows ): array {
+		$rules = array();
+		foreach ( $rows as $row ) {
+			$path = self::url_path( (string) $row['url'] );
+			if ( ! self::is_literal_path( $path ) ) {
+				continue;
+			}
+			$rules[] = array(
+				$origins->public_path_for( $path ),
+				self::relative_if_public( $origins, (string) $row['redirect_to'] ),
+				in_array( (int) $row['status_code'], array( 301, 302, 307, 308 ), true ) ? (int) $row['status_code'] : 301,
+			);
+		}
+		return $rules;
+	}
+
+	/**
+	 * Turns published directory indexes that aren't HTML into `_headers` rules that send their real Content-Type.
+	 * Paths with pattern syntax are left out, as for redirects.
+	 *
+	 * @param OriginSet                                   $origins Origins.
+	 * @param array<string,array{url:string,type:string}> $files   Directory indexes, from UrlRepository::directory_types().
+	 * @return array<int,array{0:string,1:array<string,string>}> URL path and the headers to send for it.
+	 */
+	public static function directory_header_rules( OriginSet $origins, array $files ): array {
+		$rules = array();
+		foreach ( $files as $file ) {
+			$path = self::url_path( (string) $file['url'] );
+			if ( self::is_literal_path( $path ) ) {
+				$rules[] = array( $origins->public_path_for( $path ), array( 'Content-Type' => (string) $file['type'] ) );
+			}
+		}
+		return $rules;
+	}
+
+	/**
+	 * Whether a crawled URL path can go into `_redirects` or `_headers` as itself.
+	 *
+	 * Netlify and Cloudflare Pages read those paths as patterns: `*` is a splat, `:name` a placeholder, `#` starts a
+	 * comment, whitespace separates fields and a line break ends the rule; `?` never belongs in a source path. A path
+	 * with any of these, or with `*` or `:` percent-encoded (PathMapper decodes and refuses those, so the path can't be
+	 * a file either, and a host might decode them before matching), isn't literal. The admin's own redirects setting
+	 * and the rule filters may still use patterns on purpose; this only applies to paths that come from a crawl.
+	 *
+	 * @param string $path URL path.
+	 * @return bool
+	 */
+	public static function is_literal_path( string $path ): bool {
+		return '' !== $path && '/' === $path[0] && ! preg_match( '/[\s\x00-\x1F\x7F*:#?]|%(?:2A|3A)/i', $path );
+	}
+
+	/**
+	 * Path of a URL, "/" when it has none.
 	 *
 	 * @param string $url URL.
 	 * @return string
 	 */
-	private function relative_if_public( string $url ): string {
-		$base = $this->pipeline->origins->public_authority();
+	private static function url_path( string $url ): string {
+		$parts = Url::parse( $url );
+		$path  = null === $parts ? '' : (string) ( $parts['path'] ?? '' );
+		return '' === $path ? '/' : $path;
+	}
+
+	/**
+	 * Turns a public absolute URL into a path when it points at the static site itself.
+	 *
+	 * @param OriginSet $origins Origins.
+	 * @param string    $url     URL.
+	 * @return string
+	 */
+	private static function relative_if_public( OriginSet $origins, string $url ): string {
+		$base = $origins->public_authority();
 		if ( 0 === strpos( $url, $base . '/' ) ) {
 			return substr( $url, strlen( $base ) );
 		}

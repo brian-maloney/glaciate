@@ -195,6 +195,9 @@ Since 0.1.0. Fired in `src/Deps/OptionRules.php`.
 
 Filters the rules written to the `_headers` file, which Netlify and Cloudflare read.
 
+Crawled paths a static host would read as a pattern are already left out. Rules added here are written as
+given, patterns included, so never add paths taken from a crawl.
+
 - `array<int,array{0:string,1:array<string,string>}> $rules` URL path and the headers to send for it.
 
 Since 0.2.0. Fired in `src/Build/Generated.php`.
@@ -268,6 +271,9 @@ Since 0.1.0. Fired in `src/Build/Processor.php`.
 ### `glaciate_redirect_rules`
 
 Filters redirect rules written to the `_redirects` file.
+
+Origin redirects whose crawled path a static host would read as a pattern (`*`, `:name`) are already left
+out. Rules added here are written as given, patterns included, so never add paths taken from a crawl.
 
 - `array<int,array{0:string,1:string,2:int}> $rules` From path, target, status code.
 

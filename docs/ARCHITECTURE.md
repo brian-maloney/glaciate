@@ -68,7 +68,7 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 
 ## Discovery / crawl
 - Seeds: home; core sitemaps (`wp-sitemap.xml` and any index listed in robots.txt); enumerated content (public posts of
-  public post types, term archives, author archives, and every later page of the blog, term, author and post type
+  public post types, term archives, archives of authors with published posts, and every later page of the blog, term, author and post type
   archives, from their post counts and `posts_per_page`, so they don't form a chain of links (D24)); feeds; robots.txt; favicon;
   additional URLs and paths from settings; a 404 rendered from a guaranteed-missing URL and saved as `404.html`.
 - Frontier: a deduplicated, normalized URL set held in a DB table. `WP_HTML_Tag_Processor` (core) extracts links from
@@ -125,6 +125,10 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - Affected set = URLs from the object deps ∪ matching query signatures ∪ option deps ∪ the changed post's old and new permalinks
   ∪ `deps=unknown` URLs, and the `glaciate_affected_url_ids` filter can add more.
 - **Orphans**: URLs that now return 404 or redirect get removed from the manifest, so deployers delete them.
+- **Author archives** (D62): a user change carries the user's archive addresses only while the user has published
+  posts (`Seeds::author_has_posts()`, the test the author seeds use), and a new post, or one whose author, status or
+  type moved, carries the archives of its authors who have posts. A render of an author archive or feed that lists no
+  posts is left out (`author-without-posts`), which unpublishes an archive whose user lost the last post.
 - **Re-classification** (D55): rows queued by ID (every published row in a full build, the dependency-matched rows and
   changed addresses in an incremental one) go through the URL classifier again during planning. A row it now rejects
   (an exclusion pattern, the `feeds` setting, the public address) is unpublished like a 404 and not rendered.

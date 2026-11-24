@@ -143,7 +143,7 @@ Filters whether the page rendered in this request is left out of the static site
 Return a short reason (letters, digits and dashes) to exclude it, or an empty string to publish it.
 Runs inside the render request, so conditional tags such as is_singular() work.
 
-- `string $reason` Default "password-protected" for posts behind a password, otherwise "".
+- `string $reason` Default "password-protected" for posts behind a password, "author-without-posts" for an author archive or feed that lists no posts, otherwise "".
 
 Since 0.1.0. Fired in `src/Render/Recorder.php`.
 

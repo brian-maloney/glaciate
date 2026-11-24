@@ -9,6 +9,7 @@ namespace Glaciate\Deps;
 
 defined( 'ABSPATH' ) || exit;
 
+use Glaciate\Crawl\Seeds;
 use Glaciate\Render\Recorder;
 use Glaciate\Storage\ChangeRepository;
 use Glaciate\Support\Settings;
@@ -46,6 +47,13 @@ final class ChangeListener {
 	 * @var array<int,string[]>
 	 */
 	private $users = array();
+
+	/**
+	 * User IDs touched => whether the user had published posts when first touched (Seeds::author_has_posts()).
+	 *
+	 * @var array<int,bool>
+	 */
+	private $user_had_posts = array();
 
 	/**
 	 * Post IDs => fields known to have moved without showing in the before/after comparison (terms, meta).
@@ -546,7 +554,8 @@ final class ChangeListener {
 	}
 
 	/**
-	 * Marks a user as changed.
+	 * Marks a user as changed. Whether the user has published posts is noted now as well: delete_user fires while the
+	 * posts still exist, and reassigning them afterwards fires no post hooks.
 	 *
 	 * @param int $user_id User ID.
 	 * @return void
@@ -557,7 +566,8 @@ final class ChangeListener {
 			return;
 		}
 		if ( ! isset( $this->users[ $user_id ] ) ) {
-			$this->users[ $user_id ] = array( get_author_posts_url( $user_id ) );
+			$this->users[ $user_id ]          = array( get_author_posts_url( $user_id ) );
+			$this->user_had_posts[ $user_id ] = Seeds::author_has_posts( $user_id );
 		}
 		$this->schedule_flush();
 	}
@@ -675,6 +685,8 @@ final class ChangeListener {
 	public function flush(): int {
 		$repo    = new ChangeRepository();
 		$written = 0;
+		// User ID => has published posts, checked once per flush.
+		$authors = array();
 
 		foreach ( $this->posts as $post_id => $before ) {
 			clean_post_cache( $post_id );
@@ -694,7 +706,8 @@ final class ChangeListener {
 			if ( ! array_intersect( $snapshot['statuses'] ?? array(), array( 'publish', 'inherit' ) ) ) {
 				continue;
 			}
-			$snapshot['ids'] = array( $post_id );
+			$snapshot['ids']  = array( $post_id );
+			$snapshot['urls'] = array_values( array_unique( array_merge( $snapshot['urls'] ?? array(), self::author_archive_urls( $snapshot, $authors ) ) ) );
 			$repo->record( 'post', (string) $post_id, $snapshot );
 			++$written;
 		}//end foreach
@@ -716,6 +729,13 @@ final class ChangeListener {
 		foreach ( $this->users as $user_id => $urls ) {
 			$urls[] = get_author_posts_url( $user_id );
 			$urls   = array_values( array_unique( $urls ) );
+			// An author archive exists for the static site only while its user has published posts (D62). Without
+			// any, before or after, the archive's addresses stay out of the change: WordPress answers them with an
+			// empty page, which would publish the account's slug and name. Pages that show the user still depend
+			// on the change through their recorded user dependencies.
+			if ( empty( $this->user_had_posts[ $user_id ] ) && ! Seeds::author_has_posts( (int) $user_id ) ) {
+				$urls = array();
+			}
 			$repo->record( 'user', (string) $user_id, array( 'urls' => $urls ) );
 			++$written;
 			if ( count( $urls ) > 1 && false !== strpos( $structure, '%author%' ) ) {
@@ -736,14 +756,15 @@ final class ChangeListener {
 			}
 		}
 
-		$this->posts   = array();
-		$this->terms   = array();
-		$this->users   = array();
-		$this->options = array();
-		$this->other   = array();
-		$this->counts  = array();
-		$this->moved   = array();
-		$this->created = array();
+		$this->posts          = array();
+		$this->terms          = array();
+		$this->users          = array();
+		$this->user_had_posts = array();
+		$this->options        = array();
+		$this->other          = array();
+		$this->counts         = array();
+		$this->moved          = array();
+		$this->created        = array();
 
 		if ( $written > 0 ) {
 			/**
@@ -756,6 +777,35 @@ final class ChangeListener {
 			do_action( 'glaciate_changes_recorded', $written );
 		}
 		return $written;
+	}
+
+	/**
+	 * Author archives a post change can bring back or into existence: those of the post's authors who have published
+	 * posts now, when the post is new or its author, status or type moved. A published archive is reached through its
+	 * recorded query anyway, but an archive that was left out while its author had no posts has no dependencies left,
+	 * and one never rendered has none yet; without this, only a link would lead an incremental build to it (D62).
+	 *
+	 * @param array<string,array<int,mixed>> $snapshot Post change snapshot.
+	 * @param array<int,bool>                $authors  User ID => has published posts, filled in as users are checked.
+	 * @return string[]
+	 */
+	private static function author_archive_urls( array $snapshot, array &$authors ): array {
+		if ( ! in_array( Seeds::AUTHOR_POST_TYPE, (array) ( $snapshot['types'] ?? array() ), true ) ) {
+			return array();
+		}
+		if ( isset( $snapshot['moved'] ) && ! array_intersect( array( 'authors', 'statuses', 'types' ), (array) $snapshot['moved'] ) ) {
+			return array();
+		}
+		$urls = array();
+		foreach ( array_unique( array_map( 'intval', (array) ( $snapshot['authors'] ?? array() ) ) ) as $author ) {
+			if ( ! isset( $authors[ $author ] ) ) {
+				$authors[ $author ] = Seeds::author_has_posts( $author );
+			}
+			if ( $authors[ $author ] ) {
+				$urls[] = get_author_posts_url( $author );
+			}
+		}
+		return $urls;
 	}
 
 	/**

@@ -1190,6 +1190,41 @@ build a minute later, so anyone able to post a comment could keep the origin ren
 - **The comment count touches the post only when it moved.** WordPress recounts after every status change and edit,
   even of a held comment; an unchanged count is not a change to the post.
 
+## D62. Author archives are published only for users with published posts
+
+WordPress answers 200 for the author archive (and author feed) of any member of the site, whether the user wrote
+anything or not. The seeds listed only authors with posts, but change capture added `get_author_posts_url()` for every
+user that registered or edited a profile, and the archive was then rendered and published. On a membership or shop site
+every account got a public `/author/<slug>/` page, and the built-in search index listed the slugs and display names,
+which the site itself offers nowhere (core sitemaps and the REST users endpoint list only authors with published posts).
+
+- **One definition of "has posts".** `Seeds::AUTHOR_POST_TYPE` (`post`, the type core lists on author archives) and
+  `Seeds::author_has_posts()` (`count_user_posts( $id, 'post', true )`, so published posts only, password-protected
+  ones included) are what the author seeds, the author page seeds and change capture use, so they agree.
+- **Change capture adds author addresses only for authors.** A user change carries the archive addresses (old and new
+  nicename) only when the user has published posts when first touched in the request or at the end of it. The first
+  covers deleting a user whose posts are then reassigned, which moves them with direct SQL and fires no post hooks; the
+  archive must still be re-checked so it goes. Without posts the user change is still recorded, with no addresses, so
+  pages that show the user rebuild.
+- **The render decides.** An author archive or feed whose main query found no posts is left out with the reason
+  `author-without-posts` (`Recorder`, through the existing `glaciate_exclude_render` default), so it is unpublished like
+  any excluded render: the file leaves the cache, deployers delete it and the search index drops it. This catches every
+  route there: a link from a page byline, an address listed by hand, a published archive whose user loses the last
+  post (the archive's recorded query matches the post change, it renders empty and goes), and archives published by
+  2.0.4 and earlier, which the next full build re-renders. Updating the plugin through WordPress records a full change
+  (`upgrader_process_complete`), so that build is the first one after the update. The render goes by what the archive
+  lists rather than by `Seeds::author_has_posts()`, so a site that adds its own post types to author archives keeps
+  those archives.
+- **A post change can bring an archive back.** An excluded archive has no dependencies left, and an author's first
+  archive has none yet, so a new post would reach it only through a link. A post change of type `post` that is new or
+  moved its author, status or type also carries the archive addresses of its authors who now have published posts. An
+  edit that moves none of those carries nothing extra; a published archive is reached through its query as before.
+- **Multisite**: posts are counted on the current site, the one whose changes table the change goes to. A network user
+  who is a member of a site without posts there gets no archive on that site; one who isn't a member already gets a
+  404 from WordPress.
+
+`ChangeListenerTest`, `RecorderTest` and `MultisiteTest` (integration) and `AuthorArchiveTest` (system) cover it.
+
 ## D64. A relay signature has one spelling, and claiming it is one atomic step
 
 The relay accepts each signature once (T22). The marker used to be a transient named after a hash of the raw header,

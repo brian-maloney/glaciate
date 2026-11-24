@@ -9,8 +9,12 @@
 namespace Glaciate\Tests\Integration\Multisite;
 
 use Glaciate\Admin\SettingsPage;
+use Glaciate\Deps\ChangeListener;
 use Glaciate\Plugin;
+use Glaciate\Render\Recorder;
+use Glaciate\Render\RenderToken;
 use Glaciate\Security\Capabilities;
+use Glaciate\Storage\ChangeRepository;
 use Glaciate\Storage\Schema;
 use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Paths;
@@ -246,5 +250,51 @@ final class MultisiteTest extends \WP_UnitTestCase {
 		grant_super_admin( $super );
 		wp_set_current_user( $super );
 		$this->assertTrue( SettingsPage::can_edit_paths() );
+	}
+
+	public function test_author_archives_follow_each_sites_own_posts(): void {
+		$user = self::factory()->user->create( array( 'role' => 'author' ) );
+		self::factory()->post->create( array( 'post_author' => $user ) );
+		$site = self::factory()->blog->create();
+		add_user_to_blog( $site, $user, 'author' );
+
+		$urls_recorded = static function () use ( $user ): ?array {
+			$listener = new ChangeListener();
+			$listener->touch_user( $user );
+			$listener->flush();
+			foreach ( ( new ChangeRepository() )->peek() as $change ) {
+				if ( 'user' === $change['object_type'] && (string) $user === $change['object_key'] ) {
+					return (array) ( $change['payload']['urls'] ?? array() );
+				}
+			}
+			return null;
+		};
+
+		switch_to_blog( $site );
+		Plugin::activate();
+		( new ChangeRepository() )->flush();
+		$on_two = $urls_recorded();
+		$this->assertSame( array(), $on_two, 'A member with no posts on this site gets no author archive here.' );
+		$this->assertSame( 'author-without-posts', $this->render_exclusion( get_author_posts_url( $user ) ) );
+		restore_current_blog();
+
+		( new ChangeRepository() )->flush();
+		$this->assertContains( get_author_posts_url( $user ), (array) $urls_recorded(), 'The site where the user has posts keeps the archive.' );
+	}
+
+	/**
+	 * Exclusion reason a render of the address stores, on the current site.
+	 *
+	 * @param string $url Address.
+	 * @return string
+	 */
+	private function render_exclusion( string $url ): string {
+		$urls     = new UrlRepository();
+		$id       = $urls->ensure( $url );
+		$recorder = new Recorder( $id, RenderToken::mark( 'token' ) );
+		$recorder->observe();
+		$this->go_to( $url );
+		$recorder->finish();
+		return (string) $urls->get( $id )['render_exclude'];
 	}
 }

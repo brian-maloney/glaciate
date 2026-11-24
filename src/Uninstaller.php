@@ -53,7 +53,7 @@ final class Uninstaller {
 		Capabilities::revoke_all();
 
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'glaciate_' ) . '%' ) );
-		// Form rate-limit counters and used relay signatures.
+		// Used relay signatures, and rate-limit counters of versions before D60.
 		foreach ( array( '_transient_glaciate_', '_transient_timeout_glaciate_' ) as $prefix ) {
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $prefix ) . '%' ) );
 		}

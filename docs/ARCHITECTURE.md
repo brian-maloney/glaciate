@@ -138,7 +138,7 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 ## Storage
 Custom tables per site (`$wpdb->prefix`), managed with `dbDelta` and a schema version option: `builds`, `urls`, `build_urls`,
 `deps`, `query_sigs`, `changes`, `log`, `target_files`, for search `search_terms`, `search_docs`, `search_dirty`, and for the form
-receiver `form_keys`. The data directory is `glaciate/` in the uploads directory, as
+receiver `form_keys` and `form_rate` (rate-limit counters, used without a persistent object cache). The data directory is `glaciate/` in the uploads directory, as
 `wp_upload_dir()` resolves it at runtime (or `GLACIATE_DATA_DIR`). It holds the build cache (`cache/<site_id>/`, rendered
 files, public content only) and ZIP archives (`zips/<site_id>/`), both protected with index.php and .htaccess deny.
 The default local target (`public/<site_id>/`) stays reachable, so the static copy can be previewed; when the local
@@ -316,9 +316,13 @@ from the internet at its own address) or `receiver` (a receiver run elsewhere, a
   valid form key; an empty honeypot; and, when present, `glaciate_t` of at least 3 seconds. The standalone receivers
   repeat these rules, and all implementations are tested against `tests/fixtures/forms-cases.json`.
 - **WordPress receiver** (`Forms\Receiver`, routes in `Forms\Endpoint`): `POST glaciate/v1/forms/submit` (site mode)
-  checks the `Origin` header against the public site, the shared rules, the captcha (Turnstile or hCaptcha, opt-in)
-  and a rate limit (5 per 10 minutes per IP, `glaciate_form_rate_limit`), then calls the adapter if a published page
-  carries the form's key (otherwise the answer is `error`, as for a kind no adapter knows). `POST
+  checks the `Origin` header against the public site, an attempt limit (20 per 10 minutes, counted before anything
+  costlier), the shared rules, the captcha (Turnstile or hCaptcha, opt-in) and a submission limit (5 per 10 minutes,
+  `glaciate_form_rate_limit`), then calls the adapter if a published page carries the form's key (otherwise the answer
+  is `error`, as for a kind no adapter knows). The limits count per IPv4 address or IPv6 /64 of the address
+  `glaciate_form_client_ip` returns (`REMOTE_ADDR` by default), atomically: `wp_cache_add()` and `wp_cache_incr()`
+  with a persistent object cache, otherwise one upsert in `form_rate`, whose ended windows are pruned whenever a new
+  counter starts (D60). Site Health warns when requests carry forwarding headers while that filter is unset. `POST
   glaciate/v1/forms/relay` accepts a submission another receiver forwarded: JSON `{v, form, page, fields: [[name,
   value], …], ip, user_agent}` signed with the forms secret (`X-Glaciate-Signature: t=<time>,v1=<HMAC-SHA256 of
   "<time>.<body>">` in exactly that spelling, five minutes either way, each signature accepted once: `Forms\ReplayGuard`

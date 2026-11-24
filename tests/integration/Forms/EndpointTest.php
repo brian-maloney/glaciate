@@ -104,6 +104,33 @@ final class EndpointTest extends WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'javascript:', $html );
 	}
 
+	public function test_submissions_through_an_unnamed_proxy_are_remembered(): void {
+		$saved = $_SERVER;
+		delete_option( Endpoint::PROXY_OPTION );
+		try {
+			$_SERVER['REMOTE_ADDR'] = '10.0.0.1';
+			unset( $_SERVER['HTTP_X_FORWARDED_FOR'] );
+			self::submit( 'application/json', self::contact() );
+			$this->assertFalse( get_option( Endpoint::PROXY_OPTION ), 'no forwarding headers' );
+
+			$_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.9';
+			add_filter(
+				'glaciate_form_client_ip',
+				static function ( $ip ) {
+					return $ip;
+				}
+			);
+			self::submit( 'application/json', self::contact() );
+			$this->assertFalse( get_option( Endpoint::PROXY_OPTION ), 'the owner set the client address filter' );
+
+			remove_all_filters( 'glaciate_form_client_ip' );
+			self::submit( 'application/json', self::contact() );
+			$this->assertGreaterThan( time() - 60, (int) get_option( Endpoint::PROXY_OPTION ) );
+		} finally {
+			$_SERVER = $saved;
+		}
+	}
+
 	public function test_relay_route(): void {
 		Settings::update( array( 'forms' => 'receiver' ) );
 		Secrets::set( 'forms', 'secret', 'shared' );

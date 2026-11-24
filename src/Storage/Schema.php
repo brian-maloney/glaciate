@@ -17,7 +17,7 @@ defined( 'ABSPATH' ) || exit;
 final class Schema {
 
 	/** Bump when the table definitions change. */
-	const VERSION = 5;
+	const VERSION = 6;
 
 	/** Option holding the installed schema version. */
 	const OPTION = 'glaciate_schema_version';
@@ -27,7 +27,7 @@ final class Schema {
 	 *
 	 * @var string[]
 	 */
-	const TABLES = array( 'builds', 'urls', 'build_urls', 'deps', 'query_sigs', 'changes', 'log', 'target_files', 'search_terms', 'search_docs', 'search_dirty', 'form_keys' );
+	const TABLES = array( 'builds', 'urls', 'build_urls', 'deps', 'query_sigs', 'changes', 'log', 'target_files', 'search_terms', 'search_docs', 'search_dirty', 'form_keys', 'form_rate' );
 
 	/**
 	 * Returns the full table name for a suffix.
@@ -200,6 +200,16 @@ url_id bigint(20) unsigned NOT NULL,
 form_key varchar(81) $binary NOT NULL,
 PRIMARY KEY  (url_id,form_key),
 KEY form_key (form_key)
+) $charset;";
+
+		// Form rate-limit counters (D60), used when there is no persistent object cache. The key is a salted hash of the
+		// address; rows go once their window has ended.
+		$sql[] = "CREATE TABLE {$t['form_rate']} (
+counter_key char(32) NOT NULL,
+hits int(10) unsigned NOT NULL DEFAULT 0,
+expires_at bigint(20) unsigned NOT NULL DEFAULT 0,
+PRIMARY KEY  (counter_key),
+KEY expires_at (expires_at)
 ) $charset;";
 
 		dbDelta( $sql );

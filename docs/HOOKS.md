@@ -168,7 +168,9 @@ Since 0.4.0. Fired in `src/Forms/Endpoint.php`.
 
 ### `glaciate_form_rate_limit`
 
-Filters how many form submissions one IP address may send, and in how many seconds.
+Filters how many form submissions one IP address may send, and in how many seconds. Attempts, which are
+counted before the spam rules and the captcha, are limited to four times as many in the same window.
+IPv6 addresses count by their /64.
 
 - `array{0:int,1:int} $limit` Submissions and window; 5 in 600 seconds by default. Zero submissions turns
 - `string $ip` Visitor IP address.

@@ -30,6 +30,12 @@ final class Endpoint {
 	const HTML = 'text/html; charset=UTF-8';
 
 	/**
+	 * Option holding when a submission last arrived through a proxy while `glaciate_form_client_ip` was unfiltered
+	 * (Unix time), for the Site Health check (D60).
+	 */
+	const PROXY_OPTION = 'glaciate_form_proxy_seen';
+
+	/**
 	 * Registers hooks.
 	 *
 	 * @return void
@@ -74,7 +80,8 @@ final class Endpoint {
 	 * @return \WP_REST_Response
 	 */
 	public static function submit( \WP_REST_Request $request ): \WP_REST_Response {
-		$pairs  = Protocol::from_array( (array) $request->get_body_params() );
+		$pairs = Protocol::from_array( (array) $request->get_body_params() );
+		self::note_proxy();
 		$result = Receiver::for_site()->direct( $pairs, self::client_ip(), (string) $request->get_header( 'user_agent' ), (string) $request->get_header( 'origin' ) );
 		return self::respond( $request, $result, Protocol::value( $pairs, Protocol::FIELD_PAGE ) );
 	}
@@ -176,6 +183,37 @@ final class Endpoint {
 	private static function back_link( string $page ): string {
 		$public = \Glaciate\Build\Pipeline::public_url( \Glaciate\Support\Settings::all() );
 		return '' !== $page && Config::origin_of( $page ) === Config::origin_of( $public ) ? $page : $public;
+	}
+
+	/**
+	 * Remembers that a submission came through a proxy or CDN while the client address is REMOTE_ADDR, which is then
+	 * the proxy's, so every visitor shares one rate limit. Site Health says so (HealthChecks::forms()). Written at most
+	 * once a day.
+	 *
+	 * @return void
+	 */
+	private static function note_proxy(): void {
+		if ( has_filter( 'glaciate_form_client_ip' ) || ! ClientAddress::proxied( self::request_headers() ) ) {
+			return;
+		}
+		if ( (int) get_option( self::PROXY_OPTION, 0 ) < time() - DAY_IN_SECONDS ) {
+			update_option( self::PROXY_OPTION, time(), false );
+		}
+	}
+
+	/**
+	 * REMOTE_ADDR and the forwarding headers of the current request, for ClientAddress::proxied().
+	 *
+	 * @return array<string,string>
+	 */
+	public static function request_headers(): array {
+		$out = array();
+		foreach ( array_merge( array( 'REMOTE_ADDR' ), ClientAddress::HEADERS ) as $name ) {
+			if ( isset( $_SERVER[ $name ] ) && is_string( $_SERVER[ $name ] ) ) {
+				$out[ $name ] = sanitize_text_field( wp_unslash( $_SERVER[ $name ] ) );
+			}
+		}
+		return $out;
 	}
 
 	/**

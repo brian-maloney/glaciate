@@ -1142,6 +1142,38 @@ name in the system's temporary folder, and before this it wrote counters whereve
   same rule. The exported file still contains no secret (T10).
 - **Nameless fields are dropped** from urlencoded bodies, as PHP drops them from `$_POST`.
 
+## D60. The form rate limit counts atomically, per IPv6 /64, and before the captcha
+
+The WordPress receiver kept one transient per address: read it, compare, write it back. Parallel requests all read the
+same count, so a burst got past the limit. The limit was consulted only after the captcha, so every request, limited or
+not, cost a request to the captcha provider. It counted exact addresses, which means nothing to someone holding an IPv6
+/64. And behind a proxy every visitor shared the proxy's address, with nothing telling the owner.
+
+- **One atomic operation per hit.** With a persistent object cache, `wp_cache_add()` starts the counter with the window
+  as its expiry and `wp_cache_incr()` counts; both are single operations in Redis and Memcached. Without one, a row in a
+  new `form_rate` table (schema version 6) is counted with `INSERT … ON DUPLICATE KEY UPDATE`, which also restarts an
+  ended window, and `LAST_INSERT_ID(expr)` hands the new count back to this connection, so no second read can see
+  another request's hit. A table rather than an atomic trick on `wp_options`: the options cache and autoload would get in
+  the way, and the rows need an expiry index. WordPress's in-memory cache lasts one request and is never used.
+- **Pruned without a job.** Whenever a new counter row starts, up to 100 rows whose window has ended are deleted, so the
+  table holds about one window's worth of addresses. A busy site starts rows often; a quiet one has few to prune.
+- **Two counters.** Attempts are counted after the `Origin` check and before the spam rules and the captcha; submissions
+  after both, as before. Attempts get four times the submission limit in the same window (20 in ten minutes by default),
+  derived from `glaciate_form_rate_limit` rather than a second filter, so zero still turns everything off. Refused
+  requests count as attempts. Captcha requests per address are now bounded by the attempt limit.
+- **IPv6 counts by /64**, the usual smallest allocation to one subscriber. IPv4-mapped IPv6 addresses count as IPv4.
+- **The relay counts the same way**, with the address the receiver reports, so a submission is limited the same whichever
+  way it arrives.
+- **Proxies: warn, don't guess.** The limit keeps using the address `glaciate_form_client_ip` returns (`REMOTE_ADDR` by
+  default). Forwarding headers are trivially forged, and trusting them by default would let any visitor pick their own
+  bucket. Instead, the Site Health forms check (and `wp glaciate doctor`) recommends the filter when forms are `site` and
+  either the current request or a submission in the last 30 days (`glaciate_form_proxy_seen`, written at most daily)
+  carried `X-Forwarded-For`, `Forwarded`, `CF-Connecting-IP` or similar while the filter was unset. When `REMOTE_ADDR`
+  already equals one of the forwarded addresses, something has rewritten it (often wp-config.php), so there is no
+  warning.
+- **Fails open.** If the counter can't be written, the request isn't limited: the limit is a spam measure, and refusing
+  every form over a database error would be worse.
+
 ## D61. Only comments visitors can see record changes
 
 Every comment write used to record a change and touch its post, whatever the comment's status. A comment held for

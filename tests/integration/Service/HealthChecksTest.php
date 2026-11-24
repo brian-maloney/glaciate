@@ -89,6 +89,96 @@ final class HealthChecksTest extends \WP_UnitTestCase {
 		$this->assertSame( 'good', ( new HealthChecks() )->addresses()['status'] );
 	}
 
+	/**
+	 * Runs a callback with forwarding headers set on the current request.
+	 *
+	 * @param array<string,string> $server   $_SERVER entries.
+	 * @param callable             $callback Callback.
+	 * @return void
+	 */
+	private function with_server( array $server, callable $callback ): void {
+		$saved = $_SERVER;
+		foreach ( \Glaciate\Forms\ClientAddress::HEADERS as $name ) {
+			unset( $_SERVER[ $name ] );
+		}
+		$_SERVER = $server + $_SERVER;
+		try {
+			$callback();
+		} finally {
+			$_SERVER = $saved;
+		}
+	}
+
+	public function test_forms_behind_a_proxy_without_the_client_ip_filter_are_flagged(): void {
+		Settings::update(
+			array(
+				'public_url' => 'https://static.example.org',
+				'forms'      => 'site',
+			)
+		);
+		delete_option( \Glaciate\Forms\Endpoint::PROXY_OPTION );
+		$this->with_server(
+			array( 'REMOTE_ADDR' => '127.0.0.1' ),
+			function () {
+				$this->assertSame( 'good', ( new HealthChecks() )->forms()['status'], 'no forwarding headers' );
+			}
+		);
+		$this->with_server(
+			array(
+				'REMOTE_ADDR'          => '10.0.0.1',
+				'HTTP_X_FORWARDED_FOR' => '198.51.100.9',
+			),
+			function () {
+				$check = ( new HealthChecks() )->forms();
+				$this->assertSame( 'recommended', $check['status'] );
+				$this->assertStringContainsString( 'glaciate_form_client_ip', $check['description'] );
+
+				Settings::update( array( 'forms' => 'off' ) );
+				$this->assertSame( 'good', ( new HealthChecks() )->forms()['status'], 'not with forms off' );
+				Settings::update( array( 'forms' => 'site' ) );
+
+				add_filter(
+					'glaciate_form_client_ip',
+					static function ( $ip ) {
+						return $ip;
+					}
+				);
+				$this->assertSame( 'good', ( new HealthChecks() )->forms()['status'], 'the owner set the filter' );
+				remove_all_filters( 'glaciate_form_client_ip' );
+			}
+		);
+		$this->with_server(
+			array(
+				'REMOTE_ADDR'          => '198.51.100.9',
+				'HTTP_X_FORWARDED_FOR' => '198.51.100.9',
+			),
+			function () {
+				$this->assertSame( 'good', ( new HealthChecks() )->forms()['status'], 'REMOTE_ADDR already holds the visitor\'s address' );
+			}
+		);
+		Settings::update( array( 'forms' => 'off' ) );
+	}
+
+	public function test_a_submission_through_a_proxy_is_remembered_for_the_check(): void {
+		Settings::update(
+			array(
+				'public_url' => 'https://static.example.org',
+				'forms'      => 'site',
+			)
+		);
+		$this->with_server(
+			array( 'REMOTE_ADDR' => '127.0.0.1' ),
+			function () {
+				update_option( \Glaciate\Forms\Endpoint::PROXY_OPTION, time() - DAY_IN_SECONDS, false );
+				$this->assertSame( 'recommended', ( new HealthChecks() )->forms()['status'] );
+				update_option( \Glaciate\Forms\Endpoint::PROXY_OPTION, time() - 31 * DAY_IN_SECONDS, false );
+				$this->assertSame( 'good', ( new HealthChecks() )->forms()['status'], 'forgotten after 30 days' );
+			}
+		);
+		delete_option( \Glaciate\Forms\Endpoint::PROXY_OPTION );
+		Settings::update( array( 'forms' => 'off' ) );
+	}
+
 	public function test_extensions_are_reported(): void {
 		$check = ( new HealthChecks() )->extensions();
 		$ok    = function_exists( 'curl_multi_init' ) && class_exists( \ZipArchive::class );

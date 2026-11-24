@@ -14,6 +14,7 @@ use Glaciate\Deploy\Aws\Transport;
 use Glaciate\Deploy\Git\Objects;
 use Glaciate\Deploy\Git\Pack;
 use Glaciate\Deploy\Git\RemoteClient;
+use Glaciate\Deploy\Git\ReservedPaths;
 use Glaciate\Output\PathMapper;
 use Glaciate\Output\UnsafePathException;
 use Glaciate\Security\TargetPolicy;
@@ -205,6 +206,8 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 		if ( null !== $problem ) {
 			throw new \RuntimeException( $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Logged as plain text and escaped on display.
 		}
+		$manifest = self::without_reserved_paths( $manifest, $logger );
+
 		$client = $this->client();
 		$info   = $client->discover();
 		$ref    = $this->ref();
@@ -498,6 +501,28 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 			$out[]                 = array( 'blob', $contents );
 		}
 		return $out;
+	}
+
+	/**
+	 * Drops manifest paths Git or a Git host would read as repository configuration (ReservedPaths, threat T27).
+	 *
+	 * Runs before anything else looks at the manifest, so such a path reaches no tree: not the site's commit, not an
+	 * upload batch, not a resumed deploy. A path an earlier deploy committed is left out of the new tree and leaves
+	 * the records, like any deleted file. The marker files (extras()) are added later and are not affected.
+	 *
+	 * @param array<string,string> $manifest Relative path => SHA-256.
+	 * @param Logger               $logger   Build log.
+	 * @return array<string,string>
+	 */
+	private static function without_reserved_paths( array $manifest, Logger $logger ): array {
+		foreach ( array_keys( $manifest ) as $path ) {
+			if ( ReservedPaths::is_reserved( (string) $path ) ) {
+				unset( $manifest[ $path ] );
+				/* translators: %s: file path. */
+				$logger->warning( sprintf( __( 'Skipped %s: Git hosts read this name as repository configuration, so Glaciate never commits it.', 'glaciate' ), $path ) );
+			}
+		}
+		return $manifest;
 	}
 
 	/**

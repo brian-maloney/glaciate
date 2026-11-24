@@ -222,6 +222,8 @@ deployers delete those files (D58).
   (it might be the default branch) only costs a warning. In an empty repository the real branch is created first,
   with a commit holding only the marker files, because hosts such as GitHub make the first branch pushed the default
   and refuse to delete it. The test Git server's hooks copy both of those GitHub rules.
+  Before any of this, manifest paths that Git or a Git host reads as repository configuration (`.github/workflows`,
+  `.gitlab-ci.yml`, `.git`, the short name `git~1` and the like) are dropped and logged (`Git\ReservedPaths`, T27).
 - **Netlify** (D16) uses the API's file-digest deploys: one `async` deploy listing every file's SHA-1, then uploads of only
   the hashes Netlify reports missing. SHA-1s are kept per path beside the SHA-256 records, so unchanged files aren't
   re-hashed. A site with no changes since the last deploy creates no deploy (Netlify allows 100 API deploys a day). The open

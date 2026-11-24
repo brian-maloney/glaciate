@@ -136,11 +136,11 @@ final class Receiver {
 		if ( 'off' === $this->config->mode() || '' === $secret || ! Signature::verify( $signature, $body, $secret, $now ) ) {
 			return Result::refused();
 		}
-		$seen = 'glaciate_form_seen_' . substr( hash( 'sha256', $signature ), 0, 40 );
-		if ( false !== get_transient( $seen ) ) {
+		// Once only, keyed on the parsed values (the only spelling that verifies) and claimed atomically (D64).
+		list( $time, $mac ) = Signature::parse( $signature );
+		if ( ! ( new ReplayGuard() )->claim( $time, $mac, $now ) ) {
 			return Result::refused();
 		}
-		set_transient( $seen, 1, 2 * Signature::TOLERANCE );
 
 		$payload = json_decode( $body, true );
 		$pairs   = Protocol::pairs( is_array( $payload ) ? ( $payload['fields'] ?? null ) : null );

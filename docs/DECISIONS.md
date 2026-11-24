@@ -1156,3 +1156,28 @@ build a minute later, so anyone able to post a comment could keep the origin ren
   each is followed by a transition carrying the information they lack (the old status).
 - **The comment count touches the post only when it moved.** WordPress recounts after every status change and edit,
   even of a held comment; an unchanged count is not a change to the post.
+
+## D64. A relay signature has one spelling, and claiming it is one atomic step
+
+The relay accepts each signature once (T22). The marker used to be a transient named after a hash of the raw header,
+read and then written, while the check trimmed the header first. A server that passed surrounding whitespace through
+would have let a captured request in once per spelling, and so would a time with leading zeros (`t=0…` parses to the
+same number, so the HMAC still matches). Two copies arriving together could both pass the read.
+
+- **One spelling.** `Signature::parse()` accepts only what `sign()` writes: no whitespace anywhere, no leading zeros,
+  lower-case hex, anchored with `\z` (a `$` also matches before a trailing newline). Anything else is refused, not
+  normalised: every receiver we ship signs in that form, and HTTP servers strip surrounding whitespace before PHP sees
+  the header, so a server that didn't now gets a refusal instead of a second chance. The marker is keyed on the parsed
+  time and HMAC.
+- **Atomic claim.** With a persistent object cache, `wp_cache_add()`: Redis, Memcached and APCu implement it as
+  add-if-absent. Without one, an `INSERT IGNORE` of a `glaciate_form_seen_*` row into the options table; the unique key
+  on `option_name` lets one insert through, and one affected row means first. A database error refuses the request.
+  The options API isn't used because `add_option()` reads before it writes, and its `ON DUPLICATE KEY UPDATE` reports
+  success when the stored value differs. No schema change: the options table already has the unique key, the rows
+  aren't autoloaded, and uninstall already deletes `glaciate_*` options.
+- **Markers last as long as their signature.** A marker expires at the signature's time plus the tolerance, the last
+  second `verify()` accepts it. Each database claim first deletes markers past that; relayed submissions are few, and
+  the delete uses the `option_name` index.
+- **Object cache eviction is a residual risk.** A marker evicted early lets one replay through. Writing to the
+  database even with an object cache would close that, at the cost of a write per relayed submission on sites that set
+  up a cache to avoid such writes; the signature still has to be fresh and valid, so we prefer the cache.

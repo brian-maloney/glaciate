@@ -319,7 +319,8 @@ from the internet at its own address) or `receiver` (a receiver run elsewhere, a
   carries the form's key (otherwise the answer is `error`, as for a kind no adapter knows). `POST
   glaciate/v1/forms/relay` accepts a submission another receiver forwarded: JSON `{v, form, page, fields: [[name,
   value], …], ip, user_agent}` signed with the forms secret (`X-Glaciate-Signature: t=<time>,v1=<HMAC-SHA256 of
-  "<time>.<body>">`, five minutes either way, each signature accepted once), with the same published-key check.
+  "<time>.<body>">` in exactly that spelling, five minutes either way, each signature accepted once: `Forms\ReplayGuard`
+  claims it atomically, D64), with the same published-key check.
   Accepted submissions fire
   `glaciate_form_submitted` and, when `forms_webhook` and the secret are set, are sent on in the same signed format.
   Answers are `{ok, status: sent|invalid|spam|limited|error, message, errors, redirect}`; messages are plain text.

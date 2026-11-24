@@ -31,8 +31,8 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - `LoopbackClient` uses the WP HTTP API (`wp_remote_request`; `WpOrg\Requests\Requests::request_multiple` for
   concurrency, default 4, configurable). Requests carry **no cookies**, so pages render as an anonymous visitor.
   `redirection => 0`; redirects get recorded, not followed blindly.
-- Each request carries `X-Glaciate-Render: <build_id>.<expiry>.<hmac>`, an HMAC-SHA256 under a per-site random key
-  stored in an option with `autoload=no`. The render-side `Recorder` boots only when the token verifies (`hash_equals`)
+- Each request carries `X-Glaciate-Render: <build_id>.<url_id>.<expires>.<hmac>`, an HMAC-SHA256 over the first three
+  parts under a per-site random key stored in an option with `autoload=no`. The render-side `Recorder` boots only when the token verifies (`hash_equals`)
   and the build is active. The token **grants no privileges**. It only turns on recording, hides the admin bar and
   sets `DONOTCACHEPAGE`.
 - At shutdown, the Recorder writes the deps for (build, URL) into the DB, and in the URL's row the render's mark
@@ -107,6 +107,9 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   Widgets and theme mods are options.
 - Some options change constantly (cron, transients, `doing_cron`, Action Scheduler state, our own). They're denylisted
   as triggers (filterable). `rewrite_rules`, `permalink_structure` and the active theme trigger a full rebuild.
+- Saving the plugin's own settings (`glaciate_settings`) records a full change when anything other than the publishing
+  schedule (mode, times, days, full-rebuild time, concurrency, `connect_to`) differs (D55). The option itself is on the
+  denylist above, so it never becomes a per-URL dependency; `ChangeListener` watches it on its own hooks.
 - Change capture writes to a `changes` table with a debounce (default 60 s), so a burst of saves becomes one incremental build.
 - A post's own terms (`get_the_terms()`) depend on the post; only term lists record `tq:<taxonomy>`, and only a term count
   that actually moved invalidates them. A simple query (no search, meta or custom ordering) doesn't match a post whose
@@ -114,6 +117,10 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - Affected set = URLs from the object deps ∪ matching query signatures ∪ option deps ∪ the changed post's old and new permalinks
   ∪ `deps=unknown` URLs, and the `glaciate_affected_url_ids` filter can add more.
 - **Orphans**: URLs that now return 404 or redirect get removed from the manifest, so deployers delete them.
+- **Re-classification** (D55): rows queued by ID (every published row in a full build, the dependency-matched rows and
+  changed addresses in an incremental one) go through the URL classifier again during planning. A row it now rejects
+  (an exclusion pattern, the `feeds` setting, the public address) is unpublished like a 404 and not rendered.
+  Generated files (`glaciate:` rows) and the 404 probe are not classified.
 - **Safety nets**: a "Full rebuild" button and `--full` flag, a scheduled full rebuild (setting: off/daily/weekly at a chosen local time, **default daily at 03:00**), and a
   `glaciate_dependencies_for_url` filter for extensions that know their own deps.
 - **Output hashing**: each URL row keeps its output path, SHA-256 and size. Deployers receive the whole manifest
@@ -236,7 +243,8 @@ Built in by default (D20); Pagefind is an optional backend where the host's buil
   Everything lives under `glaciate-search/` in the output and deploys like any generated file. The writer runs at
   the start of finalizing, a group at a time within the slice budget; a full build marks every group dirty once, which
   restores any file that went missing. The `search` setting (`builtin`, `pagefind_host` or `off`) decides whether pages are indexed;
-  `off` removes the files and empties the tables. Changing it triggers a full rebuild, like any settings change.
+  `off` removes the files and empties the tables. Changing it triggers a full rebuild, like any settings change
+  outside the publishing schedule (D55).
 - **Client** (`assets/js/search.js`, plain JavaScript, no build step): `Search\Frontend` enqueues it (deferred) only on
   render requests, so the live site keeps WordPress search; its settings (index and stylesheet addresses, labels) are
   printed as origin URLs and rewritten like everything else. It intercepts submits of any form with a field named `s`

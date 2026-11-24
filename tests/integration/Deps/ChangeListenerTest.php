@@ -9,6 +9,7 @@ namespace Glaciate\Tests\Integration\Deps;
 
 use Glaciate\Deps\ChangeListener;
 use Glaciate\Storage\ChangeRepository;
+use Glaciate\Support\Settings;
 
 final class ChangeListenerTest extends \WP_UnitTestCase {
 
@@ -201,6 +202,39 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( 'full:option:permalink_structure', $changes );
 		$this->assertArrayNotHasKey( 'option:cron', $changes );
 		$this->assertEmpty( preg_grep( '/transient/', array_keys( $changes ) ) );
+	}
+
+	public function test_saving_settings_that_change_the_output_records_a_full_change(): void {
+		Settings::update( array( 'exclude' => array( '/a/' ) ) );
+		$this->changes();
+
+		Settings::update( array( 'exclude' => array( '/a/', '/sample-page/' ) ) );
+		$this->assertArrayHasKey( 'full:option:' . Settings::OPTION, $this->changes() );
+
+		Settings::update( array( 'feeds' => 'none' ) );
+		$this->assertArrayHasKey( 'full:option:' . Settings::OPTION, $this->changes() );
+	}
+
+	public function test_saving_unchanged_or_schedule_only_settings_records_no_full_change(): void {
+		Settings::update( array( 'exclude' => array( '/a/' ) ) );
+		$this->changes();
+
+		Settings::update( array() );
+		Settings::update(
+			array(
+				'publish_mode' => 'manual',
+				'concurrency'  => 2,
+			)
+		);
+		$this->assertArrayNotHasKey( 'full:option:' . Settings::OPTION, $this->changes() );
+	}
+
+	public function test_first_settings_save_records_a_full_change(): void {
+		delete_option( Settings::OPTION );
+		$this->changes();
+
+		Settings::update( array( 'exclude' => array( '/sample-page/' ) ) );
+		$this->assertArrayHasKey( 'full:option:' . Settings::OPTION, $this->changes() );
 	}
 
 	public function test_user_profile_change_records_author_urls(): void {

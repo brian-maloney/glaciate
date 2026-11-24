@@ -32,7 +32,7 @@ use Glaciate\Support\Logger;
  * Phases:
  *
  *     planning   – full builds: seed URLs and every published URL; incremental: URLs affected by changes;
- *                  urls: the URLs the caller listed.
+ *                  urls: the URLs the caller listed. Published URLs the classifier now rejects are unpublished.
  *     rendering  – fetch or copy queued URLs, write files, queue newly discovered URLs.
  *     finalizing – write the search index and generated files (_redirects, redirect pages).
  *     deploying  – make the deploy target match the cache.
@@ -237,11 +237,24 @@ final class Runner {
 				$this->builds->update( (int) $build['id'], array( 'kind' => 'full' ) );
 				return false; // Plan again, now as a full build.
 			}
-			$ids = array();
+			$ids      = array();
+			$rejected = array();
 			foreach ( $plan['urls'] as $url ) {
 				$classified = $pipeline->classifier->classify( $url );
 				if ( null !== $classified ) {
 					$ids[] = $this->urls->ensure( $classified['url'], 'change', $classified['kind'] );
+					continue;
+				}
+				$canonical = $pipeline->policy->normalize( $pipeline->origins->to_origin( $url ) );
+				if ( null !== $canonical ) {
+					$rejected[] = $canonical;
+				}
+			}
+			// A changed address the classifier now rejects may still be published from before.
+			$reached = $plan['url_ids'];
+			foreach ( $rejected ? $this->urls->lookup( $rejected ) : array() as $known ) {
+				if ( $known['published'] ) {
+					$reached[] = $known['id'];
 				}
 			}
 			// URLs the caller asked for explicitly ("Publish to static" in the editor) are always included.
@@ -251,7 +264,7 @@ final class Runner {
 					$ids[] = $this->urls->ensure( $classified['url'], 'request', $classified['kind'] );
 				}
 			}
-			$frontier->add( array_merge( $plan['url_ids'], $ids ) );
+			$frontier->add( array_merge( $this->leave_out_rejected( $reached, $pipeline, $logger, (int) $build['id'] ), $ids ) );
 			/* translators: 1: number of changes, 2: number of addresses. */
 			$logger->info( sprintf( __( 'Planned an incremental build. Changes: %1$d, addresses affected: %2$d.', 'glaciate' ), $plan['changes'], $frontier->total() ) );
 			$this->builds->merge_stats( (int) $build['id'], array( 'changes' => $plan['changes'] ) );
@@ -275,10 +288,13 @@ final class Runner {
 
 		// Full build: every published URL first (so pages that are no longer linked are re-checked), then seeds.
 		if ( empty( $stats['seed_cursor'] ) ) {
+			// Published URLs that the settings now exclude leave before anything renders, so none of their files
+			// stays in the output and a new page at the same path doesn't find it taken.
+			$published = $this->leave_out_rejected( $this->urls->published_ids(), $pipeline, $logger, (int) $build['id'] );
 			// At the depth limit, so a page that was published only because links led to it is re-checked without
 			// following its links further, unless a shorter path reaches it in this build and lowers its depth.
 			// Otherwise a crawler trap would grow by the limit on every full build.
-			$frontier->add( $this->urls->published_ids(), max( 0, (int) $pipeline->settings['max_depth'] ) );
+			$frontier->add( $published, max( 0, (int) $pipeline->settings['max_depth'] ) );
 			$stats['seed_cursor'] = array( 'stage' => 'core' );
 			( new Invalidator() )->consume_all( (int) $build['id'] );
 		}
@@ -311,6 +327,42 @@ final class Runner {
 		}
 		$this->builds->merge_stats( (int) $build['id'], array( 'seed_cursor' => $batch['cursor'] ) );
 		return 'done' === $batch['cursor']['stage'];
+	}
+
+	/**
+	 * Checks rows queued by ID against the classifier again. The settings (exclusions, feeds, the public address) or
+	 * the exclusion filter may have changed since a row was published; a row the classifier now rejects is taken out
+	 * of the published set like a page that went 404, so its file leaves the cache and the next deploy deletes it, and
+	 * it isn't rendered. Generated files and the 404 probe have no address of their own and are kept as they are.
+	 *
+	 * @param int[]    $ids      URL IDs.
+	 * @param Pipeline $pipeline Components.
+	 * @param Logger   $logger   Log.
+	 * @param int      $build_id Build ID.
+	 * @return int[] The IDs to render.
+	 */
+	private function leave_out_rejected( array $ids, Pipeline $pipeline, Logger $logger, int $build_id ): array {
+		$keep      = array();
+		$processor = null;
+		foreach ( array_chunk( array_values( array_unique( array_map( 'intval', $ids ) ) ), 500 ) as $chunk ) {
+			foreach ( $this->urls->get_many( $chunk ) as $id => $row ) {
+				$url = (string) $row['url'];
+				if ( '404' === $row['source'] || in_array( $row['kind'], array( '404', 'generated' ), true ) || 0 === strpos( $url, 'glaciate:' )
+					|| null !== $pipeline->classifier->classify( $url ) ) {
+					$keep[] = (int) $id;
+					continue;
+				}
+				// Not published: nothing to take away, and nothing to render.
+				if ( null === $row['content_hash'] && empty( $row['redirect_to'] ) ) {
+					continue;
+				}
+				if ( null === $processor ) {
+					$processor = new Processor( $pipeline->origins, $pipeline->rewriter, $pipeline->extractor, $pipeline->classifier, $pipeline->cache, $this->urls, $logger, $build_id );
+				}
+				$processor->leave_out( $row, $pipeline->classifier->reason() );
+			}
+		}
+		return $keep;
 	}
 
 	/**

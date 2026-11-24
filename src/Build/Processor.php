@@ -471,6 +471,21 @@ final class Processor {
 	}
 
 	/**
+	 * Takes a URL the classifier now rejects (an exclusion pattern or the feed setting changed) out of the published
+	 * set, the same way as a page that went 404: its file leaves the cache, so deployers delete it from the target,
+	 * and its dependencies go. Its search terms go when the index is written.
+	 *
+	 * @param array<string,mixed> $row    URL row.
+	 * @param string              $reason Classifier reason (excluded, feed, not-origin, ...).
+	 * @return void
+	 */
+	public function leave_out( array $row, string $reason ): void {
+		/* translators: 1: address, 2: reason. */
+		$this->logger->info( sprintf( __( 'Left out %1$s (%2$s).', 'glaciate' ), $row['url'], $reason ) );
+		$this->remove( $row, (int) $row['status_code'] );
+	}
+
+	/**
 	 * Removes a URL from the published set (404/410).
 	 *
 	 * @param array<string,mixed> $row    URL row.

@@ -933,6 +933,38 @@ matched every one-segment address, or every address starting with `/x`, on the s
 - **Targets are unchanged.** A target is an address the origin itself redirected to, so it is written as before
   (the threat model lists the residual risk of a plugin on the origin that redirects where a visitor asks).
 
+## D55. Settings changes rebuild everything, and narrower settings unpublish what they now exclude
+
+Two gaps let a page the owner had excluded stay on the public site. Saving `glaciate_settings` recorded no change: the
+option matches the ignored `glaciate_` prefix, which is checked before the list of options that trigger a full build,
+so the entry there never ran. And even a manual full build didn't help: it queued every published row by ID and
+rendered it, and only newly found addresses ever went through the URL classifier. An exclusion pattern, `feeds = none`,
+or narrowing `feeds` from `all` to `main` left the old files in place, re-rendered and redeployed on every build.
+
+- **Settings changes are recorded on their own hooks.** `ChangeListener` watches `update_option_glaciate_settings` and
+  `add_option_glaciate_settings` (WordPress fires them only when the stored value changed) and records
+  `full:option:glaciate_settings` when `OptionRules::settings_change_is_global()` says so. The option stays on the ignored
+  prefix, because every request reads it and it would otherwise become a per-URL dependency.
+- **Schedule settings don't rebuild.** Changes confined to the publishing mode, times and days, the full-rebuild schedule,
+  concurrency and `connect_to` start no build: they decide when and how fast builds run, not what they publish. Every
+  other setting (exclusions, feeds, redirects, the public address, search, forms, the target and its fields) can change
+  which files exist, what they contain or where they go, so it is a full change. A list of the keys that *don't* matter is
+  the safer default: a setting added later rebuilds until someone decides it needn't.
+- **Planning re-checks rows queued by ID.** A full build classifies every published row before queueing it; an
+  incremental build does the same for its dependency-matched rows, and looks up changed addresses the classifier rejects
+  in case they are still published from before. A rejected row is unpublished the way a page that went 404 is
+  (`Processor::leave_out()`, which calls the same `remove()`): the cached file is deleted, `path` and `content_hash` are
+  cleared and its dependencies forgotten. It leaves the manifest, so each deployer deletes the file, and the search index
+  drops it when it is next written. The build log says "Left out" with the classifier's reason.
+- **At planning, not at render time.** In a full build published rows are queued at the depth limit and render last. A
+  row the classifier now rejects (for example after the site address changed, when every old row is off-origin) would
+  otherwise still hold its output path while the new row for the same path renders first and is refused as a conflict.
+- **Not classified:** generated files (`glaciate:` pseudo-URLs) and the 404 probe, which have no address of their own.
+  Builds of selected pages still skip a rejected address with a warning rather than unpublishing it.
+
+`ExclusionChangeTest` (system) covers an exclusion, switching feeds off, and an exclusion reached by an incremental
+build; `ChangeListenerTest` and `OptionRulesTest` cover the change recording.
+
 ## D56. On multisite, the fields that pick a destination are super-admin settings
 
 Target fields resolve from `GLACIATE_<TARGET>_<FIELD>` constants and environment variables, and those names carry no

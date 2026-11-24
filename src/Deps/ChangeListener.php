@@ -11,6 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 use Glaciate\Render\Recorder;
 use Glaciate\Storage\ChangeRepository;
+use Glaciate\Support\Settings;
 
 /**
  * Watches writes to posts, terms, users, comments and options, and records one change row per object at the end
@@ -141,6 +142,8 @@ final class ChangeListener {
 		add_action( 'updated_option', array( $this, 'option' ), 10, 1 );
 		add_action( 'added_option', array( $this, 'option' ), 10, 1 );
 		add_action( 'deleted_option', array( $this, 'option' ), 10, 1 );
+		add_action( 'update_option_' . Settings::OPTION, array( $this, 'settings_updated' ), 10, 2 );
+		add_action( 'add_option_' . Settings::OPTION, array( $this, 'settings_added' ), 10, 2 );
 
 		add_action( 'upgrader_process_complete', array( $this, 'full' ), 10, 0 );
 		add_action( 'switch_theme', array( $this, 'full' ), 10, 0 );
@@ -539,6 +542,45 @@ final class ChangeListener {
 		} else {
 			$this->options[ $name ] = true;
 		}
+		$this->schedule_flush();
+	}
+
+	/**
+	 * The plugin's settings were saved (update_option_glaciate_settings). WordPress fires this only when the stored
+	 * value changed; a full build follows when the change can alter what is published or where.
+	 *
+	 * @param mixed $old_value Previous value.
+	 * @param mixed $value     New value, as sanitized.
+	 * @return void
+	 */
+	public function settings_updated( $old_value, $value ): void {
+		$this->settings_changed( $old_value, $value );
+	}
+
+	/**
+	 * The plugin's settings were stored for the first time (add_option_glaciate_settings). Until then every setting
+	 * had its default value.
+	 *
+	 * @param string $option Option name.
+	 * @param mixed  $value  Value, as sanitized.
+	 * @return void
+	 */
+	public function settings_added( $option, $value ): void {
+		$this->settings_changed( Settings::defaults(), $value );
+	}
+
+	/**
+	 * Records a full change when a settings change can alter the published site.
+	 *
+	 * @param mixed $old_value Previous value.
+	 * @param mixed $value     New value.
+	 * @return void
+	 */
+	private function settings_changed( $old_value, $value ): void {
+		if ( $this->muted() || ! OptionRules::settings_change_is_global( $old_value, $value ) ) {
+			return;
+		}
+		$this->other['full'][ 'option:' . Settings::OPTION ] = true;
 		$this->schedule_flush();
 	}
 

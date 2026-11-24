@@ -115,12 +115,13 @@ final class ChangeListener {
 		add_action( 'added_post_meta', array( $this, 'post_meta' ), 10, 3 );
 		add_action( 'updated_post_meta', array( $this, 'post_meta' ), 10, 3 );
 		add_action( 'deleted_post_meta', array( $this, 'post_meta' ), 10, 3 );
-		add_action( 'wp_update_comment_count', array( $this, 'touch_post' ), 10, 1 );
+		add_action( 'wp_update_comment_count', array( $this, 'comment_count' ), 10, 3 );
 
+		// Status changes, trash, spam and deletion all reach transition_comment_status (with the old status), so
+		// wp_set_comment_status, trashed_comment, spammed_comment and deleted_comment need no handler of their own.
 		add_action( 'wp_insert_comment', array( $this, 'comment' ), 10, 1 );
 		add_action( 'edit_comment', array( $this, 'comment' ), 10, 1 );
-		add_action( 'wp_set_comment_status', array( $this, 'comment' ), 10, 1 );
-		add_action( 'deleted_comment', array( $this, 'comment' ), 10, 1 );
+		add_action( 'transition_comment_status', array( $this, 'comment_transition' ), 10, 3 );
 
 		add_action( 'edit_terms', array( $this, 'before_term' ), 10, 2 );
 		add_action( 'pre_delete_term', array( $this, 'before_term' ), 10, 2 );
@@ -346,7 +347,10 @@ final class ChangeListener {
 	}
 
 	/**
-	 * Comment changes.
+	 * A comment was added or edited (wp_insert_comment, edit_comment). Only an approved comment is on the public
+	 * site: one held for moderation, marked as spam or in the trash changes nothing a visitor sees, so it must not
+	 * start a build. An edit that also changes the status is caught by comment_transition(), which WordPress fires
+	 * after edit_comment with the old status, so an approved comment that an edit unapproves is still recorded.
 	 *
 	 * @param int $comment_id Comment ID.
 	 * @return void
@@ -356,11 +360,65 @@ final class ChangeListener {
 			return;
 		}
 		$comment = get_comment( (int) $comment_id );
-		$this->other['comment'][ (string) (int) $comment_id ] = true;
-		if ( $comment instanceof \WP_Comment ) {
-			$this->touch_post( (int) $comment->comment_post_ID );
+		if ( $comment instanceof \WP_Comment && self::is_approved( $comment->comment_approved ) ) {
+			$this->note_comment( $comment );
 		}
+	}
+
+	/**
+	 * Comment status changes (transition_comment_status): approval, unapproval, spam, trash, their reverses, and
+	 * deletion ("delete"). Recorded when the comment is approved now or was approved before, i.e. when it appears on
+	 * or leaves the public site.
+	 *
+	 * @param string      $new_status New status, as WordPress normalizes it ("approved", "unapproved", "spam", ...).
+	 * @param string      $old_status Old status.
+	 * @param \WP_Comment $comment    Comment (for a deletion, as it was before).
+	 * @return void
+	 */
+	public function comment_transition( $new_status, $old_status, $comment ): void {
+		if ( $this->muted() || ! $comment instanceof \WP_Comment ) {
+			return;
+		}
+		if ( self::is_approved( $new_status ) || self::is_approved( $old_status ) ) {
+			$this->note_comment( $comment );
+		}
+	}
+
+	/**
+	 * A post's approved comment count was recalculated (wp_update_comment_count). WordPress recounts on every status
+	 * change and comment edit, whatever the comment's status; only a count that moved changes the post.
+	 *
+	 * @param int $post_id   Post ID.
+	 * @param int $new_count New count.
+	 * @param int $old_count Previous count.
+	 * @return void
+	 */
+	public function comment_count( $post_id, $new_count = 0, $old_count = 0 ): void {
+		if ( (int) $new_count !== (int) $old_count ) {
+			$this->touch_post( (int) $post_id );
+		}
+	}
+
+	/**
+	 * Records a visible comment change and touches the comment's post.
+	 *
+	 * @param \WP_Comment $comment Comment.
+	 * @return void
+	 */
+	private function note_comment( \WP_Comment $comment ): void {
+		$this->other['comment'][ (string) (int) $comment->comment_ID ] = true;
+		$this->touch_post( (int) $comment->comment_post_ID );
 		$this->schedule_flush();
+	}
+
+	/**
+	 * Whether a comment status means "shown to visitors": the stored value ("1") or a name WordPress uses for it.
+	 *
+	 * @param mixed $status Status.
+	 * @return bool
+	 */
+	private static function is_approved( $status ): bool {
+		return in_array( (string) $status, array( '1', 'approve', 'approved' ), true );
 	}
 
 	/**

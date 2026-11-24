@@ -114,6 +114,10 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - Saving the plugin's own settings (`glaciate_settings`) records a full change when anything other than the publishing
   schedule (mode, times, days, full-rebuild time, concurrency, `connect_to`) differs (D55). The option itself is on the
   denylist above, so it never becomes a per-URL dependency; `ChangeListener` watches it on its own hooks.
+- Comments count only while visitors can see them. Adding or editing an approved comment, and any status change into
+  or out of approved (`transition_comment_status`: unapproval, spam, trash, deletion, restore), records the comment and
+  touches its post; a post's comment count touches the post only when it moved. Held, spam and trashed comments record
+  nothing, so a comment waiting for moderation never starts a build (D61).
 - Change capture writes to a `changes` table with a debounce (default 60 s), so a burst of saves becomes one incremental build.
 - A post's own terms (`get_the_terms()`) depend on the post; only term lists record `tq:<taxonomy>`, and only a term count
   that actually moved invalidates them. A simple query (no search, meta or custom ordering) doesn't match a post whose

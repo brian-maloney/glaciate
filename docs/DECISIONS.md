@@ -1140,3 +1140,19 @@ name in the system's temporary folder, and before this it wrote counters whereve
   that checks the signature with the same empty key would have accepted forgeries. The JavaScript receivers follow the
   same rule. The exported file still contains no secret (T10).
 - **Nameless fields are dropped** from urlencoded bodies, as PHP drops them from `$_POST`.
+
+## D61. Only comments visitors can see record changes
+
+Every comment write used to record a change and touch its post, whatever the comment's status. A comment held for
+moderation or caught as spam changes nothing on the public site, yet in `immediate` mode it started an incremental
+build a minute later, so anyone able to post a comment could keep the origin rendering (T9).
+
+- **Approved now or approved before.** `wp_insert_comment` and `edit_comment` record a comment only while it is
+  approved. Everything that moves a comment into or out of approval reaches `transition_comment_status`, with the old
+  status: `wp_set_comment_status()` (so trash, spam and their reverses too), `wp_update_comment()` when the status
+  changed, and `wp_delete_comment()` (as `delete`). It records when either side is approved. An edit that unapproves a
+  comment fires `edit_comment` with the new status first and the transition after it, so it is still caught.
+- **No separate handlers** for `wp_set_comment_status`, `trashed_comment`, `spammed_comment` or `deleted_comment`:
+  each is followed by a transition carrying the information they lack (the old status).
+- **The comment count touches the post only when it moved.** WordPress recounts after every status change and edit,
+  even of a held comment; an unchanged count is not a change to the post.

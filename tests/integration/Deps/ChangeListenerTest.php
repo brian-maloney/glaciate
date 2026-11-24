@@ -267,6 +267,160 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( "comment:{$comment}", $changes );
 	}
 
+	/**
+	 * A comment on an already recorded post, with the changes so far flushed.
+	 *
+	 * @param int|string $approved comment_approved value.
+	 * @return int[] Post ID, comment ID.
+	 */
+	private function comment_on_post( $approved ): array {
+		$id      = self::factory()->post->create();
+		$comment = self::factory()->comment->create(
+			array(
+				'comment_post_ID'  => $id,
+				'comment_approved' => $approved,
+			)
+		);
+		$this->changes();
+		return array( $id, $comment );
+	}
+
+	public function test_a_held_or_spam_comment_records_nothing(): void {
+		$id = self::factory()->post->create();
+		$this->changes();
+		$recorded = 0;
+		add_action(
+			'glaciate_changes_recorded',
+			function () use ( &$recorded ) {
+				++$recorded;
+			}
+		);
+		foreach ( array( 0, 'spam', 'trash' ) as $approved ) {
+			self::factory()->comment->create(
+				array(
+					'comment_post_ID'  => $id,
+					'comment_approved' => $approved,
+				)
+			);
+		}
+		$this->assertSame( array(), $this->changes() );
+		$this->assertSame( 0, $recorded );
+	}
+
+	public function test_moderating_a_held_comment_without_approving_it_records_nothing(): void {
+		list( , $comment ) = $this->comment_on_post( 0 );
+		wp_update_comment(
+			array(
+				'comment_ID'      => $comment,
+				'comment_content' => 'Edited while held',
+			)
+		);
+		wp_spam_comment( $comment );
+		wp_unspam_comment( $comment );
+		wp_trash_comment( $comment );
+		wp_untrash_comment( $comment );
+		wp_delete_comment( $comment, true );
+		$this->assertSame( array(), $this->changes() );
+	}
+
+	public function test_an_approved_comment_records_the_comment_and_its_post(): void {
+		$id      = self::factory()->post->create();
+		$comment = self::factory()->comment->create(
+			array(
+				'comment_post_ID'  => $id,
+				'comment_approved' => 1,
+			)
+		);
+		$changes = $this->changes();
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertArrayHasKey( "comment:{$comment}", $changes );
+	}
+
+	public function test_editing_an_approved_comment_records_it(): void {
+		list( $id, $comment ) = $this->comment_on_post( 1 );
+		wp_update_comment(
+			array(
+				'comment_ID'      => $comment,
+				'comment_content' => 'Corrected',
+			)
+		);
+		$changes = $this->changes();
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertArrayHasKey( "comment:{$comment}", $changes );
+	}
+
+	/**
+	 * Ways an approved comment leaves the public site.
+	 *
+	 * @return array<string,array{callable}>
+	 */
+	public function provide_unpublishing(): array {
+		return array(
+			'unapproved'            => array(
+				function ( $comment ) {
+					wp_set_comment_status( $comment, 'hold' );
+				},
+			),
+			'unapproved by an edit' => array(
+				function ( $comment ) {
+					wp_update_comment(
+						array(
+							'comment_ID'       => $comment,
+							'comment_approved' => 0,
+						)
+					);
+				},
+			),
+			'marked as spam'        => array(
+				function ( $comment ) {
+					wp_spam_comment( $comment );
+				},
+			),
+			'trashed'               => array(
+				function ( $comment ) {
+					wp_trash_comment( $comment );
+				},
+			),
+			'deleted'               => array(
+				function ( $comment ) {
+					wp_delete_comment( $comment, true );
+				},
+			),
+		);
+	}
+
+	/**
+	 * @dataProvider provide_unpublishing
+	 *
+	 * @param callable $change Takes the comment ID.
+	 */
+	public function test_an_approved_comment_leaving_the_site_records_it( callable $change ): void {
+		list( $id, $comment ) = $this->comment_on_post( 1 );
+		$change( $comment );
+		$changes = $this->changes();
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertArrayHasKey( "comment:{$comment}", $changes );
+	}
+
+	public function test_restoring_a_trashed_approved_comment_records_it(): void {
+		list( $id, $comment ) = $this->comment_on_post( 1 );
+		wp_trash_comment( $comment );
+		$this->changes();
+		wp_untrash_comment( $comment );
+		$changes = $this->changes();
+		$this->assertSame( '1', get_comment( $comment )->comment_approved );
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertArrayHasKey( "comment:{$comment}", $changes );
+	}
+
+	public function test_deleting_a_trashed_comment_records_nothing(): void {
+		list( , $comment ) = $this->comment_on_post( 1 );
+		wp_trash_comment( $comment );
+		$this->changes();
+		wp_delete_comment( $comment, true );
+		$this->assertSame( array(), $this->changes() );
+	}
+
 	public function test_moving_a_page_records_descendants_old_and_new_urls(): void {
 		$this->set_permalink_structure( '/%postname%/' );
 		$a     = self::factory()->post->create(

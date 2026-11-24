@@ -970,3 +970,28 @@ The local directory and ZIP targets have no such fields (the local path was alre
   WP-CLI is trusted at the shell level, as before.
 - **Per-site constants later.** A `GLACIATE_<SITE>_<TARGET>_<FIELD>` naming would let a network give each site its own
   credential and destination. That is a larger change and isn't needed to close this.
+
+## D59. The standalone PHP receiver trusts no shared folder, link or empty secret
+
+The PHP receiver runs on hosts we know nothing about, often shared ones. Its default counter folder has a predictable
+name in the system's temporary folder, and before this it wrote counters wherever that name led.
+
+- **The default folder must be its own.** It is created with mode 0700 and used only while `lstat()` shows a real
+  folder owned by the account PHP runs as (`posix_geteuid()`, or the owner of a fresh `tmpfile()` without the posix
+  extension) with mode 0700. Otherwise the rate limit is off for that request and the PHP error log says why and
+  suggests `data_dir`. Failing open keeps forms working; the limit is a spam measure, and a missing count is better than
+  writing into a folder another account controls. Windows reports neither owners nor modes, so only the link check
+  applies there.
+- **`data_dir` is used as set.** The owner chose it, and a folder created by hand over FTP is often owned by another
+  account than PHP's (mod_php), so the same checks would turn the limit off for a correct setup.
+- **Counters are never written through a link.** PHP resolves links before opening a file, even in the exclusive `x`
+  mode, so `O_EXCL` alone doesn't help. The name is checked with `lstat()` first, opened without truncating (`x+` or
+  `r+`), and used only if the open file is a plain file with one link and the same device and inode as the name.
+  Anything else is not counted and logged.
+- **Stale counters are pruned** on about one request in a hundred: counter files untouched for longer than the window
+  are removed. One file per address no longer piles up.
+- **No signing with an empty key.** When `forward_url` is set and the secret is empty, the receiver answers `error`
+  and logs why, before the captcha or the rate limit. Glaciate's relay already refused such requests, but a webhook
+  that checks the signature with the same empty key would have accepted forgeries. The JavaScript receivers follow the
+  same rule. The exported file still contains no secret (T10).
+- **Nameless fields are dropped** from urlencoded bodies, as PHP drops them from `$_POST`.

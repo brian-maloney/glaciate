@@ -288,7 +288,9 @@ from the internet at its own address) or `receiver` (a receiver run elsewhere, a
   Answers are `{ok, status: sent|invalid|spam|limited|error, message, errors, redirect}`; messages are plain text.
 - **Standalone receivers** (`receivers/`, written by `wp glaciate forms receiver`): a single PHP file for any PHP
   host and a module for Cloudflare Workers or Netlify Functions. They apply the shared rules, an optional captcha and
-  rate limit, and forward to the relay or any webhook (the PHP one can also email with `mail()`).
+  rate limit, and forward to the relay or any webhook (the PHP one can also email with `mail()`). They refuse to
+  forward while the secret is empty. The PHP file keeps its counters in `data_dir`, or in a folder it creates in the
+  temporary folder and uses only while it is owned by PHP's account with mode 0700 (D59).
 
 ## Secrets
 `Security\Secrets` resolves `(deployer, field)` in this order: `GLACIATE_<DEPLOYER>_<FIELD>` constant → environment variable of

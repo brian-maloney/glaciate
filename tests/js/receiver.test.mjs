@@ -93,6 +93,16 @@ test( 'refuses, limits and fails safely', async () => {
 	assert.equal( redirect.redirect, '' );
 } );
 
+test( 'refuses to sign with an empty secret', async () => {
+	const fetch = fakeFetch( [] );
+	const logged = [];
+	const unsigned = settings( { forwardUrl: 'https://hooks.example.org/in' }, {} );
+	const answer = await check( unsigned, contact(), { ip: '192.0.2.1', userAgent: 'UA', origin: '' }, io( fetch, { log: ( m ) => logged.push( m ) } ) );
+	assert.equal( answer.status, 'error' );
+	assert.equal( fetch.calls.length, 0 );
+	assert.match( logged[ 0 ], /GLACIATE_FORMS_SECRET/ );
+} );
+
 test( 'checks the captcha with the provider', async () => {
 	const config = { ...base, captcha: 'turnstile', captchaSiteKey: 'key', captchaSecret: 'csecret' };
 	const visitor = { ip: '192.0.2.9', userAgent: 'UA', origin: '' };

@@ -44,7 +44,8 @@ const CONFIG = array(
 	// Submissions per address, and in how many seconds.
 	'rate_limit'       => 5,
 	'rate_window'      => 600,
-	// Writable folder for rate-limit counters; empty uses the system's temporary folder.
+	// Writable folder for rate-limit counters, outside the web root and writable only by the account PHP runs as.
+	// Empty uses a folder in the system's temporary folder, which this file creates and checks.
 	'data_dir'         => '',
 );
 // glaciate:config:end
@@ -161,7 +162,8 @@ function sign( string $body, string $secret, int $time ): string {
 }
 
 /**
- * Fields from an urlencoded body, in order and with their names as sent.
+ * Fields from an urlencoded body, in order and with their names as sent. Pairs without a name are dropped, as PHP
+ * drops them from $_POST.
  *
  * @param string $body Body.
  * @return array<int,array{0:string,1:string}>
@@ -172,8 +174,12 @@ function parse_urlencoded( string $body ): array {
 		if ( '' === $part ) {
 			continue;
 		}
-		$bits    = explode( '=', $part, 2 );
-		$pairs[] = array( urldecode( $bits[0] ), urldecode( $bits[1] ?? '' ) );
+		$bits = explode( '=', $part, 2 );
+		$name = urldecode( $bits[0] );
+		if ( '' === $name ) {
+			continue;
+		}
+		$pairs[] = array( $name, urldecode( $bits[1] ?? '' ) );
 	}
 	return $pairs;
 }
@@ -188,6 +194,9 @@ function parse_urlencoded( string $body ): array {
 function flatten( array $fields, string $prefix = '' ): array {
 	$out = array();
 	foreach ( $fields as $key => $item ) {
+		if ( '' === $prefix && '' === (string) $key ) {
+			continue;
+		}
 		$name = '' === $prefix ? (string) $key : $prefix . '[' . $key . ']';
 		if ( is_array( $item ) ) {
 			$out = array_merge( $out, flatten( $item, $name ) );
@@ -246,10 +255,18 @@ function http_status( array $result ): int {
  * @param string                              $agent  Visitor User-Agent.
  * @param string                              $origin Origin header.
  * @param array<string,callable>              $io     http(url, headers, body): {status, body}; mail(to, subject,
- *                                                    body, headers): bool; time(): int; limit(ip): bool.
+ *                                                    body, headers): bool; time(): int; limit(ip): bool;
+ *                                                    log(message), error_log() when missing.
  * @return array<string,mixed> Answer.
  */
 function handle( array $config, array $pairs, string $ip, string $agent, string $origin, array $io ): array {
+	// A signature under an empty key proves nothing: anyone can make one. Glaciate's relay refuses it anyway, but a
+	// webhook that checks it with the same empty key would not.
+	if ( '' !== (string) $config['forward_url'] && '' === (string) $config['secret'] ) {
+		$log = $io['log'] ?? 'error_log';
+		$log( 'Glaciate form receiver: forward_url is set but the secret is empty. Set GLACIATE_FORMS_SECRET to the forms secret from Glaciate; nothing is forwarded until then.' );
+		return result( 'error' );
+	}
 	$allowed = strtolower( rtrim( (string) $config['allowed_origin'], '/' ) );
 	if ( '' !== $allowed && '' !== $origin && 'null' !== $origin && strtolower( rtrim( $origin, '/' ) ) !== $allowed ) {
 		return result( 'spam' );
@@ -350,7 +367,7 @@ function email( string $to, string $form, string $page, array $pairs, callable $
 	$lines = array();
 	$reply = '';
 	foreach ( $pairs as $pair ) {
-		if ( in_array( $pair[0], $skip, true ) || '_' === $pair[0][0] || '' === trim( $pair[1] ) ) {
+		if ( '' === $pair[0] || in_array( $pair[0], $skip, true ) || '_' === $pair[0][0] || '' === trim( $pair[1] ) ) {
 			continue;
 		}
 		$lines[] = $pair[0] . ': ' . $pair[1];
@@ -370,24 +387,33 @@ function email( string $to, string $form, string $page, array $pairs, callable $
 /**
  * Counts an attempt from an address in files under a folder; false when over the limit.
  *
+ * Counting fails open (the submission goes on, and the reason goes to the PHP error log) when there's no safe folder
+ * or the counter file isn't a plain file of its own: a missed count is better than writing through a link someone
+ * else planted.
+ *
  * @param array<string,mixed> $config Settings.
  * @param string              $ip     Address.
  * @param int                 $now    Unix time.
+ * @param callable|null       $log    error_log()-like function; error_log() when null.
  * @return bool
  */
-function within_limit( array $config, string $ip, int $now ): bool {
+function within_limit( array $config, string $ip, int $now, ?callable $log = null ): bool {
 	$limit = (int) $config['rate_limit'];
 	if ( $limit <= 0 || ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
 		return true;
 	}
-	$dir = '' !== (string) $config['data_dir'] ? (string) $config['data_dir'] : sys_get_temp_dir() . '/glaciate-receiver-' . substr( hash( 'sha256', __FILE__ ), 0, 12 );
-	if ( ! is_dir( $dir ) && ! @mkdir( $dir, 0700, true ) && ! is_dir( $dir ) ) {
+	$log = $log ?? 'error_log';
+	$dir = counter_dir( $config, $log );
+	if ( null === $dir ) {
 		return true;
 	}
-	// The address is hashed with the secret, so the folder doesn't list visitors' addresses.
-	$file   = $dir . '/' . hash_hmac( 'sha256', $ip, (string) $config['secret'] . '|rate' ) . '.json';
-	$handle = @fopen( $file, 'c+' );
-	if ( false === $handle ) {
+	$window = max( 1, (int) $config['rate_window'] );
+	if ( 1 === random_int( 1, 100 ) ) {
+		prune_counters( $dir, $now - $window );
+	}
+	$handle = open_counter( counter_file( $dir, $config, $ip ) );
+	if ( null === $handle ) {
+		$log( 'Glaciate form receiver: a rate-limit counter in ' . $dir . ' is not a plain file of its own; this attempt was not counted.' );
 		return true;
 	}
 	flock( $handle, LOCK_EX );
@@ -395,8 +421,8 @@ function within_limit( array $config, string $ip, int $now ): bool {
 	$times = array_values(
 		array_filter(
 			is_array( $times ) ? $times : array(),
-			static function ( $time ) use ( $config, $now ) {
-				return is_int( $time ) && $time > $now - (int) $config['rate_window'];
+			static function ( $time ) use ( $window, $now ) {
+				return is_int( $time ) && $time > $now - $window;
 			}
 		)
 	);
@@ -410,6 +436,142 @@ function within_limit( array $config, string $ip, int $now ): bool {
 	flock( $handle, LOCK_UN );
 	fclose( $handle );
 	return $ok;
+}
+
+/**
+ * The folder used for counters when data_dir is empty. Its name is predictable, so counter_dir() checks it.
+ *
+ * @return string
+ */
+function default_counter_dir(): string {
+	return rtrim( sys_get_temp_dir(), '/\\' ) . '/glaciate-receiver-' . substr( hash( 'sha256', __FILE__ ), 0, 12 );
+}
+
+/**
+ * The folder for counters, or null when there's none that is safe to write to.
+ *
+ * The data_dir setting is the owner's choice and is used as it is. The default folder sits in the shared temporary folder, where
+ * on shared hosting another account can create it first, so it is used only when it's a real folder (not a link),
+ * owned by the account PHP runs as, and closed to everyone else (mode 0700). On Windows, where PHP reports neither
+ * owners nor modes, only the link check applies.
+ *
+ * @param array<string,mixed> $config Settings.
+ * @param callable            $log    error_log()-like function.
+ * @return string|null
+ */
+function counter_dir( array $config, callable $log ): ?string {
+	if ( '' !== (string) $config['data_dir'] ) {
+		$dir = (string) $config['data_dir'];
+		if ( ! is_dir( $dir ) && ! @mkdir( $dir, 0700, true ) && ! is_dir( $dir ) ) {
+			$log( 'Glaciate form receiver: data_dir ' . $dir . ' does not exist and could not be created; the rate limit is off.' );
+			return null;
+		}
+		return $dir;
+	}
+	$dir = default_counter_dir();
+	if ( @mkdir( $dir, 0700 ) ) {
+		// mkdir() applies the umask, which can only remove bits; set the mode that is checked below.
+		@chmod( $dir, 0700 );
+	}
+	clearstatcache( true, $dir );
+	$stat = @lstat( $dir );
+	if ( ! is_array( $stat ) || 0040000 !== ( $stat['mode'] & 0170000 ) ) {
+		$log( 'Glaciate form receiver: ' . $dir . ' is missing or not a folder; set data_dir. The rate limit is off.' );
+		return null;
+	}
+	if ( '\\' !== DIRECTORY_SEPARATOR ) {
+		$uid = process_uid();
+		if ( null === $uid || (int) $stat['uid'] !== $uid || 0700 !== ( $stat['mode'] & 0777 ) ) {
+			$log( 'Glaciate form receiver: ' . $dir . ' was not created by this receiver (wrong owner or mode); set data_dir to a private folder. The rate limit is off.' );
+			return null;
+		}
+	}
+	return $dir;
+}
+
+/**
+ * The user ID PHP runs as, or null when it can't be found.
+ *
+ * @return int|null
+ */
+function process_uid(): ?int {
+	if ( function_exists( 'posix_geteuid' ) ) {
+		return posix_geteuid();
+	}
+	// Without the posix extension: the owner of a file this process has just created.
+	$probe = @tmpfile();
+	if ( false === $probe ) {
+		return null;
+	}
+	$stat = fstat( $probe );
+	fclose( $probe );
+	return is_array( $stat ) ? (int) $stat['uid'] : null;
+}
+
+/**
+ * The counter file for an address. The address is hashed with the secret, so the folder doesn't list visitors'
+ * addresses.
+ *
+ * @param string              $dir    Folder.
+ * @param array<string,mixed> $config Settings.
+ * @param string              $ip     Address.
+ * @return string
+ */
+function counter_file( string $dir, array $config, string $ip ): string {
+	return $dir . '/' . hash_hmac( 'sha256', $ip, (string) $config['secret'] . '|rate' ) . '.json';
+}
+
+/**
+ * Opens a counter file for reading and writing without writing through a link.
+ *
+ * PHP resolves links in the path before it opens a file, even with the exclusive 'x' mode, so the name is checked with
+ * lstat() first, and after opening, the open file must be the plain, singly linked file that the name points to. A
+ * link swapped in between the check and the open is noticed before anything is written. Neither mode truncates.
+ *
+ * @param string $file Path.
+ * @return resource|null
+ */
+function open_counter( string $file ) {
+	for ( $attempt = 0; $attempt < 2; $attempt++ ) {
+		clearstatcache( true, $file );
+		$named = @lstat( $file );
+		if ( is_array( $named ) && 0100000 !== ( $named['mode'] & 0170000 ) ) {
+			return null;
+		}
+		$handle = @fopen( $file, is_array( $named ) ? 'r+' : 'x+' );
+		if ( false === $handle ) {
+			// Pruned, or created by a parallel request, between the check and the open.
+			continue;
+		}
+		$opened = fstat( $handle );
+		clearstatcache( true, $file );
+		$named = @lstat( $file );
+		if ( is_array( $opened ) && is_array( $named )
+			&& 0100000 === ( $opened['mode'] & 0170000 ) && 0100000 === ( $named['mode'] & 0170000 )
+			&& 1 === (int) $opened['nlink'] && $opened['dev'] === $named['dev'] && $opened['ino'] === $named['ino'] ) {
+			return $handle;
+		}
+		fclose( $handle );
+		return null;
+	}//end for
+	return null;
+}
+
+/**
+ * Removes counter files untouched since a time, so that one file per address doesn't pile up. Links are removed,
+ * never followed.
+ *
+ * @param string $dir    Folder.
+ * @param int    $before Unix time.
+ * @return void
+ */
+function prune_counters( string $dir, int $before ): void {
+	foreach ( (array) glob( $dir . '/*.json', GLOB_NOSORT ) as $file ) {
+		$stat = @lstat( (string) $file );
+		if ( is_array( $stat ) && $stat['mtime'] < $before ) {
+			@unlink( (string) $file );
+		}
+	}
 }
 
 /**
@@ -527,6 +689,7 @@ function main( array $config ): void {
 			'http'  => __NAMESPACE__ . '\http_post',
 			'mail'  => 'mail',
 			'time'  => 'time',
+			'log'   => 'error_log',
 			'limit' => static function ( $ip ) use ( $config ) {
 				return within_limit( $config, (string) $ip, time() );
 			},

@@ -30,8 +30,14 @@ final class StandaloneReceiverTest extends TestCase {
 	/** @var array<int,array{status:int,body:string}|null> */
 	private $answers = array();
 
+	/** @var string[] */
+	private $logged = array();
+
 	private function io( bool $allow = true ): array {
 		return array(
+			'log'   => function ( $message ) {
+				$this->logged[] = $message;
+			},
 			'http'  => function ( $url, $headers, $body ) {
 				$this->sent[] = compact( 'url', 'headers', 'body' );
 				return array_shift( $this->answers );
@@ -110,6 +116,23 @@ final class StandaloneReceiverTest extends TestCase {
 		$this->assertSame( 'error', R\handle( $config, self::contact(), '192.0.2.1', 'UA', '', $this->io() )['status'], 'unreachable' );
 	}
 
+	public function test_refuses_to_forward_without_a_secret(): void {
+		$config = self::config(
+			array(
+				'forward_url' => 'https://hooks.example.org/in',
+				'email_to'    => 'owner@example.org',
+			)
+		);
+		$result = R\handle( $config, self::contact(), '192.0.2.1', 'UA', '', $this->io() );
+		$this->assertSame( 'error', $result['status'] );
+		$this->assertSame( array(), $this->sent, 'nothing signed with an empty key' );
+		$this->assertSame( array(), $this->mails, 'refused before any delivery' );
+		$this->assertCount( 1, $this->logged );
+		$this->assertStringContainsString( 'GLACIATE_FORMS_SECRET', $this->logged[0] );
+
+		$this->assertTrue( R\handle( self::config( array( 'email_to' => 'owner@example.org' ) ), self::contact(), '192.0.2.1', 'UA', '', $this->io() )['ok'], 'email alone needs no secret' );
+	}
+
 	public function test_email(): void {
 		$config = self::config( array( 'email_to' => 'owner@example.org' ) );
 		$result = R\handle( $config, self::contact( array( array( 'notes', "two\nlines" ) ) ), '192.0.2.1', 'UA', '', $this->io() );
@@ -124,6 +147,10 @@ final class StandaloneReceiverTest extends TestCase {
 		$this->mails = array();
 		R\handle( $config, self::contact( array( array( 'email2', "x@example.com\r\nBcc: victim@example.org" ) ) ), '192.0.2.1', 'UA', '', $this->io() );
 		$this->assertStringNotContainsString( 'Bcc', $this->mails[0]['headers'] );
+
+		$this->mails = array();
+		$this->assertTrue( R\handle( $config, self::contact( array( array( '', 'nameless' ) ) ), '192.0.2.1', 'UA', '', $this->io() )['ok'], 'an empty name raises no warning' );
+		$this->assertStringNotContainsString( 'nameless', $this->mails[0]['body'] );
 	}
 
 	public function test_refusals_and_limits(): void {
@@ -185,16 +212,138 @@ final class StandaloneReceiverTest extends TestCase {
 		rmdir( $dir );
 	}
 
+	/**
+	 * The default folder has a predictable name in the shared temporary folder, so only a private folder owned by
+	 * this process is used; anything else turns the limit off rather than writing into it.
+	 */
+	public function test_default_counter_dir_must_be_private(): void {
+		if ( '\\' === DIRECTORY_SEPARATOR ) {
+			$this->markTestSkipped( 'Owners and modes are not reported on Windows.' );
+		}
+		$dir    = R\default_counter_dir();
+		$config = self::config( array( 'rate_limit' => 2 ) );
+		$log    = function ( $message ) {
+			$this->logged[] = $message;
+		};
+		self::remove_tree( $dir );
+		$other = $dir . '-elsewhere';
+		try {
+			mkdir( $dir );
+			chmod( $dir, 0777 );
+			$this->assertNull( R\counter_dir( $config, $log ), 'open to everyone' );
+			$this->assertTrue( R\within_limit( $config, '192.0.2.1', 1000, $log ) );
+			$this->assertSame( array(), glob( $dir . '/*' ), 'nothing written into it' );
+			$this->assertStringContainsString( 'data_dir', $this->logged[0] );
+
+			chmod( $dir, 0700 );
+			$this->assertSame( $dir, R\counter_dir( $config, $log ), 'private and ours' );
+
+			if ( function_exists( 'posix_geteuid' ) && 0 === posix_geteuid() ) {
+				chown( $dir, 65534 );
+				clearstatcache();
+				$this->assertNull( R\counter_dir( $config, $log ), 'owned by another account' );
+			}
+
+			self::remove_tree( $dir );
+			mkdir( $other, 0700 );
+			symlink( $other, $dir );
+			$this->assertNull( R\counter_dir( $config, $log ), 'a link to a folder' );
+			unlink( $dir );
+
+			$this->assertSame( $dir, R\counter_dir( $config, $log ), 'created when missing' );
+			$this->assertSame( 0700, fileperms( $dir ) & 0777 );
+			$this->assertTrue( R\within_limit( $config, '192.0.2.1', 1000, $log ) );
+			$this->assertTrue( R\within_limit( $config, '192.0.2.1', 1001, $log ) );
+			$this->assertFalse( R\within_limit( $config, '192.0.2.1', 1002, $log ) );
+		} finally {
+			self::remove_tree( $dir );
+			self::remove_tree( $other );
+		}
+	}
+
+	public function test_counter_files_are_never_followed(): void {
+		$dir    = sys_get_temp_dir() . '/glaciate-receiver-test-' . bin2hex( random_bytes( 4 ) );
+		$config = self::config( array( 'data_dir' => $dir ) );
+		$log    = function ( $message ) {
+			$this->logged[] = $message;
+		};
+		mkdir( $dir, 0700 );
+		$victim = $dir . '/victim.txt';
+		file_put_contents( $victim, 'keep' );
+		$file = R\counter_file( $dir, $config, '192.0.2.1' );
+		try {
+			symlink( $victim, $file );
+			$this->assertTrue( R\within_limit( $config, '192.0.2.1', 1000, $log ) );
+			$this->assertSame( 'keep', file_get_contents( $victim ), 'a link to a file' );
+			unlink( $file );
+
+			symlink( $dir . '/missing.txt', $file );
+			$this->assertTrue( R\within_limit( $config, '192.0.2.1', 1000, $log ) );
+			$this->assertFileDoesNotExist( $dir . '/missing.txt', 'a dangling link' );
+			unlink( $file );
+
+			link( $victim, $file );
+			$this->assertTrue( R\within_limit( $config, '192.0.2.1', 1000, $log ) );
+			$this->assertSame( 'keep', file_get_contents( $victim ), 'a second name for a file' );
+			unlink( $file );
+
+			$this->assertCount( 3, $this->logged );
+			$this->assertTrue( R\within_limit( $config, '192.0.2.1', 1000, $log ) );
+			$this->assertSame( '[1000]', file_get_contents( $file ), 'a plain file is counted' );
+		} finally {
+			self::remove_tree( $dir );
+		}
+	}
+
+	public function test_prunes_stale_counters(): void {
+		$dir = sys_get_temp_dir() . '/glaciate-receiver-test-' . bin2hex( random_bytes( 4 ) );
+		mkdir( $dir, 0700 );
+		$now = time();
+		touch( $dir . '/old.json', $now - 700 );
+		touch( $dir . '/new.json', $now - 100 );
+		touch( $dir . '/other.txt', $now - 700 );
+		try {
+			R\prune_counters( $dir, $now - 600 );
+			$this->assertFileDoesNotExist( $dir . '/old.json' );
+			$this->assertFileExists( $dir . '/new.json' );
+			$this->assertFileExists( $dir . '/other.txt', 'only counters' );
+		} finally {
+			self::remove_tree( $dir );
+		}
+	}
+
+	/**
+	 * Removes a test folder (or link) and the files in it.
+	 *
+	 * @param string $path Path.
+	 */
+	private static function remove_tree( string $path ): void {
+		if ( is_link( $path ) ) {
+			unlink( $path );
+			return;
+		}
+		if ( ! is_dir( $path ) ) {
+			return;
+		}
+		chmod( $path, 0700 );
+		foreach ( (array) glob( $path . '/*' ) as $file ) {
+			unlink( (string) $file );
+		}
+		rmdir( $path );
+	}
+
 	public function test_parses_bodies_like_a_browser_sends_them(): void {
 		$this->assertSame(
 			array( array( 'a[b]', 'x y' ), array( 'tags[]', '1' ), array( 'tags[]', '2' ), array( 'e', '' ), array( 'input_2.3', '&=' ) ),
 			R\parse_urlencoded( 'a%5Bb%5D=x+y&tags[]=1&tags[]=2&e&input_2.3=%26%3D' )
 		);
+		$this->assertSame( array( array( 'a', '1' ) ), R\parse_urlencoded( '=x&a=1&=&=y' ), 'nameless pairs are dropped' );
 		$this->assertSame(
 			array( array( 'a', '1' ), array( 'w[f][1]', 'x' ) ),
 			R\flatten(
 				array(
 					'a' => '1',
+					''  => 'x',
 					'w' => array( 'f' => array( 1 => 'x' ) ),
 				)
 			)

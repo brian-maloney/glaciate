@@ -221,9 +221,11 @@ deployers delete those files (D58).
   parent, so pushes are fast-forwards and history is kept. A branch with commits from elsewhere is refused unless "Replace
   the branch's contents" is on. Only new and changed blobs are sent, located through `target_files` records of each file's
   SHA-256 and blob ID; when the branch head isn't the commit we last pushed, everything is sent again. Deploys over 16 MB
-  push their blobs in batches to `refs/heads/glaciate-upload-<key>` (one commit per batch, so the server keeps them),
-  then a final push moves the branch; the upload branch is deleted in a push of its own, so a server that refuses
-  (it might be the default branch) only costs a warning. In an empty repository the real branch is created first,
+  push their blobs in batches to `refs/heads/glaciate-upload-<key>-<random>` (one commit per batch, so the server keeps
+  them), then a final push moves the branch; the upload branch is deleted in a push of its own, so a server that refuses
+  (it might be the default branch) only costs a warning, and the next publish tries again. An upload branch is resumed
+  or deleted only while it holds a commit the deployer recorded (`Deploy\Git\UploadBranch`, D65); one it can't prove
+  is its own is left alone. In an empty repository the real branch is created first,
   with a commit holding only the marker files, because hosts such as GitHub make the first branch pushed the default
   and refuse to delete it. The test Git server's hooks copy both of those GitHub rules.
   Before any of this, manifest paths that Git or a Git host reads as repository configuration (`.github/workflows`,

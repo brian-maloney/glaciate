@@ -165,7 +165,8 @@ sent, since the server's contents can't be known without a fetch.
 
 Large first deploys would exceed one slice, PHP's memory and some hosts' request limits, so blobs beyond 16 MB go up in
 batches, each in a commit on a temporary `glaciate-upload-<key>` branch that keeps them reachable (unreachable objects
-may be garbage-collected) until the final push moves the real branch and deletes the temporary one.
+may be garbage-collected) until the final push moves the real branch and deletes the temporary one. (D65 added a random
+part to the name and an ownership check.)
 
 Testing against GitHub showed that in an empty repository the first branch pushed becomes the default branch, and GitHub
 refuses to delete it: the upload branch was undeletable, and the atomic final push failed with it. In an empty
@@ -1181,3 +1182,29 @@ same number, so the HMAC still matches). Two copies arriving together could both
 - **Object cache eviction is a residual risk.** A marker evicted early lets one replay through. Writing to the
   database even with an object cache would close that, at the cost of a write per relayed submission on sites that set
   up a cache to avoid such writes; the signature still has to be fresh and valid, so we prefer the cache.
+
+## D65. The Git deployer builds on or deletes an upload branch only while it holds a commit we recorded
+
+The temporary upload branch had a fixed name derived from the target, and a deploy with no upload to resume took
+whatever head the server listed for that name, built its batches on it and deleted it at the end. Anyone who may push
+to the repository can create a branch of that name, so the deployer could adopt and delete a branch it never made,
+which T16 says it doesn't do. The server's listing is no proof of ownership; only our own records are.
+
+- **A new upload gets a new name**: `glaciate-upload-<key>-<12 random hex>`, one the server doesn't list. The first
+  batch creates it with an all-zero old ID, so the server refuses it if someone took the name in the meantime.
+- **Resuming needs a recorded commit.** An interrupted upload resumes only while the server lists its branch at the
+  last commit we recorded after a push of our own, or at the commit of a batch whose answer was lost (recorded just
+  before that push; the server can hold it only if our push reached it). Anything else (a branch that moved, one we
+  never pushed to, a name in the old format) is left alone, the log says so, and the upload starts on a fresh name.
+- **Every move and delete names the recorded commit as the old ID**, so receive-pack refuses it if the branch moved
+  since. This was already true; it protects only when the recorded ID is really ours, which the two rules above make so.
+- **Kept branches are retried.** When the server refuses to delete an upload branch (it may be the default branch),
+  the branch and its commit are remembered (at most ten), and each later publish tries the delete again while the
+  server still lists it at that commit. A record whose branch is gone or has moved is dropped. Before this, the warning
+  was the only trace.
+- **Old upload branches are not cleaned up.** Earlier versions recorded heads taken from the server's listing, so a
+  record in the old format proves nothing. A deploy that an upgrade interrupts mid-upload starts the upload again under
+  a new name and leaves the old branch, with a log line saying it was left alone.
+
+The decisions are pure logic in `Deploy\Git\UploadBranch`, unit tested; `GitUploadBranchTest` drives the deployer
+against an in-memory receive-pack, so it runs without the test Git server.

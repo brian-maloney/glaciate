@@ -15,6 +15,7 @@ use Glaciate\Deploy\Git\Objects;
 use Glaciate\Deploy\Git\Pack;
 use Glaciate\Deploy\Git\RemoteClient;
 use Glaciate\Deploy\Git\ReservedPaths;
+use Glaciate\Deploy\Git\UploadBranch;
 use Glaciate\Output\PathMapper;
 use Glaciate\Output\UnsafePathException;
 use Glaciate\Security\TargetPolicy;
@@ -33,7 +34,8 @@ use Glaciate\Support\Logger;
  *
  * Only new and changed blobs are sent. A deploy larger than one batch uploads its blobs in batches to a temporary
  * branch (one commit per batch, so the server keeps them), then a final push moves the real branch and deletes the
- * temporary one. Every batch is saved, so a deploy resumes across background slices.
+ * temporary one. Every batch is saved, so a deploy resumes across background slices. A temporary branch is built on
+ * or deleted only while it holds a commit this deployer recorded; otherwise a new one gets a fresh name (D65).
  */
 final class Git implements ConfigurableDeployerInterface, ResumableDeployerInterface {
 
@@ -43,7 +45,11 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 	/** Largest file accepted (GitHub's limit). */
 	const MAX_FILE = 104857600;
 
-	/** Option holding per-target state: target key => {head, upload_ref, upload_head}. */
+	/**
+	 * Option holding per-target state: target key => {head, upload_ref, upload_head, upload_next, stale}. upload_next is
+	 * an upload commit pushed without an answer yet; stale maps temporary branches the server refused to delete to the
+	 * commit we left on them.
+	 */
 	const STATE_OPTION = 'glaciate_git_state';
 
 	/**
@@ -232,14 +238,26 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 			$blobs->clear();
 			$state['head'] = '';
 		}
-		// Uploads from an interrupted deploy count only while their temporary branch still holds them.
-		$upload_ref = $state['upload_ref'];
-		$uploaded   = '' !== $upload_ref && ( $info['refs'][ $upload_ref ] ?? '' ) === $state['upload_head'] && '' !== $state['upload_head'];
-		if ( ! $uploaded ) {
+		// Uploads from an interrupted deploy count only while their temporary branch still holds a commit we recorded.
+		// Any other branch of that kind of name may be someone else's: it is never built on or deleted (D65).
+		$upload = UploadBranch::choose(
+			$state,
+			$info['refs'],
+			$this->target_key(),
+			static function () {
+				return bin2hex( random_bytes( 6 ) );
+			}
+		);
+		if ( ! $upload['resume'] ) {
 			$queue->clear();
-			$state['upload_ref']  = 'refs/heads/glaciate-upload-' . substr( $this->target_key(), 0, 8 );
-			$state['upload_head'] = $info['refs'][ $state['upload_ref'] ] ?? '';
+			if ( '' !== $state['upload_ref'] && isset( $info['refs'][ $state['upload_ref'] ] ) ) {
+				/* translators: %s: Git branch. */
+				$logger->info( sprintf( __( 'The Git server lists the temporary branch %s, but not at a commit Glaciate recorded, so it was left alone. Delete it by hand if nothing else uses it.', 'glaciate' ), $state['upload_ref'] ) );
+			}
 		}
+		$state['upload_ref']  = $upload['upload_ref'];
+		$state['upload_head'] = $upload['upload_head'];
+		$state['upload_next'] = $upload['upload_next'];
 
 		$held    = $files->all();
 		$known   = $blobs->all();
@@ -348,18 +366,14 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 			/* translators: 1: branch, 2: reason from the Git server. */
 			throw new \RuntimeException( sprintf( __( 'The Git server refused to update %1$s: %2$s', 'glaciate' ), $ref, $answer[ $ref ] ?? __( 'no answer', 'glaciate' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
-		// The temporary branch goes in a push of its own: if the server refuses to delete it, the site is still out.
+		// Temporary branches go after the site: if the server refuses to delete one, the site is still out. Besides
+		// this deploy's own, that includes earlier ones the server kept, while they still hold the commit we left.
+		$leftover = array();
 		if ( '' !== $state['upload_head'] ) {
-			try {
-				$gone = $client->push( array( array( $state['upload_head'], RemoteClient::ZERO, $state['upload_ref'] ) ), '', $info['caps'] );
-			} catch ( \RuntimeException $e ) {
-				$gone = array();
-			}
-			if ( 'ok' !== ( $gone[ $state['upload_ref'] ] ?? '' ) ) {
-				/* translators: 1: branch, 2: reason from the Git server. */
-				$logger->warning( sprintf( __( 'Published, but the Git server refused to delete the temporary branch %1$s (%2$s). Delete it by hand.', 'glaciate' ), $state['upload_ref'], $gone[ $state['upload_ref'] ] ?? __( 'no answer', 'glaciate' ) ) );
-			}
+			$leftover[ $state['upload_ref'] ] = $state['upload_head'];
 		}
+		$leftover += UploadBranch::deletable( $state['stale'], $info['refs'] );
+		$stale     = $this->delete_upload_branches( $client, $info['caps'], $leftover, $logger );
 
 		foreach ( $changed as $path => $hash ) {
 			$files->set( $path, $hash );
@@ -381,6 +395,8 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 				'head'        => $id,
 				'upload_ref'  => '',
 				'upload_head' => '',
+				'upload_next' => '',
+				'stale'       => $stale,
 			)
 		);
 		/* translators: 1: Git commit ID, 2: Git branch. */
@@ -392,11 +408,11 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 	 * Pushes one batch of blobs to the temporary branch, in a commit whose tree names each blob by its ID (so they
 	 * stay reachable and the server keeps them until the final push).
 	 *
-	 * @param RemoteClient                                            $client Client.
-	 * @param string[]                                                $caps   Server capabilities.
-	 * @param array<string,array{file:string,blob:string,size:int}>   $batch  Files.
-	 * @param array{head:string,upload_ref:string,upload_head:string} $state State (updated).
-	 * @param TargetFiles                                             $queue  Uploaded-but-unpublished records.
+	 * @param RemoteClient                                          $client Client.
+	 * @param string[]                                              $caps   Server capabilities.
+	 * @param array<string,array{file:string,blob:string,size:int}> $batch  Files.
+	 * @param array<string,mixed>                                   $state  State (updated).
+	 * @param TargetFiles                                           $queue  Uploaded-but-unpublished records.
 	 * @return void
 	 * @throws \RuntimeException When the server refuses the batch.
 	 */
@@ -414,6 +430,10 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 		$objects[] = array( 'tree', $tree );
 		$objects[] = array( 'commit', $commit );
 
+		// Recorded first: if the answer is lost, the next deploy still knows the commit is ours.
+		$state['upload_next'] = $id;
+		$this->save_state( $state );
+
 		$old    = '' === $state['upload_head'] ? RemoteClient::ZERO : $state['upload_head'];
 		$answer = $client->push( array( array( $old, $id, $state['upload_ref'] ) ), Pack::build( $objects ), $caps );
 		if ( 'ok' !== ( $answer[ $state['upload_ref'] ] ?? '' ) ) {
@@ -421,10 +441,39 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 			throw new \RuntimeException( sprintf( __( 'The Git server refused the upload branch %1$s: %2$s', 'glaciate' ), $state['upload_ref'], $answer[ $state['upload_ref'] ] ?? __( 'no answer', 'glaciate' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$state['upload_head'] = $id;
+		$state['upload_next'] = '';
 		$this->save_state( $state );
 		foreach ( $batch as $path => $item ) {
 			$queue->set( (string) $path, $item['blob'] );
 		}
+	}
+
+	/**
+	 * Deletes temporary upload branches, each in a push of its own that names the commit we left on it as the old ID,
+	 * so the server refuses if anyone moved the branch since.
+	 *
+	 * @param RemoteClient         $client   Client.
+	 * @param string[]             $caps     Server capabilities.
+	 * @param array<string,string> $branches Ref name => commit ID we recorded on it.
+	 * @param Logger               $logger   Build log.
+	 * @return array<string,string> The branches the server kept, to try again after the next publish.
+	 */
+	private function delete_upload_branches( RemoteClient $client, array $caps, array $branches, Logger $logger ): array {
+		$kept = array();
+		foreach ( $branches as $ref => $head ) {
+			$ref = (string) $ref;
+			try {
+				$gone = $client->push( array( array( $head, RemoteClient::ZERO, $ref ) ), '', $caps );
+			} catch ( \RuntimeException $e ) {
+				$gone = array();
+			}
+			if ( 'ok' !== ( $gone[ $ref ] ?? '' ) ) {
+				$kept = UploadBranch::remember( $kept, $ref, $head );
+				/* translators: 1: branch, 2: reason from the Git server. */
+				$logger->warning( sprintf( __( 'Published, but the Git server refused to delete the temporary branch %1$s (%2$s). The next publish tries again, or delete it by hand.', 'glaciate' ), $ref, $gone[ $ref ] ?? __( 'no answer', 'glaciate' ) ) );
+			}
+		}
+		return $kept;
 	}
 
 	/**
@@ -581,22 +630,25 @@ final class Git implements ConfigurableDeployerInterface, ResumableDeployerInter
 	/**
 	 * State of this repository and branch.
 	 *
-	 * @return array{head:string,upload_ref:string,upload_head:string}
+	 * @return array{head:string,upload_ref:string,upload_head:string,upload_next:string,stale:array<string,string>}
 	 */
 	private function state(): array {
 		$all   = get_option( self::STATE_OPTION, array() );
 		$state = is_array( $all ) && isset( $all[ $this->target_key() ] ) && is_array( $all[ $this->target_key() ] ) ? $all[ $this->target_key() ] : array();
+		$stale = isset( $state['stale'] ) && is_array( $state['stale'] ) ? array_map( 'strval', $state['stale'] ) : array();
 		return array(
 			'head'        => (string) ( $state['head'] ?? '' ),
 			'upload_ref'  => (string) ( $state['upload_ref'] ?? '' ),
 			'upload_head' => (string) ( $state['upload_head'] ?? '' ),
+			'upload_next' => (string) ( $state['upload_next'] ?? '' ),
+			'stale'       => $stale,
 		);
 	}
 
 	/**
 	 * Saves the state of this repository and branch.
 	 *
-	 * @param array{head:string,upload_ref:string,upload_head:string} $state State.
+	 * @param array<string,mixed> $state State (see STATE_OPTION).
 	 * @return void
 	 */
 	private function save_state( array $state ): void {

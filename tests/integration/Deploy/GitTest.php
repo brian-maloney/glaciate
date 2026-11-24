@@ -339,7 +339,7 @@ final class GitTest extends \WP_UnitTestCase {
 			}
 		};
 		$this->deploy();
-		preg_match( '#refs/heads/(glaciate-upload-[0-9a-f]+)#', $this->inspect( 'refs', array() ), $m );
+		preg_match( '#refs/heads/(glaciate-upload-[0-9a-f-]+)#', $this->inspect( 'refs', array() ), $m );
 		$this->assertSame( 'set', trim( $this->inspect( 'sethead', array( 'ref' => $m[1] ) ) ) );
 
 		$this->after = null;

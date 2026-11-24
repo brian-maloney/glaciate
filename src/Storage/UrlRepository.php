@@ -9,6 +9,9 @@ namespace Glaciate\Storage;
 
 defined( 'ABSPATH' ) || exit;
 
+use Glaciate\Output\PathMapper;
+use Glaciate\Output\UnsafePathException;
+
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom tables; crawl state must always be read fresh.
 
 /**
@@ -205,6 +208,9 @@ final class UrlRepository {
 	/**
 	 * Iterates over published rows (path => content hash), in ID order.
 	 *
+	 * Leaves out a path PathMapper refuses now, such as a name a web server might run that an earlier version
+	 * published (D58), so it leaves the manifest and deployers delete it from their targets.
+	 *
 	 * @return \Generator<string,string>
 	 */
 	public function published_files(): \Generator {
@@ -218,6 +224,11 @@ final class UrlRepository {
 			$fetched = count( (array) $rows );
 			foreach ( (array) $rows as $row ) {
 				$last = (int) $row['id'];
+				try {
+					PathMapper::assert_safe_relative( (string) $row['path'] );
+				} catch ( UnsafePathException $e ) {
+					continue;
+				}
 				yield (string) $row['path'] => (string) $row['content_hash'];
 			}
 		} while ( 1000 === $fetched );

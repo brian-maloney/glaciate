@@ -84,6 +84,20 @@ final class UrlClassifierTest extends \WP_UnitTestCase {
 			'post feed'           => array( 'https://origin.test/hello/feed/', null, 'feed' ),
 			'user glob exclusion' => array( 'https://origin.test/private/x/', null, 'excluded' ),
 			'user regex excl.'    => array( 'https://origin.test/secret-42/', null, 'excluded' ),
+			'phtml page'          => array( 'https://origin.test/shell.phtml', null, 'excluded' ),
+			'php5 asset'          => array( 'https://origin.test/wp-content/uploads/a.PHP5?ver=1', null, 'excluded' ),
+			'inner php extension' => array( 'https://origin.test/wp-content/uploads/a.php.jpg', null, 'excluded' ),
+			'htaccess'            => array( 'https://origin.test/.htaccess', null, 'excluded' ),
+			'encoded dotfile'     => array( 'https://origin.test/blog/%2Euser.ini', null, 'excluded' ),
+			'dot directory'       => array( 'https://origin.test/.git/HEAD', null, 'excluded' ),
+			'cgi directory'       => array( 'https://origin.test/run.cgi/', null, 'excluded' ),
+			'well-known file'     => array(
+				'https://origin.test/.well-known/security.txt',
+				array(
+					'url'  => 'https://origin.test/.well-known/security.txt',
+					'kind' => 'page',
+				),
+			),
 			'regex non-match'     => array(
 				'https://origin.test/secret-x/',
 				array(
@@ -92,6 +106,14 @@ final class UrlClassifierTest extends \WP_UnitTestCase {
 				),
 			),
 		);
+	}
+
+	public function test_active_names_stay_excluded_when_the_patterns_are_filtered_away(): void {
+		add_filter( 'glaciate_exclude_patterns', '__return_empty_array' );
+		$c = $this->classifier();
+		$this->assertNull( $c->classify( 'https://origin.test/shell.phtml' ) );
+		$this->assertSame( 'excluded', $c->reason() );
+		$this->assertNotNull( $c->classify( 'https://origin.test/about/' ) );
 	}
 
 	public function test_feed_modes(): void {

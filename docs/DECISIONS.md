@@ -1039,6 +1039,54 @@ The local directory and ZIP targets have no such fields (the local path was alre
 - **Per-site constants later.** A `GLACIATE_<SITE>_<TARGET>_<FIELD>` naming would let a network give each site its own
   credential and destination. That is a larger change and isn't needed to close this.
 
+## D58. Output names a web server might run are refused, and the default target turns off script handlers
+
+The output file name is the URL path. Up to 2.0.4 the only name rule was the classifier's `*.php` and `*.php/*`
+exclusion, so a permalink structure ending in `.phtml`, or a crawled link the origin answered with 200, could write a
+file such as `shell.phtml`, `.htaccess` or `.user.ini` into the default local target, which sits inside uploads and is
+served by the WordPress web server. Several common server configurations run or read such names.
+
+`PathMapper::is_inert_name()` now decides, and the segment validator applies it to every segment, so it covers mapped
+URLs, the `glaciate_output_path` filter, manifest entries and ZIP entry names alike (threat T27):
+
+- **Dot-leading names are refused**, except `.well-known` (security.txt, ACME challenges, app links). That covers
+  `.htaccess`, `.user.ini`, `.git` and CI folders. Nothing the plugin generates starts with a dot: `_redirects`,
+  `_headers` and `glaciate-search/` don't, and the Git deployer adds its marker and `.nojekyll` outside the manifest.
+- **Extensions, case-insensitive:** `php` with any digits, `phtml`, `phtm`, `pht`, `phar`, `phps`, `pgif`; `shtml`, `shtm`,
+  `stm` (server-side includes); `cgi`, `fcgi`, `pl`, `py`; `asp`, `aspx`, `asa`, `asax`, `ascx`, `ashx`, `asmx`, `axd`,
+  `cshtml`, `vbhtml`; `jsp`, `jspx`; `cfm`, `cfml`; and `ini` (php.ini in CGI setups). Plus `web.config`, which IIS
+  reads in every folder. None of these is in WordPress's default upload list, so a site rarely has a reason to publish
+  one; `.py` and `.pl` downloads are the realistic loss, and a site that needs them can link to a copy elsewhere.
+- **Every extension, not only the last.** Apache's `AddHandler` and `AddType` match any extension in a name, so
+  `a.php.jpg` runs as PHP where PHP is set up that way (WordPress's `sanitize_file_name()` breaks up such names on
+  upload for the same reason). The first part is the stem, so `php.js` or `pl.json` is fine. A `;` also splits, for
+  old IIS, which ignored everything after it.
+- **Skipped before fetching.** `UrlClassifier` asks the same function for each decoded segment and reports `excluded`.
+  It's not a pattern in `DEFAULT_EXCLUDES`, so `glaciate_exclude_patterns` can't remove it, and the check runs on
+  decoded segments (`%2Ehtaccess`), which globs can't express.
+- **Earlier output is cleaned up.** `UrlRepository::published_files()` leaves out a row whose path the mapper refuses
+  now, so it leaves the manifest and every deployer deletes the file from its target. Deleting needs the path, so
+  `PathMapper::removable_path()` skips only the name check (traversal and symlink checks still apply); the local
+  deployer uses it for files its own records say it wrote, and `Cache::delete()` for the build cache. Nothing writes
+  through it.
+
+**The default local target also gets an `.htaccess`**, written by `Paths::protect_public_dir()` when the local
+deployer deploys there (and again after deletions, in case an `.htaccess` an earlier version published was just
+removed). It is not in the build cache or the manifest, so no deployer copies it, the local deployer never deletes it,
+and the marker check is unaffected (it is written together with the marker). It holds `SetHandler none` in a
+`<Files "*">` block (cancels a handler the server configuration sets for file names, which `.htaccess` sections
+follow), `RemoveHandler` and `RemoveType` for PHP, CGI and SSI extensions, `RemoveOutputFilter` for SSI, and
+`X-Content-Type-Options: nosniff`, so a feed saved as `index.html` on the WordPress origin can't be sniffed into
+something else.
+
+- **Only FileInfo directives.** A directive that `AllowOverride` doesn't permit makes Apache answer 500 for the whole
+  folder. Everything in the file needs `FileInfo`, which WordPress's own rewrite rules need too. `Options -ExecCGI`
+  and `php_flag engine off` would need `Options` and are left out; `SetHandler none` already covers both handlers.
+- **Only the default target.** A folder the admin chose is theirs to configure, and may already have rules. An existing
+  `.htaccess` is never overwritten.
+- **Defence in depth, not the control.** It does nothing on nginx or IIS, or against a handler bound by URL
+  (`ProxyPassMatch`). The name rules above are what holds everywhere.
+
 ## D59. The standalone PHP receiver trusts no shared folder, link or empty secret
 
 The PHP receiver runs on hosts we know nothing about, often shared ones. Its default counter folder has a predictable

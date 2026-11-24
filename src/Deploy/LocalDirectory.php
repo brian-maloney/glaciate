@@ -23,7 +23,8 @@ use Glaciate\Support\Settings;
  * Mirrors the build into a local directory, for example a web server's document root.
  *
  * Safety (threat T5): the directory must pass TargetPolicy; a non-empty directory must already carry our marker
- * file; and only files this deployer wrote are ever deleted.
+ * file; and only files this deployer wrote are ever deleted. The default target, inside uploads, also gets an
+ * .htaccess that turns off script handlers (threat T27).
  */
 final class LocalDirectory implements DeployerInterface {
 
@@ -95,6 +96,7 @@ final class LocalDirectory implements DeployerInterface {
 		if ( ! file_exists( $dir . '/' . TargetPolicy::MARKER ) ) {
 			file_put_contents( $dir . '/' . TargetPolicy::MARKER, "This folder is managed by Glaciate. Files listed in its deploy records may be replaced or deleted.\n" );
 		}
+		Paths::protect_public_dir( $dir );
 
 		$source = new PathMapper( $source_root );
 		$target = new PathMapper( $dir );
@@ -137,7 +139,9 @@ final class LocalDirectory implements DeployerInterface {
 
 		foreach ( array_diff_key( $held, $manifest ) as $path => $hash ) {
 			try {
-				$file = $target->absolute_path( (string) $path );
+				// Only files this deployer wrote are held, so one an earlier version wrote under a name that is
+				// refused now (D58) is still removed.
+				$file = $target->removable_path( (string) $path );
 			} catch ( UnsafePathException $e ) {
 				$files->remove( (string) $path );
 				continue;
@@ -149,6 +153,8 @@ final class LocalDirectory implements DeployerInterface {
 			$files->remove( (string) $path );
 			++$result->deleted;
 		}
+		// Again, in case an .htaccess an earlier version published there was just deleted.
+		Paths::protect_public_dir( $dir );
 		return $result;
 	}
 

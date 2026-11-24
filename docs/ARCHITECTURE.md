@@ -136,6 +136,8 @@ Custom tables per site (`$wpdb->prefix`), managed with `dbDelta` and a schema ve
 `deps`, `query_sigs`, `changes`, `log`, `target_files`, and for search `search_terms`, `search_docs`, `search_dirty`. The data directory is `glaciate/` in the uploads directory, as
 `wp_upload_dir()` resolves it at runtime (or `GLACIATE_DATA_DIR`). It holds the build cache (`cache/<site_id>/`, rendered
 files, public content only) and ZIP archives (`zips/<site_id>/`), both protected with index.php and .htaccess deny.
+The default local target (`public/<site_id>/`) stays reachable, so the static copy can be previewed; when the local
+deployer creates it, it gets an `.htaccess` that turns off script handlers and sends `nosniff` (D58).
 Builds never crawl its address or copy files from it. Uninstall drops tables and options. It never deletes a deploy target.
 
 **URL to file.** A URL ending in `/` (or without an extension) is saved as `<path>/index.html`, whatever its response
@@ -143,6 +145,12 @@ type, because static hosts map a folder request only to `index.html`; `/feed/` b
 is recorded with the URL: S3 and Cloudflare upload such files with it, and `Generated` writes it into `_headers` (one rule
 per path, at most 100, for Netlify and Cloudflare). Hosts that choose types by extension alone (GitHub Pages, a plain web
 server) serve these files as `text/html`, which feed readers handle (D19).
+
+`PathMapper` refuses names a web server might run or read as configuration: names starting with a dot other than
+`.well-known`, `web.config`, and extensions such as `.phtml`, `.php5`, `.phar`, `.shtml`, `.cgi`, `.pl`, `.py`, `.asp`,
+`.jsp` or `.ini`, also as an inner extension (`a.php.jpg`). The classifier skips such URLs as `excluded`, whatever
+`glaciate_exclude_patterns` says, and the manifest leaves out rows an earlier version published under them, so
+deployers delete those files (D58).
 
 ## Queue
 - Action Scheduler, bundled through Composer. It's GPL-3.0-or-later, and it resolves duplicate copies across plugins

@@ -103,6 +103,47 @@ final class Paths {
 	}
 
 	/**
+	 * Rules for the default local target, which is inside uploads and so served by the WordPress web server.
+	 *
+	 * PathMapper already refuses names a server might run (D58); this is the second layer, for Apache. It uses only
+	 * directives that AllowOverride FileInfo permits (WordPress's own rewrite rules need the same), because a
+	 * directive the server doesn't allow there turns every request for the folder into an error. So it leaves out
+	 * `Options` and `php_flag`. `SetHandler none` cancels a handler set for file names in the server configuration,
+	 * RemoveHandler and RemoveType cancel ones mapped by extension, and nosniff stops browsers guessing a type
+	 * (a feed saved as index.html is served as text/html here; see D19).
+	 */
+	const PUBLIC_HTACCESS = "# Written by Glaciate. This folder holds a published static copy: serve every file as it is, never run it.\n"
+		. "<Files \"*\">\n"
+		. "\tSetHandler none\n"
+		. "</Files>\n"
+		. "<IfModule mod_mime.c>\n"
+		. "\tRemoveHandler .php .php3 .php4 .php5 .php7 .php8 .phtml .pht .phar .phps .shtml .cgi .fcgi .pl .py\n"
+		. "\tRemoveType .php .php3 .php4 .php5 .php7 .php8 .phtml .pht .phar .phps\n"
+		. "\tRemoveOutputFilter .shtml .shtm .stm\n"
+		. "</IfModule>\n"
+		. "<IfModule mod_headers.c>\n"
+		. "\tHeader set X-Content-Type-Options \"nosniff\"\n"
+		. "</IfModule>\n";
+
+	/**
+	 * Drops an .htaccess that turns off script handlers into the default local target, if it has none.
+	 *
+	 * Only the default target gets one: a folder the admin chose is theirs to configure. The file is not in the
+	 * build cache or the manifest, so no deployer copies it elsewhere and the local deployer never deletes it.
+	 *
+	 * @param string $dir Local target directory.
+	 * @return void
+	 */
+	public static function protect_public_dir( string $dir ): void {
+		if ( untrailingslashit( wp_normalize_path( $dir ) ) !== self::default_local_target() || ! is_dir( $dir ) ) {
+			return;
+		}
+		if ( ! file_exists( $dir . '/.htaccess' ) ) {
+			file_put_contents( $dir . '/.htaccess', self::PUBLIC_HTACCESS ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Tiny guard file in our own directory.
+		}
+	}
+
+	/**
 	 * Deletes a directory tree of our own without following symlinks (a link is removed, not its target).
 	 *
 	 * @param string $path Path.

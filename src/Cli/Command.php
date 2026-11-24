@@ -846,6 +846,7 @@ final class Command {
 			array( 'captcha', $config->captcha() ),
 			array( 'secret', $source( 'secret' ) ),
 			array( 'captcha secret', $source( 'captcha_secret' ) ),
+			array( 'forms accepted', self::published_form_keys() ),
 		);
 		WP_CLI\Utils\format_items(
 			$assoc['format'] ?? 'table',
@@ -860,6 +861,19 @@ final class Command {
 			),
 			array( 'setting', 'value' )
 		);
+	}
+
+	/**
+	 * The form keys the receiver accepts: those of forms on published pages.
+	 *
+	 * @return string
+	 */
+	private static function published_form_keys(): string {
+		if ( ! \Glaciate\Storage\FormKeyRepository::ready() ) {
+			return '(any, until the next full build records the forms on published pages)';
+		}
+		$keys = ( new \Glaciate\Storage\FormKeyRepository() )->published();
+		return $keys ? implode( ', ', $keys ) : '(none: no published page has a form)';
 	}
 
 	/**

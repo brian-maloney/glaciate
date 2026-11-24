@@ -1039,6 +1039,35 @@ The local directory and ZIP targets have no such fields (the local path was alre
 - **Per-site constants later.** A `GLACIATE_<SITE>_<TARGET>_<FIELD>` naming would let a network give each site its own
   credential and destination. That is a larger change and isn't needed to close this.
 
+## D57. The form receiver takes only forms a published page carries
+
+The receiver used to pick an adapter from the kind in a submission's key and hand it over, whether or not any published
+page had such a form. With forms on, that made every adapter reachable for any form ID: a made-up marked form mailed the
+admin whatever it was sent, and a WPForms form that exists only on the live site, behind WPForms' captcha, could be sent
+without it (the adapter skips WPForms' own checks, which can't work on an old page). Now the receiver answers `error`,
+as for an unknown kind, unless a published page carries the key.
+
+- **Recorded per page, not as a list.** `FormMarkup::transform()` already returns the keys it rewrote; the processor
+  stores them in a `form_keys` table (URL row ID, key) each time it writes a page or the 404 page. A key counts while a
+  published `page` or `404` row carries it, read through a join with `urls`. Pages leave the site through many paths
+  (404, exclusion, redirect, a path taken by another row, search and generated files); reading through `urls` keeps each
+  of them unaware of forms, and a key disappears with its last page. An option holding one list would need every path to
+  remove keys, or a full scan to know which keys are still used. Incremental builds only replace the rows of the pages
+  they write. A rebuilt page with the same forms costs one read and no write.
+- **The relay checks too.** The standalone receivers can't know which forms are published, so they forward any
+  well-formed key. The signature only proves that the owner's receiver passed the submission on, so without the check the
+  same hole would be open through any receiver. A refusal at the relay also stops the PHP receiver's email.
+- **Same answer as an unknown kind.** `error`, without saying why, and nothing is logged, so probing fills no log.
+- **Upgrading.** The record means nothing until every published page has been written once since it existed. A fresh
+  install has published nothing, and a site with forms off has no rewritten form (pages must be rebuilt anyway when forms
+  are turned on), so both start ready. A site already publishing forms gets a full rebuild queued by the schema upgrade,
+  and until a full build finishes (`glaciate_form_keys_ready`) every well-formed key is accepted, as before. Refusing
+  straight away would break every form on those sites until someone rebuilt, which with manual publishing could be days.
+- **Forms off.** Pages written with forms off record nothing, to keep the build loop free of extra queries. A full build
+  with forms off clears the table instead, so turning forms back on later doesn't revive keys of forms that are gone.
+- **Build, not deploy.** Keys change when the build writes the page, a deploy's length before visitors see it. Tying
+  them to the deploy would need per-target records for little gain.
+
 ## D58. Output names a web server might run are refused, and the default target turns off script handlers
 
 The output file name is the URL path. Up to 2.0.4 the only name rule was the classifier's `*.php` and `*.php/*`

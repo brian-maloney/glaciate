@@ -22,6 +22,7 @@ use Glaciate\Rewrite\NonceStripper;
 use Glaciate\Rewrite\OriginSet;
 use Glaciate\Rewrite\UrlRewriter;
 use Glaciate\Search\PageIndexer;
+use Glaciate\Storage\FormKeyRepository;
 use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Logger;
 
@@ -114,6 +115,13 @@ final class Processor {
 	private $forms;
 
 	/**
+	 * Where the keys of rewritten forms are recorded for the receiver, or null when forms are off.
+	 *
+	 * @var FormKeyRepository|null
+	 */
+	private $form_keys;
+
+	/**
 	 * Linked addresses skipped because of their query string, as keys (at most QUERY_EXAMPLES).
 	 *
 	 * @var array<string,true>
@@ -123,18 +131,19 @@ final class Processor {
 	/**
 	 * Constructor.
 	 *
-	 * @param OriginSet     $origins    Origin addresses.
-	 * @param UrlRewriter   $rewriter   Rewriter.
-	 * @param LinkExtractor $extractor  Link extractor.
-	 * @param UrlClassifier $classifier Classifier.
-	 * @param Cache         $cache      Build cache.
-	 * @param UrlRepository $urls       URL repository.
-	 * @param Logger        $logger     Logger.
-	 * @param int           $build_id   Build ID.
-	 * @param PageIndexer   $search     Search indexer, or null when search is off.
-	 * @param FormMarkup    $forms      Form rewriter, or null when forms are off.
+	 * @param OriginSet         $origins    Origin addresses.
+	 * @param UrlRewriter       $rewriter   Rewriter.
+	 * @param LinkExtractor     $extractor  Link extractor.
+	 * @param UrlClassifier     $classifier Classifier.
+	 * @param Cache             $cache      Build cache.
+	 * @param UrlRepository     $urls       URL repository.
+	 * @param Logger            $logger     Logger.
+	 * @param int               $build_id   Build ID.
+	 * @param PageIndexer       $search     Search indexer, or null when search is off.
+	 * @param FormMarkup        $forms      Form rewriter, or null when forms are off.
+	 * @param FormKeyRepository $form_keys  Record of the forms on each page, or null when forms are off.
 	 */
-	public function __construct( OriginSet $origins, UrlRewriter $rewriter, LinkExtractor $extractor, UrlClassifier $classifier, Cache $cache, UrlRepository $urls, Logger $logger, int $build_id, ?PageIndexer $search = null, ?FormMarkup $forms = null ) {
+	public function __construct( OriginSet $origins, UrlRewriter $rewriter, LinkExtractor $extractor, UrlClassifier $classifier, Cache $cache, UrlRepository $urls, Logger $logger, int $build_id, ?PageIndexer $search = null, ?FormMarkup $forms = null, ?FormKeyRepository $form_keys = null ) {
 		$this->origins    = $origins;
 		$this->rewriter   = $rewriter;
 		$this->extractor  = $extractor;
@@ -145,6 +154,7 @@ final class Processor {
 		$this->build_id   = $build_id;
 		$this->search     = $search;
 		$this->forms      = $forms;
+		$this->form_keys  = $form_keys;
 	}
 
 	/**
@@ -302,6 +312,8 @@ final class Processor {
 		}
 
 		$discovered = array();
+		// Pages and 404 pages record the forms they carry, even none, so the receiver knows which keys are live (D57).
+		$form_keys = null !== $this->forms && 'asset' !== $kind ? array() : null;
 		if ( self::is_text( $mime ) ) {
 			foreach ( $this->extractor->extract( $body, $mime, $result->url ) as $link ) {
 				$classified = $this->classifier->classify( $link );
@@ -314,7 +326,9 @@ final class Processor {
 			$body = $this->rewriter->rewrite( $body );
 			if ( null !== $this->forms && 'text/html' === $mime && 'asset' !== $kind ) {
 				// After rewriting, so a receiver on the origin keeps its address (D22).
-				$body = $this->forms->transform( $body, $this->rewriter->rewrite_url( (string) $row['url'] ) )['html'];
+				$rewritten = $this->forms->transform( $body, $this->rewriter->rewrite_url( (string) $row['url'] ) );
+				$body      = $rewritten['html'];
+				$form_keys = $rewritten['keys'];
 			}
 
 			/**
@@ -363,6 +377,9 @@ final class Processor {
 		}
 
 		$this->publish( $row, $kind, $result->status, $result->headers['content-type'] ?? '', $relative, $hash, strlen( $body ), $deps_state );
+		if ( null !== $form_keys && null !== $this->form_keys ) {
+			$this->form_keys->replace( (int) $row['id'], $form_keys );
+		}
 		if ( null !== $this->search && 'page' === $kind && 'text/html' === $mime ) {
 			$this->search->index( (int) $row['id'], (string) $row['url'], $body );
 		}

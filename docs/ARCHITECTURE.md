@@ -133,7 +133,8 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 
 ## Storage
 Custom tables per site (`$wpdb->prefix`), managed with `dbDelta` and a schema version option: `builds`, `urls`, `build_urls`,
-`deps`, `query_sigs`, `changes`, `log`, `target_files`, and for search `search_terms`, `search_docs`, `search_dirty`. The data directory is `glaciate/` in the uploads directory, as
+`deps`, `query_sigs`, `changes`, `log`, `target_files`, for search `search_terms`, `search_docs`, `search_dirty`, and for the form
+receiver `form_keys`. The data directory is `glaciate/` in the uploads directory, as
 `wp_upload_dir()` resolves it at runtime (or `GLACIATE_DATA_DIR`). It holds the build cache (`cache/<site_id>/`, rendered
 files, public content only) and ZIP archives (`zips/<site_id>/`), both protected with index.php and .htaccess deny.
 The default local target (`public/<site_id>/`) stays reachable, so the static copy can be previewed; when the local
@@ -290,6 +291,14 @@ from the internet at its own address) or `receiver` (a receiver run elsewhere, a
   inserted after its start tag: `glaciate_form` (key), `glaciate_page` (public page address), an empty
   `glaciate_t` and the `glaciate_hp` honeypot. Per-render tokens that adapters declare (WPForms' render-time tokens)
   are removed, so the markup is identical from build to build.
+- **Published forms** (`Storage\FormKeyRepository`, D57): each time the processor writes a page or the 404 page while
+  forms are on, it records the keys of the forms it rewrote there (`form_keys`: URL row ID, key). A key counts while at
+  least one published `page` or `404` row carries it; the query joins `urls`, so a key leaves with the last page that had
+  it, through any path that unpublishes, redirects or replaces a page, and incremental builds only touch the pages they
+  write. A full build with forms off forgets every key. The record is "ready" (`glaciate_form_keys_ready`) on a fresh
+  install, on a site with forms off, and after the first full build that follows the upgrade adding it; until then every
+  well-formed key is accepted, as before, and the upgrade queues that full build. `wp glaciate forms status` lists the
+  accepted keys.
 - **Client** (`assets/js/forms.js`, enqueued only on render requests while forms are on): captures `submit` on the
   document before form plugins' own handlers, fills in `glaciate_t` (seconds the page was open), sends `FormData`
   with `fetch()` asking for JSON, and shows the answer as text in the form, with a note beside each rejected field.
@@ -300,17 +309,21 @@ from the internet at its own address) or `receiver` (a receiver run elsewhere, a
   repeat these rules, and all implementations are tested against `tests/fixtures/forms-cases.json`.
 - **WordPress receiver** (`Forms\Receiver`, routes in `Forms\Endpoint`): `POST glaciate/v1/forms/submit` (site mode)
   checks the `Origin` header against the public site, the shared rules, the captcha (Turnstile or hCaptcha, opt-in)
-  and a rate limit (5 per 10 minutes per IP, `glaciate_form_rate_limit`), then calls the adapter. `POST
+  and a rate limit (5 per 10 minutes per IP, `glaciate_form_rate_limit`), then calls the adapter if a published page
+  carries the form's key (otherwise the answer is `error`, as for a kind no adapter knows). `POST
   glaciate/v1/forms/relay` accepts a submission another receiver forwarded: JSON `{v, form, page, fields: [[name,
   value], …], ip, user_agent}` signed with the forms secret (`X-Glaciate-Signature: t=<time>,v1=<HMAC-SHA256 of
-  "<time>.<body>">`, five minutes either way, each signature accepted once). Accepted submissions fire
+  "<time>.<body>">`, five minutes either way, each signature accepted once), with the same published-key check.
+  Accepted submissions fire
   `glaciate_form_submitted` and, when `forms_webhook` and the secret are set, are sent on in the same signed format.
   Answers are `{ok, status: sent|invalid|spam|limited|error, message, errors, redirect}`; messages are plain text.
 - **Standalone receivers** (`receivers/`, written by `wp glaciate forms receiver`): a single PHP file for any PHP
   host and a module for Cloudflare Workers or Netlify Functions. They apply the shared rules, an optional captcha and
   rate limit, and forward to the relay or any webhook (the PHP one can also email with `mail()`). They refuse to
   forward while the secret is empty. The PHP file keeps its counters in `data_dir`, or in a folder it creates in the
-  temporary folder and uses only while it is owned by PHP's account with mode 0700 (D59).
+  temporary folder and uses only while it is owned by PHP's account with mode 0700 (D59). They don't know which
+  forms are published; the relay checks the key, and a refusal there stops the PHP receiver's email too. A PHP receiver
+  set up to email only, without forwarding, accepts any well-formed key.
 
 ## Secrets
 `Security\Secrets` resolves `(deployer, field)` in this order: `GLACIATE_<DEPLOYER>_<FIELD>` constant → environment variable of

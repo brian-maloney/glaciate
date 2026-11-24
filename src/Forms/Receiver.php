@@ -11,6 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 use Glaciate\Build\Pipeline;
 use Glaciate\Rewrite\UrlRewriter;
+use Glaciate\Storage\FormKeyRepository;
 use Glaciate\Support\Logger;
 use Glaciate\Support\Settings;
 
@@ -23,6 +24,8 @@ use Glaciate\Support\Settings;
  * - relay(): a separate receiver forwarded a submission it accepted, signed with the forms secret. The signature
  *   must verify and must not have been used before; the spam rules and rate limit apply again (the captcha answer
  *   was spent by the receiver that checked it).
+ *
+ * Either way, the form key must be one a published page carries (FormKeyRepository, D57).
  *
  * After an adapter accepts a submission, `glaciate_form_submitted` fires and, when set up, a signed copy goes to
  * the webhook. Nothing is stored here: what a form plugin stores is up to that plugin.
@@ -50,6 +53,13 @@ final class Receiver {
 	private $adapters;
 
 	/**
+	 * Keys of the forms on published pages.
+	 *
+	 * @var FormKeyRepository
+	 */
+	private $form_keys;
+
+	/**
 	 * Current time, for tests.
 	 *
 	 * @var int|null
@@ -59,12 +69,14 @@ final class Receiver {
 	/**
 	 * Constructor.
 	 *
-	 * @param Config   $config   Configuration.
-	 * @param Adapters $adapters Adapters.
+	 * @param Config                 $config    Configuration.
+	 * @param Adapters               $adapters  Adapters.
+	 * @param FormKeyRepository|null $form_keys Keys of the forms on published pages; null reads this site's.
 	 */
-	public function __construct( Config $config, Adapters $adapters ) {
-		$this->config   = $config;
-		$this->adapters = $adapters;
+	public function __construct( Config $config, Adapters $adapters, ?FormKeyRepository $form_keys = null ) {
+		$this->config    = $config;
+		$this->adapters  = $adapters;
+		$this->form_keys = $form_keys ?? new FormKeyRepository();
 	}
 
 	/**
@@ -150,7 +162,9 @@ final class Receiver {
 	 */
 	private function deliver( Submission $submission ): Result {
 		$adapter = $this->adapters->for_key( $submission->key );
-		if ( null === $adapter ) {
+		// Only forms the static site carries (D57), whichever way the submission came: a separate receiver forwards
+		// any well-formed key. The answer is the same as for a kind no adapter knows.
+		if ( null === $adapter || ! $this->form_keys->is_published( $submission->key ) ) {
 			return Result::error();
 		}
 		try {

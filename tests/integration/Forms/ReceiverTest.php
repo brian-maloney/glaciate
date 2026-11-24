@@ -14,8 +14,13 @@ use Glaciate\Forms\Receiver;
 use Glaciate\Forms\Result;
 use Glaciate\Forms\Signature;
 use Glaciate\Security\Secrets;
+use Glaciate\Storage\FormKeyRepository;
+use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Settings;
+use Glaciate\Tests\Support\PublishedForms;
 use WP_UnitTestCase;
+
+require_once dirname( __DIR__, 2 ) . '/Support/PublishedForms.php';
 
 final class ReceiverTest extends WP_UnitTestCase {
 
@@ -26,6 +31,9 @@ final class ReceiverTest extends WP_UnitTestCase {
 
 	/** @var array<string,mixed>|null */
 	private $answer = null;
+
+	/** @var int URL ID of the published page that carries the contact and comment forms. */
+	private $page = 0;
 
 	public function set_up(): void {
 		parent::set_up();
@@ -46,6 +54,7 @@ final class ReceiverTest extends WP_UnitTestCase {
 		);
 		$this->requests = array();
 		$this->answer   = null;
+		$this->page     = PublishedForms::publish( array( 'form:contact', 'comments' ) );
 		add_filter( 'pre_http_request', array( $this, 'fake_http' ), 10, 3 );
 	}
 
@@ -122,6 +131,32 @@ final class ReceiverTest extends WP_UnitTestCase {
 
 		$unknown = $this->receiver()->direct( array( array( 'glaciate_form', 'nosuch:1' ) ), '203.0.113.6', 'UA', '' );
 		$this->assertSame( Result::ERROR, $unknown->status );
+	}
+
+	public function test_forms_no_published_page_carries_are_refused(): void {
+		$other = array_merge( array( array( 'glaciate_form', 'form:other' ) ), self::contact() );
+		$this->assertSame( Result::ERROR, $this->receiver()->direct( $other, '203.0.113.20', 'UA', self::PUBLIC_URL )->status, 'never published' );
+		$wpforms = array_merge( array( array( 'glaciate_form', 'wpforms:7' ) ), self::contact() );
+		$this->assertSame( Result::ERROR, $this->receiver()->direct( $wpforms, '203.0.113.20', 'UA', '' )->status, 'a known kind' );
+
+		// Forwarded submissions too: a separate receiver passes on any well-formed key.
+		Settings::update( array( 'forms' => 'receiver' ) );
+		Secrets::set( 'forms', 'secret', 'shared-secret' );
+		$body = Receiver::payload( 'form:other', '', $other, '192.0.2.20', 'UA' );
+		$this->assertSame( Result::ERROR, $this->receiver()->relay( $body, Signature::sign( $body, 'shared-secret', time() ) )->status, 'relayed' );
+		$this->assertFalse( tests_retrieve_phpmailer_instance()->get_sent(), 'nothing was sent' );
+	}
+
+	public function test_a_form_is_refused_once_its_last_page_leaves_the_site(): void {
+		$this->assertTrue( $this->receiver()->direct( self::contact(), '203.0.113.21', 'UA', '' )->ok() );
+		( new UrlRepository() )->unpublish( $this->page );
+		$this->assertSame( Result::ERROR, $this->receiver()->direct( self::contact(), '203.0.113.21', 'UA', '' )->status );
+	}
+
+	public function test_every_form_is_accepted_until_a_full_build_has_recorded_them(): void {
+		delete_option( FormKeyRepository::READY_OPTION );
+		$other = array_merge( array( array( 'glaciate_form', 'form:other' ) ), self::contact() );
+		$this->assertTrue( $this->receiver()->direct( $other, '203.0.113.22', 'UA', '' )->ok() );
 	}
 
 	public function test_direct_submissions_need_site_mode(): void {

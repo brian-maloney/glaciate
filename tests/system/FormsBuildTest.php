@@ -8,6 +8,7 @@
 namespace Glaciate\Tests\System;
 
 use Glaciate\Forms\FormMarkup;
+use Glaciate\Storage\FormKeyRepository;
 use Glaciate\Support\Settings;
 
 final class FormsBuildTest extends SystemTestCase {
@@ -23,7 +24,7 @@ final class FormsBuildTest extends SystemTestCase {
 				'post_content'   => '<!-- wp:paragraph --><p>Say something.</p><!-- /wp:paragraph -->',
 			)
 		);
-		wp_insert_post(
+		$write_to_us = wp_insert_post(
 			array(
 				'post_title'   => 'Write to us',
 				'post_name'    => 'write-to-us',
@@ -64,8 +65,23 @@ final class FormsBuildTest extends SystemTestCase {
 		$this->assertSame( $before['open-for-comments/index.html'], $this->snapshot()['open-for-comments/index.html'] );
 		$this->assertSame( $before['write-to-us/index.html'], $this->snapshot()['write-to-us/index.html'] );
 
+		// The receiver takes the forms the builds rewrote, and only those (D57).
+		$keys = new FormKeyRepository();
+		$this->assertTrue( FormKeyRepository::ready() );
+		$this->assertContains( 'comments', $keys->published() );
+		$this->assertContains( 'form:contact', $keys->published() );
+		$this->assertFalse( $keys->is_published( 'form:never-published' ) );
+
+		// An incremental build that removes the only page with the contact form takes its key away.
+		wp_delete_post( $write_to_us, true );
+		$this->build( 'incremental' );
+		$this->assertNull( $this->page( '/write-to-us/' ) );
+		$this->assertFalse( $keys->is_published( 'form:contact' ) );
+		$this->assertTrue( $keys->is_published( 'comments' ) );
+
 		Settings::update( array( 'forms' => 'off' ) );
 		$this->build( 'full' );
+		$this->assertSame( array(), $keys->published(), 'With forms off no form is rewritten, so none is accepted.' );
 		$this->assertStringNotContainsString( 'data-glaciate-form="comments"', (string) $this->page( '/open-for-comments/' ) );
 		$this->assertStringNotContainsString( 'glaciateFormSettings', (string) $this->page( '/open-for-comments/' ) );
 	}

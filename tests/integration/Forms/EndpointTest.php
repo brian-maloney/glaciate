@@ -12,8 +12,11 @@ use Glaciate\Forms\Receiver;
 use Glaciate\Forms\Signature;
 use Glaciate\Security\Secrets;
 use Glaciate\Support\Settings;
+use Glaciate\Tests\Support\PublishedForms;
 use WP_REST_Request;
 use WP_UnitTestCase;
+
+require_once dirname( __DIR__, 2 ) . '/Support/PublishedForms.php';
 
 final class EndpointTest extends WP_UnitTestCase {
 
@@ -31,6 +34,7 @@ final class EndpointTest extends WP_UnitTestCase {
 				'forms'      => 'site',
 			)
 		);
+		PublishedForms::publish( array( 'form:contact' ) );
 		do_action( 'rest_api_init', rest_get_server() ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core hook.
 	}
 

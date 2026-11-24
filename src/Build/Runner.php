@@ -23,6 +23,7 @@ use Glaciate\Search\PagefindBundle;
 use Glaciate\Search\TextExtractor;
 use Glaciate\Search\Tokenizer;
 use Glaciate\Storage\BuildRepository;
+use Glaciate\Storage\FormKeyRepository;
 use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Logger;
 
@@ -179,6 +180,9 @@ final class Runner {
 					( new Generated( $pipeline, $this->urls, $build_id ) )->write();
 					self::report_skipped_queries( $build, $logger );
 					( new DependencyStore() )->prune_signatures();
+					if ( 'full' === $build['kind'] ) {
+						self::settle_form_keys( $pipeline );
+					}
 					$this->builds->merge_stats( $build_id, array( 'published' => $this->urls->published_counts() ) );
 					$this->builds->update( $build_id, array( 'phase' => $build['deploy'] ? 'deploying' : 'done' ) );
 					break;
@@ -199,6 +203,20 @@ final class Runner {
 					return self::DONE;
 			}
 		}
+	}
+
+	/**
+	 * After a full build has rendered every page, the record of forms on pages is complete (D57). With forms off no
+	 * page was rewritten, so whatever was recorded before is forgotten.
+	 *
+	 * @param Pipeline $pipeline Components.
+	 * @return void
+	 */
+	private static function settle_form_keys( Pipeline $pipeline ): void {
+		if ( ! ( new \Glaciate\Forms\Config( $pipeline->settings ) )->enabled() ) {
+			( new FormKeyRepository() )->clear();
+		}
+		FormKeyRepository::mark_ready();
 	}
 
 	/**
@@ -393,7 +411,7 @@ final class Runner {
 		$search    = 'builtin' === $pipeline->settings['search'] ? new PageIndexer( new TextExtractor(), new Tokenizer(), new Index() ) : null;
 		$forms     = new \Glaciate\Forms\Config( $pipeline->settings );
 		$markup    = $forms->enabled() ? new \Glaciate\Forms\FormMarkup( \Glaciate\Forms\Adapters::defaults( $forms ), $forms->endpoint() ) : null;
-		$processor = new Processor( $pipeline->origins, $pipeline->rewriter, $pipeline->extractor, $pipeline->classifier, $pipeline->cache, $this->urls, $logger, $build_id, $search, $markup );
+		$processor = new Processor( $pipeline->origins, $pipeline->rewriter, $pipeline->extractor, $pipeline->classifier, $pipeline->cache, $this->urls, $logger, $build_id, $search, $markup, null !== $markup ? new FormKeyRepository() : null );
 		$token     = RenderToken::for_site();
 		$requests  = array();
 		$results   = array();

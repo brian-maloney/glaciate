@@ -344,6 +344,9 @@ final class HealthChecks {
 			$critical   = true;
 			$problems[] = __( 'Enter the captcha\'s secret key: without it every submission is refused.', 'glaciate' );
 		}
+		if ( 'site' === $mode && $this->behind_unnamed_proxy() ) {
+			$problems[] = __( 'Requests reach this site through a proxy or CDN (they carry headers such as X-Forwarded-For), so every submission seems to come from the proxy\'s address and all visitors share one rate limit: a few submissions can block everyone for ten minutes. Return the visitor\'s address from the glaciate_form_client_ip filter, taken from your proxy\'s header and only for requests that really came through it. If no proxy is in front of this site, someone sent those headers by hand; adding the filter and returning the address unchanged hides this notice.', 'glaciate' );
+		}
 		if ( $problems ) {
 			return array(
 				'status'      => $critical ? 'critical' : 'recommended',
@@ -358,6 +361,23 @@ final class HealthChecks {
 			/* translators: %s: receiver address. */
 			'description' => sprintf( __( 'Forms on the static site post to %s.', 'glaciate' ), $config->endpoint() ),
 		);
+	}
+
+	/**
+	 * Do requests come through a proxy or CDN that the form receiver doesn't know about? True when nothing filters
+	 * `glaciate_form_client_ip` and either this request (the admin's, usually through the same proxy) or a form
+	 * submission in the last 30 days carried forwarding headers that REMOTE_ADDR isn't one of (D60).
+	 *
+	 * @return bool
+	 */
+	private function behind_unnamed_proxy(): bool {
+		if ( has_filter( 'glaciate_form_client_ip' ) ) {
+			return false;
+		}
+		if ( \Glaciate\Forms\ClientAddress::proxied( \Glaciate\Forms\Endpoint::request_headers() ) ) {
+			return true;
+		}
+		return (int) get_option( \Glaciate\Forms\Endpoint::PROXY_OPTION, 0 ) > time() - 30 * DAY_IN_SECONDS;
 	}
 
 	/**

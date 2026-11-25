@@ -412,9 +412,14 @@ final class Recorder {
 	 * @return string Short reason, or "" to publish.
 	 */
 	private static function exclusion_reason(): string {
+		global $wp_the_query;
 		$reason = '';
 		if ( did_action( 'wp' ) && is_singular() && post_password_required( get_queried_object_id() ) ) {
 			$reason = 'password-protected';
+		} elseif ( did_action( 'wp' ) && $wp_the_query instanceof \WP_Query && $wp_the_query->is_author() && 0 === (int) $wp_the_query->post_count ) {
+			// WordPress answers 200 for the archive (and feed) of any member of the site, posts or not. Published, it
+			// would list the account's slug and name, which the site itself shows nowhere else (D62).
+			$reason = 'author-without-posts';
 		}
 
 		/**
@@ -425,7 +430,7 @@ final class Recorder {
 		 *
 		 * @since 0.1.0
 		 *
-		 * @param string $reason Default "password-protected" for posts behind a password, otherwise "".
+		 * @param string $reason Default "password-protected" for posts behind a password, "author-without-posts" for an author archive or feed that lists no posts, otherwise "".
 		 */
 		$reason = (string) apply_filters( 'glaciate_exclude_render', $reason );
 		return (string) preg_replace( '/[^a-z0-9\-]/', '', strtolower( $reason ) );

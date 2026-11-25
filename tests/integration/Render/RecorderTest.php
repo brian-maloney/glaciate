@@ -283,6 +283,49 @@ final class RecorderTest extends \WP_UnitTestCase {
 		$this->assertSame( 'members-only', $urls->get( $id )['render_exclude'] );
 	}
 
+	/**
+	 * Exclusion reason stored for a render of the given address.
+	 *
+	 * @param string $url Address to render.
+	 * @return string
+	 */
+	private function exclusion_for( string $url ): string {
+		$urls     = new UrlRepository();
+		$id       = $urls->ensure( $url );
+		$recorder = new Recorder( $id, RenderToken::mark( 'token' ) );
+		$recorder->observe();
+		$this->go_to( $url );
+		$recorder->finish();
+		return (string) $urls->get( $id )['render_exclude'];
+	}
+
+	public function test_author_archives_without_posts_are_left_out(): void {
+		$this->set_permalink_structure( '/%postname%/' );
+		$member = self::factory()->user->create(
+			array(
+				'role'          => 'subscriber',
+				'user_nicename' => 'quiet-member',
+			)
+		);
+		self::factory()->post->create(
+			array(
+				'post_author' => $member,
+				'post_status' => 'draft',
+			)
+		);
+		$writer = self::factory()->user->create(
+			array(
+				'role'          => 'author',
+				'user_nicename' => 'busy-writer',
+			)
+		);
+		self::factory()->post->create( array( 'post_author' => $writer ) );
+
+		$this->assertSame( 'author-without-posts', $this->exclusion_for( get_author_posts_url( $member ) ) );
+		$this->assertSame( 'author-without-posts', $this->exclusion_for( get_author_feed_link( $member ) ), 'The empty feed goes too.' );
+		$this->assertSame( '', $this->exclusion_for( get_author_posts_url( $writer ) ) );
+	}
+
 	public function test_render_header_without_valid_token_does_not_start_recording(): void {
 		$_SERVER['HTTP_X_GLACIATE_RENDER'] = '1.1.9999999999.' . str_repeat( 'a', 64 );
 		Recorder::maybe_start();

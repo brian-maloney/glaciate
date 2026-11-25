@@ -11,6 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 use Glaciate\Build\Pipeline;
 use Glaciate\Rewrite\UrlRewriter;
+use Glaciate\Storage\FormKeyRepository;
 use Glaciate\Support\Logger;
 use Glaciate\Support\Settings;
 
@@ -18,11 +19,13 @@ use Glaciate\Support\Settings;
  * Checks a submission and hands it to its adapter. Two ways in:
  *
  * - direct(): a visitor's browser posted a published form here (`forms = site`). The page origin must be the
- *   public site (when the browser says), then the shared spam rules (Protocol), the optional captcha and the rate
- *   limit apply.
+ *   public site (when the browser says), then the attempt limit, the shared spam rules (Protocol), the optional
+ *   captcha and the submission limit apply.
  * - relay(): a separate receiver forwarded a submission it accepted, signed with the forms secret. The signature
- *   must verify and must not have been used before; the spam rules and rate limit apply again (the captcha answer
+ *   must verify and must not have been used before; the limits and spam rules apply again (the captcha answer
  *   was spent by the receiver that checked it).
+ *
+ * Either way, the form key must be one a published page carries (FormKeyRepository, D57).
  *
  * After an adapter accepts a submission, `glaciate_form_submitted` fires and, when set up, a signed copy goes to
  * the webhook. Nothing is stored here: what a form plugin stores is up to that plugin.
@@ -34,6 +37,16 @@ final class Receiver {
 
 	/** Window, in seconds. */
 	const RATE_WINDOW = 600;
+
+	/**
+	 * Attempts allowed per submission allowed. Attempts are counted before the spam rules and the captcha, so a flood
+	 * from one address stops before it costs captcha requests (D60).
+	 */
+	const ATTEMPT_FACTOR = 4;
+
+	/** Rate-limit counter kinds. */
+	const COUNT_ATTEMPT = 'attempt';
+	const COUNT_SUBMIT  = 'submit';
 
 	/**
 	 * Configuration.
@@ -50,6 +63,20 @@ final class Receiver {
 	private $adapters;
 
 	/**
+	 * Keys of the forms on published pages.
+	 *
+	 * @var FormKeyRepository
+	 */
+	private $form_keys;
+
+	/**
+	 * Rate-limit counters.
+	 *
+	 * @var RateCounter
+	 */
+	private $counter;
+
+	/**
 	 * Current time, for tests.
 	 *
 	 * @var int|null
@@ -59,12 +86,16 @@ final class Receiver {
 	/**
 	 * Constructor.
 	 *
-	 * @param Config   $config   Configuration.
-	 * @param Adapters $adapters Adapters.
+	 * @param Config                 $config    Configuration.
+	 * @param Adapters               $adapters  Adapters.
+	 * @param FormKeyRepository|null $form_keys Keys of the forms on published pages; null reads this site's.
+	 * @param RateCounter|null       $counter   Rate-limit counters; null counts in this site's object cache or table.
 	 */
-	public function __construct( Config $config, Adapters $adapters ) {
-		$this->config   = $config;
-		$this->adapters = $adapters;
+	public function __construct( Config $config, Adapters $adapters, ?FormKeyRepository $form_keys = null, ?RateCounter $counter = null ) {
+		$this->config    = $config;
+		$this->adapters  = $adapters;
+		$this->form_keys = $form_keys ?? new FormKeyRepository();
+		$this->counter   = $counter ?? new RateCounter();
 	}
 
 	/**
@@ -93,6 +124,10 @@ final class Receiver {
 		if ( '' !== $origin && 'null' !== $origin && strtolower( rtrim( $origin, '/' ) ) !== $this->config->allowed_origin() ) {
 			return Result::refused();
 		}
+		// Before anything that costs more than a counter: the captcha check is a request to the provider.
+		if ( ! $this->within_limit( $ip, self::COUNT_ATTEMPT ) ) {
+			return new Result( Result::LIMITED );
+		}
 		if ( null !== Protocol::refusal( $pairs ) ) {
 			return Result::refused();
 		}
@@ -105,7 +140,7 @@ final class Receiver {
 				return new Result( Result::SPAM, __( 'Please complete the check that you\'re not a robot.', 'glaciate' ) );
 			}
 		}
-		if ( ! $this->within_limit( $ip ) ) {
+		if ( ! $this->within_limit( $ip, self::COUNT_SUBMIT ) ) {
 			return new Result( Result::LIMITED );
 		}
 		return $this->deliver( Submission::from_pairs( $pairs, $ip, $user_agent, false ) );
@@ -124,19 +159,23 @@ final class Receiver {
 		if ( 'off' === $this->config->mode() || '' === $secret || ! Signature::verify( $signature, $body, $secret, $now ) ) {
 			return Result::refused();
 		}
-		$seen = 'glaciate_form_seen_' . substr( hash( 'sha256', $signature ), 0, 40 );
-		if ( false !== get_transient( $seen ) ) {
+		// Once only, keyed on the parsed values (the only spelling that verifies) and claimed atomically (D64).
+		list( $time, $mac ) = Signature::parse( $signature );
+		if ( ! ( new ReplayGuard() )->claim( $time, $mac, $now ) ) {
 			return Result::refused();
 		}
-		set_transient( $seen, 1, 2 * Signature::TOLERANCE );
 
 		$payload = json_decode( $body, true );
-		$pairs   = Protocol::pairs( is_array( $payload ) ? ( $payload['fields'] ?? null ) : null );
+		// The same two counters as direct(), for the visitor's address the receiver reports.
+		$ip = is_array( $payload ) && is_string( $payload['ip'] ?? null ) ? $payload['ip'] : '';
+		if ( ! $this->within_limit( $ip, self::COUNT_ATTEMPT ) ) {
+			return new Result( Result::LIMITED );
+		}
+		$pairs = Protocol::pairs( is_array( $payload ) ? ( $payload['fields'] ?? null ) : null );
 		if ( ! $pairs || null !== Protocol::refusal( $pairs ) ) {
 			return Result::refused();
 		}
-		$ip = is_string( $payload['ip'] ?? null ) ? $payload['ip'] : '';
-		if ( ! $this->within_limit( $ip ) ) {
+		if ( ! $this->within_limit( $ip, self::COUNT_SUBMIT ) ) {
 			return new Result( Result::LIMITED );
 		}
 		return $this->deliver( Submission::from_pairs( $pairs, $ip, is_string( $payload['user_agent'] ?? null ) ? $payload['user_agent'] : '', true ) );
@@ -150,7 +189,9 @@ final class Receiver {
 	 */
 	private function deliver( Submission $submission ): Result {
 		$adapter = $this->adapters->for_key( $submission->key );
-		if ( null === $adapter ) {
+		// Only forms the static site carries (D57), whichever way the submission came: a separate receiver forwards
+		// any well-formed key. The answer is the same as for a kind no adapter knows.
+		if ( null === $adapter || ! $this->form_keys->is_published( $submission->key ) ) {
 			return Result::error();
 		}
 		try {
@@ -179,18 +220,26 @@ final class Receiver {
 	}
 
 	/**
-	 * Is this address under the rate limit? Counts the attempt.
+	 * Is this address under the rate limit? Counts the request, whatever the answer (D60).
 	 *
-	 * @param string $ip Visitor IP address.
+	 * Two counters per address, in the same window: attempts (every request that passes the origin check, counted
+	 * before the spam rules and the captcha) and submissions (those that passed both). IPv6 addresses count by their
+	 * /64 (ClientAddress::bucket()).
+	 *
+	 * @param string $ip   Visitor IP address.
+	 * @param string $kind self::COUNT_ATTEMPT or self::COUNT_SUBMIT.
 	 * @return bool
 	 */
-	private function within_limit( string $ip ): bool {
-		if ( ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+	private function within_limit( string $ip, string $kind ): bool {
+		$bucket = ClientAddress::bucket( $ip );
+		if ( '' === $bucket ) {
 			return true;
 		}
 
 		/**
-		 * Filters how many form submissions one IP address may send, and in how many seconds.
+		 * Filters how many form submissions one IP address may send, and in how many seconds. Attempts, which are
+		 * counted before the spam rules and the captcha, are limited to four times as many in the same window.
+		 * IPv6 addresses count by their /64.
 		 *
 		 * @since 0.4.0
 		 *
@@ -203,14 +252,11 @@ final class Receiver {
 		if ( $count <= 0 ) {
 			return true;
 		}
-		// Hashed with the site's salt: the option name doesn't reveal the address.
-		$key  = 'glaciate_form_rate_' . substr( hash_hmac( 'sha256', $ip, wp_salt( 'nonce' ) ), 0, 32 );
-		$used = (int) get_transient( $key );
-		if ( $used >= $count ) {
-			return false;
-		}
-		set_transient( $key, $used + 1, max( 1, (int) ( $limit[1] ?? self::RATE_WINDOW ) ) );
-		return true;
+		$allowed = self::COUNT_ATTEMPT === $kind ? $count * self::ATTEMPT_FACTOR : $count;
+		// Hashed with the site's salt: the stored key doesn't reveal the address.
+		$key  = substr( hash_hmac( 'sha256', $kind . '|' . $bucket, wp_salt( 'nonce' ) ), 0, 32 );
+		$hits = $this->counter->hit( $key, (int) ( $limit[1] ?? self::RATE_WINDOW ), $this->now ?? time() );
+		return $hits <= $allowed;
 	}
 
 	/**

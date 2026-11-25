@@ -143,7 +143,7 @@ Filters whether the page rendered in this request is left out of the static site
 Return a short reason (letters, digits and dashes) to exclude it, or an empty string to publish it.
 Runs inside the render request, so conditional tags such as is_singular() work.
 
-- `string $reason` Default "password-protected" for posts behind a password, otherwise "".
+- `string $reason` Default "password-protected" for posts behind a password, "author-without-posts" for an author archive or feed that lists no posts, otherwise "".
 
 Since 0.1.0. Fired in `src/Render/Recorder.php`.
 
@@ -168,7 +168,9 @@ Since 0.4.0. Fired in `src/Forms/Endpoint.php`.
 
 ### `glaciate_form_rate_limit`
 
-Filters how many form submissions one IP address may send, and in how many seconds.
+Filters how many form submissions one IP address may send, and in how many seconds. Attempts, which are
+counted before the spam rules and the captcha, are limited to four times as many in the same window.
+IPv6 addresses count by their /64.
 
 - `array{0:int,1:int} $limit` Submissions and window; 5 in 600 seconds by default. Zero submissions turns
 - `string $ip` Visitor IP address.
@@ -194,6 +196,9 @@ Since 0.1.0. Fired in `src/Deps/OptionRules.php`.
 ### `glaciate_header_rules`
 
 Filters the rules written to the `_headers` file, which Netlify and Cloudflare read.
+
+Crawled paths a static host would read as a pattern are already left out. Rules added here are written as
+given, patterns included, so never add paths taken from a crawl.
 
 - `array<int,array{0:string,1:array<string,string>}> $rules` URL path and the headers to send for it.
 
@@ -268,6 +273,9 @@ Since 0.1.0. Fired in `src/Build/Processor.php`.
 ### `glaciate_redirect_rules`
 
 Filters redirect rules written to the `_redirects` file.
+
+Origin redirects whose crawled path a static host would read as a pattern (`*`, `:name`) are already left
+out. Rules added here are written as given, patterns included, so never add paths taken from a crawl.
 
 - `array<int,array{0:string,1:string,2:int}> $rules` From path, target, status code.
 

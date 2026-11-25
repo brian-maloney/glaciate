@@ -222,10 +222,15 @@ function escapeHtml( text ) {
  * @param {Object}                 config  Settings.
  * @param {Array<[string,string]>} pairs   Fields.
  * @param {Object}                 visitor {ip, userAgent, origin}.
- * @param {Object}                 io      {fetch, now(): number, limiter}.
+ * @param {Object}                 io      {fetch, now(): number, limiter, log(message)?}; log defaults to console.error.
  * @return {Promise<Object>} Answer.
  */
 export async function check( config, pairs, visitor, io ) {
+	// A signature under an empty key proves nothing: anyone can make one. Same rule as the PHP receiver.
+	if ( config.forwardUrl && ! config.secret ) {
+		( io.log || console.error )( 'Glaciate form receiver: GLACIATE_FORWARD_URL is set but GLACIATE_FORMS_SECRET is empty; nothing is forwarded until it is set.' );
+		return result( 'error' );
+	}
 	const allowed = config.allowedOrigin.replace( /\/+$/, '' ).toLowerCase();
 	const origin = ( visitor.origin || '' ).replace( /\/+$/, '' ).toLowerCase();
 	if ( allowed && origin && 'null' !== origin && origin !== allowed ) {

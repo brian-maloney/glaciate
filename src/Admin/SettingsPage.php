@@ -690,6 +690,7 @@ final class SettingsPage {
 					__( '"This site" needs this WordPress site to be reachable from the internet at its own address: forms post to %s.', 'glaciate' ),
 					rest_url( 'glaciate/v1/forms/submit' )
 				),
+				__( 'Only forms that appear on published pages are accepted. WPForms\' own spam checks, its captcha included, need a page rendered moments before, so they are skipped for submissions from the static site: if you rely on a captcha, set up Glaciate\'s below instead.', 'glaciate' ),
 			)
 		);
 	}

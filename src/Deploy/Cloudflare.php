@@ -105,12 +105,14 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 			'account_id'       => array(
 				'label'       => __( 'Account ID', 'glaciate' ),
 				'required'    => true,
+				'restricted'  => true,
 				'pattern'     => '[a-f0-9]{32}',
 				'description' => __( 'Shown on the Workers & Pages overview in the Cloudflare dashboard.', 'glaciate' ),
 			),
 			'worker_name'      => array(
 				'label'       => __( 'Worker name', 'glaciate' ),
 				'required'    => true,
+				'restricted'  => true,
 				'pattern'     => '[a-z0-9][a-z0-9\-]{0,62}',
 				'description' => __( 'A new name is created on the first publish. Add a custom domain or route to it in the Cloudflare dashboard.', 'glaciate' ),
 			),
@@ -133,6 +135,7 @@ final class Cloudflare implements ConfigurableDeployerInterface, ResumableDeploy
 				'label'       => __( 'Replace an existing Worker', 'glaciate' ),
 				'type'        => 'bool',
 				'default'     => false,
+				'restricted'  => true,
 				'description' => __( 'Allow publishing to a Worker that Glaciate didn\'t create. Any code it runs is replaced by the static site.', 'glaciate' ),
 			),
 		);

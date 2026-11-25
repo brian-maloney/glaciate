@@ -18,6 +18,11 @@ defined( 'ABSPATH' ) || exit;
  *    and rejects anything that could escape a directory or misbehave on Windows or macOS filesystems.
  * 2. `absolute_path()` joins that relative path to the root and checks the real filesystem: no symlinks inside the
  *    root, and the nearest existing ancestor must resolve inside the root.
+ *
+ * Both steps also refuse names a web server might run or read as configuration instead of serving (threat T27,
+ * DECISIONS.md D58): dot-leading names other than `.well-known`, and extensions such as `.php5`, `.phtml`, `.cgi` or
+ * `.shtml`, also as an inner extension (`x.php.jpg`). `removable_path()` skips that one check, so files an earlier
+ * version wrote under such names can still be deleted.
  */
 final class PathMapper {
 
@@ -29,6 +34,16 @@ final class PathMapper {
 
 	/** Most directory levels allowed. */
 	const MAX_DEPTH = 32;
+
+	/**
+	 * Extensions a common web server configuration runs as a program or parses for directives (PHP, CGI, server-side
+	 * includes, ASP.NET, JSP, ColdFusion) or reads as configuration (`.ini`: php.ini, .user.ini). Matched against
+	 * every extension of a name, not only the last, because Apache's AddHandler and AddType apply to any of them.
+	 */
+	const ACTIVE_EXTENSIONS = '(php[0-9]*|phtml?|pht|phar|phps|pgif|shtml?|stm|cgi|fcgi|pl|py|asp|aspx|asa|asax|ascx|ashx|asmx|axd|cshtml|vbhtml|jsp|jspx|cfm|cfml|ini)';
+
+	/** File names a web server reads as configuration whatever their extension (IIS reads web.config in every folder). */
+	const CONFIG_NAMES = array( 'web.config' );
 
 	/**
 	 * Absolute root directory, without a trailing slash.
@@ -128,7 +143,33 @@ final class PathMapper {
 	 * @throws UnsafePathException When the path would leave the root or passes through a symlink.
 	 */
 	public function absolute_path( string $relative ): string {
-		self::assert_safe_relative( $relative );
+		return $this->resolve( $relative, true );
+	}
+
+	/**
+	 * Like absolute_path(), but without the check for names a web server might run (is_inert_name()).
+	 *
+	 * Only for deleting a file this plugin wrote itself, for example one an earlier version published under a name
+	 * that is refused now. Never use it to write.
+	 *
+	 * @param string $relative Relative path with "/" separators.
+	 * @return string Absolute path inside the root.
+	 * @throws UnsafePathException When the path would leave the root or passes through a symlink.
+	 */
+	public function removable_path( string $relative ): string {
+		return $this->resolve( $relative, false );
+	}
+
+	/**
+	 * Joins a relative path to the root and checks the filesystem.
+	 *
+	 * @param string $relative    Relative path with "/" separators.
+	 * @param bool   $check_names Whether to refuse names a web server might run (is_inert_name()).
+	 * @return string Absolute path inside the root.
+	 * @throws UnsafePathException When the path is not safe.
+	 */
+	private function resolve( string $relative, bool $check_names ): string {
+		self::assert_safe_relative( $relative, $check_names );
 		$absolute = $this->root . '/' . $relative;
 
 		// Every existing component below the root must be a real directory (or, for the last one, a real file).
@@ -170,11 +211,13 @@ final class PathMapper {
 	/**
 	 * Checks a relative path, for example one read back from a manifest or a ZIP entry name.
 	 *
-	 * @param string $relative Relative path.
+	 * @param string $relative    Relative path.
+	 * @param bool   $check_names Whether to refuse names a web server might run (is_inert_name()). Only
+	 *                            removable_path() passes false.
 	 * @return void
 	 * @throws UnsafePathException When it is not safe.
 	 */
-	public static function assert_safe_relative( string $relative ): void {
+	public static function assert_safe_relative( string $relative, bool $check_names = true ): void {
 		if ( '' === $relative || '/' === $relative[0] || strlen( $relative ) > self::MAX_PATH_BYTES ) {
 			throw new UnsafePathException( 'Relative path is empty, absolute or too long.' );
 		}
@@ -186,8 +229,41 @@ final class PathMapper {
 			throw new UnsafePathException( 'Relative path is nested too deeply.' );
 		}
 		foreach ( $parts as $part ) {
-			self::assert_safe_segment( $part );
+			self::assert_safe_segment( $part, $check_names );
 		}
+	}
+
+	/**
+	 * Returns true when a web server would serve a file or folder of this name as plain content.
+	 *
+	 * False for names starting with a dot (`.htaccess`, `.user.ini`, `.git`), except `.well-known`; for names with an
+	 * extension in ACTIVE_EXTENSIONS anywhere after the first dot, in any case (`x.PHTML`, `x.php.jpg`); and for
+	 * CONFIG_NAMES. A first part is a stem, not an extension, so `php.js` and `pl.json` are fine.
+	 *
+	 * Pure: the build classifier uses it too, so such URLs are skipped before they are fetched.
+	 *
+	 * @param string $name Decoded file or folder name.
+	 * @return bool
+	 */
+	public static function is_inert_name( string $name ): bool {
+		if ( '' === $name ) {
+			return false;
+		}
+		if ( '.' === $name[0] ) {
+			return '.well-known' === $name;
+		}
+		$lower = strtolower( $name );
+		if ( in_array( $lower, self::CONFIG_NAMES, true ) ) {
+			return false;
+		}
+		// IIS 6 ignored everything from a ";" on, so split there too ("x.asp;.jpg").
+		$extensions = array_slice( (array) preg_split( '/[.;]/', $lower ), 1 );
+		foreach ( $extensions as $extension ) {
+			if ( preg_match( '/^' . self::ACTIVE_EXTENSIONS . '$/', $extension ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -207,11 +283,12 @@ final class PathMapper {
 	/**
 	 * Validates a single file or directory name.
 	 *
-	 * @param string $name Decoded name.
+	 * @param string $name        Decoded name.
+	 * @param bool   $check_names Whether to refuse names a web server might run (is_inert_name()).
 	 * @return void
 	 * @throws UnsafePathException When it is not safe.
 	 */
-	private static function assert_safe_segment( string $name ): void {
+	private static function assert_safe_segment( string $name, bool $check_names = true ): void {
 		if ( '' === $name || '.' === $name || '..' === $name ) {
 			throw new UnsafePathException( 'Path segment is empty, "." or "..".' );
 		}
@@ -232,6 +309,9 @@ final class PathMapper {
 		// Windows device names, with or without an extension.
 		if ( preg_match( '/^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/iu', $name ) ) {
 			throw new UnsafePathException( 'Path segment is a reserved device name.' );
+		}
+		if ( $check_names && ! self::is_inert_name( $name ) ) {
+			throw new UnsafePathException( 'Path segment is a name a web server might run or read as configuration.' );
 		}
 	}
 

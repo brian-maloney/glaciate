@@ -165,7 +165,8 @@ sent, since the server's contents can't be known without a fetch.
 
 Large first deploys would exceed one slice, PHP's memory and some hosts' request limits, so blobs beyond 16 MB go up in
 batches, each in a commit on a temporary `glaciate-upload-<key>` branch that keeps them reachable (unreachable objects
-may be garbage-collected) until the final push moves the real branch and deletes the temporary one.
+may be garbage-collected) until the final push moves the real branch and deletes the temporary one. (D65 added a random
+part to the name and an ownership check.)
 
 Testing against GitHub showed that in an empty repository the first branch pushed becomes the default branch, and GitHub
 refuses to delete it: the upload branch was undeletable, and the atomic final push failed with it. In an empty
@@ -903,3 +904,374 @@ run, which adds about 20 seconds.
 - **Not hidden with `--ignore-platform-req`.** Skipping the check would install, but it would also hide a real missing
   extension the next time the image changes.
 - **Kept out of the release.** `/tools` is `export-ignore`, so the Dockerfile never reaches the plugin ZIP.
+
+## D53. Files are copied from disk only where the web server serves them
+
+Copying assets from disk (`AssetCopier`) skipped the web server, and with it every access rule the server applies: an
+`.htaccess` deny or basic auth on a folder in uploads, an nginx `location` block, a download plugin that rewrites its
+folder to PHP. The extension allowlist includes PDFs, office documents and ZIPs, which is what those folders hold, and
+a same-origin URL in any published text (an approved comment is enough) queues the file. So a file the origin refused
+with a 403 could be published and deployed.
+
+Before a file is copied, the build now asks the site for it as an anonymous visitor, through `LoopbackClient` with a
+`Range: bytes=0-0` header, and copies only on 200 (or 206, or a 416 for a range the server can't satisfy).
+`AccessVerdicts` remembers the answer for the rest of the build, keyed by the file's directory and file type
+(`/wp-content/uploads/private/*.pdf`):
+
+- **Directory and file type, not directory alone.** Server rules often target a file type (`<FilesMatch "\.zip$">`, an
+  nginx `location ~ \.pdf$`). A verdict per directory would let one public image vouch for every PDF next to it. The
+  cost stays bounded: one request per directory and file type per build, not one per file.
+- **401 and 403 leave the file out entirely.** The file isn't copied or fetched, any copy an earlier build published is
+  removed (other errors keep the old file), and the pattern is added to the classifier's exclusions for the rest of
+  the build, so other files there aren't queued. The refusal covers subdirectories too, as `.htaccess` does. The same
+  happens when a normal HTTP fetch of an asset answers 401 or 403.
+- **Roots are never excluded as a whole.** A refusal for a file directly in uploads (or in a directory above a root)
+  leaves that file out but sends its neighbours over HTTP one by one, so a single `<Files>` rule or a firewall's
+  false positive can't drop every upload.
+- **Other answers mean "fetch".** A redirect, or a 404 for a file that exists on disk, means the server doesn't serve
+  the file as it is; those files are fetched over HTTP, which records what the server does. Failures, 429 and 5xx
+  aren't remembered: that file is fetched over HTTP, which backs off.
+- **Encoded slashes are refused.** `protected%2Fsecret.pdf` would decode into another directory than the one the
+  verdict is about.
+- **Stored per build.** Verdicts are kept in the transient `glaciate_access_<build>` between slices and deleted when
+  the build stops. The refused patterns are also stored in the build's stats (`access_denied`, up to 200), so they hold
+  even when an object cache evicts the transient. Each build asks again, so a folder that is opened or closed later is
+  seen by the next build.
+
+Rejected: reading `.htaccess` and `web.config` files on the way up from the file (misses nginx and virtual host rules),
+and copying only media types from uploads (narrows the exposure without removing it).
+
+## D54. Crawled paths with pattern syntax get no `_redirects` or `_headers` rule
+
+Netlify and Cloudflare Pages read the paths in `_redirects` and `_headers` as patterns: `*` is a splat and `:name` a
+placeholder. Every origin redirect the crawl records became a rule with its path written as it was, and those paths
+come from links anyone can put on a page. WordPress redirects an unknown slug to the first post whose slug starts with
+the sanitized request, so a link to `/:x` or `/x*` comes back as a redirect to a real post, and the rule it produced
+matched every one-segment address, or every address starting with `/x`, on the static site.
+
+`Generated::origin_redirect_rules()` and `Generated::directory_header_rules()` now skip a crawled path unless
+`Generated::is_literal_path()` accepts it: it must start with `/` and hold no whitespace or control characters, `*`,
+`:`, `#` or `?`, and no `%2A` or `%3A`.
+
+- **Dropped, not percent-encoded.** Writing `%2A` and `%3A` instead would keep the rule, but neither host documents
+  whether it decodes a rule's path before matching, so an encoded rule could match the literal address, nothing, or
+  (if a host decodes first) the pattern again. Nothing is lost by dropping: WordPress permalinks never contain these
+  characters, `PathMapper` refuses them in file names (so the static site can't hold such an address as a page
+  either), and the addresses that do produce such redirects are typos and junk links. The origin still answers them.
+- **Encoded forms count too.** `PathMapper` decodes once and refuses the result, so a path with `%2A` or `%3A` can't be
+  a file, and leaving it out removes any question of decoding.
+- **Checked when the file is written, not when the redirect is recorded.** `Processor::handle_redirect()` still
+  records the origin's answer, which incremental builds use to notice when an address stops redirecting. Filtering in
+  `Generated` also covers rows recorded by earlier versions, which would otherwise stay in `_redirects` until each
+  address was crawled again.
+- **Admins and code may still use patterns.** The redirects setting (`/old/* /new/:splat`) and the
+  `glaciate_redirect_rules` and `glaciate_header_rules` filters are written as given; the filters' documentation says
+  not to pass crawled paths through them.
+- **Targets are unchanged.** A target is an address the origin itself redirected to, so it is written as before
+  (the threat model lists the residual risk of a plugin on the origin that redirects where a visitor asks).
+
+## D55. Settings changes rebuild everything, and narrower settings unpublish what they now exclude
+
+Two gaps let a page the owner had excluded stay on the public site. Saving `glaciate_settings` recorded no change: the
+option matches the ignored `glaciate_` prefix, which is checked before the list of options that trigger a full build,
+so the entry there never ran. And even a manual full build didn't help: it queued every published row by ID and
+rendered it, and only newly found addresses ever went through the URL classifier. An exclusion pattern, `feeds = none`,
+or narrowing `feeds` from `all` to `main` left the old files in place, re-rendered and redeployed on every build.
+
+- **Settings changes are recorded on their own hooks.** `ChangeListener` watches `update_option_glaciate_settings` and
+  `add_option_glaciate_settings` (WordPress fires them only when the stored value changed) and records
+  `full:option:glaciate_settings` when `OptionRules::settings_change_is_global()` says so. The option stays on the ignored
+  prefix, because every request reads it and it would otherwise become a per-URL dependency.
+- **Schedule settings don't rebuild.** Changes confined to the publishing mode, times and days, the full-rebuild schedule,
+  concurrency and `connect_to` start no build: they decide when and how fast builds run, not what they publish. Every
+  other setting (exclusions, feeds, redirects, the public address, search, forms, the target and its fields) can change
+  which files exist, what they contain or where they go, so it is a full change. A list of the keys that *don't* matter is
+  the safer default: a setting added later rebuilds until someone decides it needn't.
+- **Planning re-checks rows queued by ID.** A full build classifies every published row before queueing it; an
+  incremental build does the same for its dependency-matched rows, and looks up changed addresses the classifier rejects
+  in case they are still published from before. A rejected row is unpublished the way a page that went 404 is
+  (`Processor::leave_out()`, which calls the same `remove()`): the cached file is deleted, `path` and `content_hash` are
+  cleared and its dependencies forgotten. It leaves the manifest, so each deployer deletes the file, and the search index
+  drops it when it is next written. The build log says "Left out" with the classifier's reason.
+- **At planning, not at render time.** In a full build published rows are queued at the depth limit and render last. A
+  row the classifier now rejects (for example after the site address changed, when every old row is off-origin) would
+  otherwise still hold its output path while the new row for the same path renders first and is refused as a conflict.
+- **Not classified:** generated files (`glaciate:` pseudo-URLs) and the 404 probe, which have no address of their own.
+  Builds of selected pages still skip a rejected address with a warning rather than unpublishing it.
+
+`ExclusionChangeTest` (system) covers an exclusion, switching feeds off, and an exclusion reached by an incremental
+build; `ChangeListenerTest` and `OptionRulesTest` cover the change recording.
+
+## D56. On multisite, the fields that pick a destination are super-admin settings
+
+Target fields resolve from `GLACIATE_<TARGET>_<FIELD>` constants and environment variables, and those names carry no
+site ID. A network operator who pins an S3 key, a Git, Netlify or Cloudflare token, or an SFTP key in `wp-config.php`
+so that site admins never handle credentials therefore hands the same credential to every site. Until 2.0.4 only hosts,
+endpoints and paths were `restricted`; the fields that choose *where* that credential writes were not. A site admin
+could aim it at a sibling site's bucket or prefix, a production branch, Worker or Netlify site, turn on replacing, and
+overwrite what is there. Deletes stayed limited to each deployer's own records, so the harm was overwrite, not removal.
+
+These fields are now `restricted`, so on multisite only a super admin (or a constant) sets them:
+
+- S3: `bucket`, `prefix`, `cloudfront_distribution` (invalidations on another distribution).
+- Git: `branch`, `replace_existing`.
+- Cloudflare: `account_id`, `worker_name`, `replace_existing`.
+- Netlify: `site_id`.
+- SFTP: `username`. Host, port and folder were already restricted, but a pinned key that more than one account on the
+  host accepts would let the user name pick another account's home folder.
+
+Left editable: S3 region, path style and Cache-Control, Git user name, commit author and message, the SFTP host key,
+and Cloudflare's missing-page choice. None of them changes which bucket, branch, account or site receives the files.
+The local directory and ZIP targets have no such fields (the local path was already restricted).
+
+- **Always, not only when a credential is pinned.** Restricting a field only while a constant or environment secret
+  exists for that target sounds kinder to site admins who bring their own keys, but it is not enough: a super admin may
+  also type a shared token into one site's form, where it is stored encrypted for that site and the site admin can't
+  read it, but could redirect it just the same. Telling a "brought my own" secret from one a super admin saved would
+  need ownership tracking. The fixed rule is the same one already used for hosts and paths, and on multisite those
+  were already super-admin settings for SFTP and Git, so SFTP, S3 with a custom endpoint and Git were never
+  self-service there.
+- **Single sites are unchanged.** There, `restricted` means "needs `glaciate_manage`", which the settings screen
+  already requires.
+- **Every write path.** The rule lives in the field definitions, so the existing checks apply: the settings form keeps
+  the stored value and shows the field disabled, `TargetConfig::set()` refuses, and the settings sanitize callback puts
+  restricted fields back for any other settings write during an admin request. The REST API has no settings route, and
+  WP-CLI is trusted at the shell level, as before.
+- **Per-site constants later.** A `GLACIATE_<SITE>_<TARGET>_<FIELD>` naming would let a network give each site its own
+  credential and destination. That is a larger change and isn't needed to close this.
+
+## D57. The form receiver takes only forms a published page carries
+
+The receiver used to pick an adapter from the kind in a submission's key and hand it over, whether or not any published
+page had such a form. With forms on, that made every adapter reachable for any form ID: a made-up marked form mailed the
+admin whatever it was sent, and a WPForms form that exists only on the live site, behind WPForms' captcha, could be sent
+without it (the adapter skips WPForms' own checks, which can't work on an old page). Now the receiver answers `error`,
+as for an unknown kind, unless a published page carries the key.
+
+- **Recorded per page, not as a list.** `FormMarkup::transform()` already returns the keys it rewrote; the processor
+  stores them in a `form_keys` table (URL row ID, key) each time it writes a page or the 404 page. A key counts while a
+  published `page` or `404` row carries it, read through a join with `urls`. Pages leave the site through many paths
+  (404, exclusion, redirect, a path taken by another row, search and generated files); reading through `urls` keeps each
+  of them unaware of forms, and a key disappears with its last page. An option holding one list would need every path to
+  remove keys, or a full scan to know which keys are still used. Incremental builds only replace the rows of the pages
+  they write. A rebuilt page with the same forms costs one read and no write.
+- **The relay checks too.** The standalone receivers can't know which forms are published, so they forward any
+  well-formed key. The signature only proves that the owner's receiver passed the submission on, so without the check the
+  same hole would be open through any receiver. A refusal at the relay also stops the PHP receiver's email.
+- **Same answer as an unknown kind.** `error`, without saying why, and nothing is logged, so probing fills no log.
+- **Upgrading.** The record means nothing until every published page has been written once since it existed. A fresh
+  install has published nothing, and a site with forms off has no rewritten form (pages must be rebuilt anyway when forms
+  are turned on), so both start ready. A site already publishing forms gets a full rebuild queued by the schema upgrade,
+  and until a full build finishes (`glaciate_form_keys_ready`) every well-formed key is accepted, as before. Refusing
+  straight away would break every form on those sites until someone rebuilt, which with manual publishing could be days.
+- **Forms off.** Pages written with forms off record nothing, to keep the build loop free of extra queries. A full build
+  with forms off clears the table instead, so turning forms back on later doesn't revive keys of forms that are gone.
+- **Build, not deploy.** Keys change when the build writes the page, a deploy's length before visitors see it. Tying
+  them to the deploy would need per-target records for little gain.
+
+## D58. Output names a web server might run are refused, and the default target turns off script handlers
+
+The output file name is the URL path. Up to 2.0.4 the only name rule was the classifier's `*.php` and `*.php/*`
+exclusion, so a permalink structure ending in `.phtml`, or a crawled link the origin answered with 200, could write a
+file such as `shell.phtml`, `.htaccess` or `.user.ini` into the default local target, which sits inside uploads and is
+served by the WordPress web server. Several common server configurations run or read such names.
+
+`PathMapper::is_inert_name()` now decides, and the segment validator applies it to every segment, so it covers mapped
+URLs, the `glaciate_output_path` filter, manifest entries and ZIP entry names alike (threat T27):
+
+- **Dot-leading names are refused**, except `.well-known` (security.txt, ACME challenges, app links). That covers
+  `.htaccess`, `.user.ini`, `.git` and CI folders. Nothing the plugin generates starts with a dot: `_redirects`,
+  `_headers` and `glaciate-search/` don't, and the Git deployer adds its marker and `.nojekyll` outside the manifest.
+- **Extensions, case-insensitive:** `php` with any digits, `phtml`, `phtm`, `pht`, `phar`, `phps`, `pgif`; `shtml`, `shtm`,
+  `stm` (server-side includes); `cgi`, `fcgi`, `pl`, `py`; `asp`, `aspx`, `asa`, `asax`, `ascx`, `ashx`, `asmx`, `axd`,
+  `cshtml`, `vbhtml`; `jsp`, `jspx`; `cfm`, `cfml`; and `ini` (php.ini in CGI setups). Plus `web.config`, which IIS
+  reads in every folder. None of these is in WordPress's default upload list, so a site rarely has a reason to publish
+  one; `.py` and `.pl` downloads are the realistic loss, and a site that needs them can link to a copy elsewhere.
+- **Every extension, not only the last.** Apache's `AddHandler` and `AddType` match any extension in a name, so
+  `a.php.jpg` runs as PHP where PHP is set up that way (WordPress's `sanitize_file_name()` breaks up such names on
+  upload for the same reason). The first part is the stem, so `php.js` or `pl.json` is fine. A `;` also splits, for
+  old IIS, which ignored everything after it.
+- **Skipped before fetching.** `UrlClassifier` asks the same function for each decoded segment and reports `excluded`.
+  It's not a pattern in `DEFAULT_EXCLUDES`, so `glaciate_exclude_patterns` can't remove it, and the check runs on
+  decoded segments (`%2Ehtaccess`), which globs can't express.
+- **Earlier output is cleaned up.** `UrlRepository::published_files()` leaves out a row whose path the mapper refuses
+  now, so it leaves the manifest and every deployer deletes the file from its target. Deleting needs the path, so
+  `PathMapper::removable_path()` skips only the name check (traversal and symlink checks still apply); the local
+  deployer uses it for files its own records say it wrote, and `Cache::delete()` for the build cache. Nothing writes
+  through it.
+
+**The default local target also gets an `.htaccess`**, written by `Paths::protect_public_dir()` when the local
+deployer deploys there (and again after deletions, in case an `.htaccess` an earlier version published was just
+removed). It is not in the build cache or the manifest, so no deployer copies it, the local deployer never deletes it,
+and the marker check is unaffected (it is written together with the marker). It holds `SetHandler none` in a
+`<Files "*">` block (cancels a handler the server configuration sets for file names, which `.htaccess` sections
+follow), `RemoveHandler` and `RemoveType` for PHP, CGI and SSI extensions, `RemoveOutputFilter` for SSI, and
+`X-Content-Type-Options: nosniff`, so a feed saved as `index.html` on the WordPress origin can't be sniffed into
+something else.
+
+- **Only FileInfo directives.** A directive that `AllowOverride` doesn't permit makes Apache answer 500 for the whole
+  folder. Everything in the file needs `FileInfo`, which WordPress's own rewrite rules need too. `Options -ExecCGI`
+  and `php_flag engine off` would need `Options` and are left out; `SetHandler none` already covers both handlers.
+- **Only the default target.** A folder the admin chose is theirs to configure, and may already have rules. An existing
+  `.htaccess` is never overwritten.
+- **Defence in depth, not the control.** It does nothing on nginx or IIS, or against a handler bound by URL
+  (`ProxyPassMatch`). The name rules above are what holds everywhere.
+
+## D59. The standalone PHP receiver trusts no shared folder, link or empty secret
+
+The PHP receiver runs on hosts we know nothing about, often shared ones. Its default counter folder has a predictable
+name in the system's temporary folder, and before this it wrote counters wherever that name led.
+
+- **The default folder must be its own.** It is created with mode 0700 and used only while `lstat()` shows a real
+  folder owned by the account PHP runs as (`posix_geteuid()`, or the owner of a fresh `tmpfile()` without the posix
+  extension) with mode 0700. Otherwise the rate limit is off for that request and the PHP error log says why and
+  suggests `data_dir`. Failing open keeps forms working; the limit is a spam measure, and a missing count is better than
+  writing into a folder another account controls. Windows reports neither owners nor modes, so only the link check
+  applies there.
+- **`data_dir` is used as set.** The owner chose it, and a folder created by hand over FTP is often owned by another
+  account than PHP's (mod_php), so the same checks would turn the limit off for a correct setup.
+- **Counters are never written through a link.** PHP resolves links before opening a file, even in the exclusive `x`
+  mode, so `O_EXCL` alone doesn't help. The name is checked with `lstat()` first, opened without truncating (`x+` or
+  `r+`), and used only if the open file is a plain file with one link and the same device and inode as the name.
+  Anything else is not counted and logged.
+- **Stale counters are pruned** on about one request in a hundred: counter files untouched for longer than the window
+  are removed. One file per address no longer piles up.
+- **No signing with an empty key.** When `forward_url` is set and the secret is empty, the receiver answers `error`
+  and logs why, before the captcha or the rate limit. Glaciate's relay already refused such requests, but a webhook
+  that checks the signature with the same empty key would have accepted forgeries. The JavaScript receivers follow the
+  same rule. The exported file still contains no secret (T10).
+- **Nameless fields are dropped** from urlencoded bodies, as PHP drops them from `$_POST`.
+
+## D60. The form rate limit counts atomically, per IPv6 /64, and before the captcha
+
+The WordPress receiver kept one transient per address: read it, compare, write it back. Parallel requests all read the
+same count, so a burst got past the limit. The limit was consulted only after the captcha, so every request, limited or
+not, cost a request to the captcha provider. It counted exact addresses, which means nothing to someone holding an IPv6
+/64. And behind a proxy every visitor shared the proxy's address, with nothing telling the owner.
+
+- **One atomic operation per hit.** With a persistent object cache, `wp_cache_add()` starts the counter with the window
+  as its expiry and `wp_cache_incr()` counts; both are single operations in Redis and Memcached. Without one, a row in a
+  new `form_rate` table (schema version 6) is counted with `INSERT … ON DUPLICATE KEY UPDATE`, which also restarts an
+  ended window, and `LAST_INSERT_ID(expr)` hands the new count back to this connection, so no second read can see
+  another request's hit. A table rather than an atomic trick on `wp_options`: the options cache and autoload would get in
+  the way, and the rows need an expiry index. WordPress's in-memory cache lasts one request and is never used.
+- **Pruned without a job.** Whenever a new counter row starts, up to 100 rows whose window has ended are deleted, so the
+  table holds about one window's worth of addresses. A busy site starts rows often; a quiet one has few to prune.
+- **Two counters.** Attempts are counted after the `Origin` check and before the spam rules and the captcha; submissions
+  after both, as before. Attempts get four times the submission limit in the same window (20 in ten minutes by default),
+  derived from `glaciate_form_rate_limit` rather than a second filter, so zero still turns everything off. Refused
+  requests count as attempts. Captcha requests per address are now bounded by the attempt limit.
+- **IPv6 counts by /64**, the usual smallest allocation to one subscriber. IPv4-mapped IPv6 addresses count as IPv4.
+- **The relay counts the same way**, with the address the receiver reports, so a submission is limited the same whichever
+  way it arrives.
+- **Proxies: warn, don't guess.** The limit keeps using the address `glaciate_form_client_ip` returns (`REMOTE_ADDR` by
+  default). Forwarding headers are trivially forged, and trusting them by default would let any visitor pick their own
+  bucket. Instead, the Site Health forms check (and `wp glaciate doctor`) recommends the filter when forms are `site` and
+  either the current request or a submission in the last 30 days (`glaciate_form_proxy_seen`, written at most daily)
+  carried `X-Forwarded-For`, `Forwarded`, `CF-Connecting-IP` or similar while the filter was unset. When `REMOTE_ADDR`
+  already equals one of the forwarded addresses, something has rewritten it (often wp-config.php), so there is no
+  warning.
+- **Fails open.** If the counter can't be written, the request isn't limited: the limit is a spam measure, and refusing
+  every form over a database error would be worse.
+
+## D61. Only comments visitors can see record changes
+
+Every comment write used to record a change and touch its post, whatever the comment's status. A comment held for
+moderation or caught as spam changes nothing on the public site, yet in `immediate` mode it started an incremental
+build a minute later, so anyone able to post a comment could keep the origin rendering (T9).
+
+- **Approved now or approved before.** `wp_insert_comment` and `edit_comment` record a comment only while it is
+  approved. Everything that moves a comment into or out of approval reaches `transition_comment_status`, with the old
+  status: `wp_set_comment_status()` (so trash, spam and their reverses too), `wp_update_comment()` when the status
+  changed, and `wp_delete_comment()` (as `delete`). It records when either side is approved. An edit that unapproves a
+  comment fires `edit_comment` with the new status first and the transition after it, so it is still caught.
+- **No separate handlers** for `wp_set_comment_status`, `trashed_comment`, `spammed_comment` or `deleted_comment`:
+  each is followed by a transition carrying the information they lack (the old status).
+- **The comment count touches the post only when it moved.** WordPress recounts after every status change and edit,
+  even of a held comment; an unchanged count is not a change to the post.
+
+## D62. Author archives are published only for users with published posts
+
+WordPress answers 200 for the author archive (and author feed) of any member of the site, whether the user wrote
+anything or not. The seeds listed only authors with posts, but change capture added `get_author_posts_url()` for every
+user that registered or edited a profile, and the archive was then rendered and published. On a membership or shop site
+every account got a public `/author/<slug>/` page, and the built-in search index listed the slugs and display names,
+which the site itself offers nowhere (core sitemaps and the REST users endpoint list only authors with published posts).
+
+- **One definition of "has posts".** `Seeds::AUTHOR_POST_TYPE` (`post`, the type core lists on author archives) and
+  `Seeds::author_has_posts()` (`count_user_posts( $id, 'post', true )`, so published posts only, password-protected
+  ones included) are what the author seeds, the author page seeds and change capture use, so they agree.
+- **Change capture adds author addresses only for authors.** A user change carries the archive addresses (old and new
+  nicename) only when the user has published posts when first touched in the request or at the end of it. The first
+  covers deleting a user whose posts are then reassigned, which moves them with direct SQL and fires no post hooks; the
+  archive must still be re-checked so it goes. Without posts the user change is still recorded, with no addresses, so
+  pages that show the user rebuild.
+- **The render decides.** An author archive or feed whose main query found no posts is left out with the reason
+  `author-without-posts` (`Recorder`, through the existing `glaciate_exclude_render` default), so it is unpublished like
+  any excluded render: the file leaves the cache, deployers delete it and the search index drops it. This catches every
+  route there: a link from a page byline, an address listed by hand, a published archive whose user loses the last
+  post (the archive's recorded query matches the post change, it renders empty and goes), and archives published by
+  2.0.4 and earlier, which the next full build re-renders. Updating the plugin through WordPress records a full change
+  (`upgrader_process_complete`), so that build is the first one after the update. The render goes by what the archive
+  lists rather than by `Seeds::author_has_posts()`, so a site that adds its own post types to author archives keeps
+  those archives.
+- **A post change can bring an archive back.** An excluded archive has no dependencies left, and an author's first
+  archive has none yet, so a new post would reach it only through a link. A post change of type `post` that is new or
+  moved its author, status or type also carries the archive addresses of its authors who now have published posts. An
+  edit that moves none of those carries nothing extra; a published archive is reached through its query as before.
+- **Multisite**: posts are counted on the current site, the one whose changes table the change goes to. A network user
+  who is a member of a site without posts there gets no archive on that site; one who isn't a member already gets a
+  404 from WordPress.
+
+`ChangeListenerTest`, `RecorderTest` and `MultisiteTest` (integration) and `AuthorArchiveTest` (system) cover it.
+
+## D64. A relay signature has one spelling, and claiming it is one atomic step
+
+The relay accepts each signature once (T22). The marker used to be a transient named after a hash of the raw header,
+read and then written, while the check trimmed the header first. A server that passed surrounding whitespace through
+would have let a captured request in once per spelling, and so would a time with leading zeros (`t=0…` parses to the
+same number, so the HMAC still matches). Two copies arriving together could both pass the read.
+
+- **One spelling.** `Signature::parse()` accepts only what `sign()` writes: no whitespace anywhere, no leading zeros,
+  lower-case hex, anchored with `\z` (a `$` also matches before a trailing newline). Anything else is refused, not
+  normalised: every receiver we ship signs in that form, and HTTP servers strip surrounding whitespace before PHP sees
+  the header, so a server that didn't now gets a refusal instead of a second chance. The marker is keyed on the parsed
+  time and HMAC.
+- **Atomic claim.** With a persistent object cache, `wp_cache_add()`: Redis, Memcached and APCu implement it as
+  add-if-absent. Without one, an `INSERT IGNORE` of a `glaciate_form_seen_*` row into the options table; the unique key
+  on `option_name` lets one insert through, and one affected row means first. A database error refuses the request.
+  The options API isn't used because `add_option()` reads before it writes, and its `ON DUPLICATE KEY UPDATE` reports
+  success when the stored value differs. No schema change: the options table already has the unique key, the rows
+  aren't autoloaded, and uninstall already deletes `glaciate_*` options.
+- **Markers last as long as their signature.** A marker expires at the signature's time plus the tolerance, the last
+  second `verify()` accepts it. Each database claim first deletes markers past that; relayed submissions are few, and
+  the delete uses the `option_name` index.
+- **Object cache eviction is a residual risk.** A marker evicted early lets one replay through. Writing to the
+  database even with an object cache would close that, at the cost of a write per relayed submission on sites that set
+  up a cache to avoid such writes; the signature still has to be fresh and valid, so we prefer the cache.
+
+## D65. The Git deployer builds on or deletes an upload branch only while it holds a commit we recorded
+
+The temporary upload branch had a fixed name derived from the target, and a deploy with no upload to resume took
+whatever head the server listed for that name, built its batches on it and deleted it at the end. Anyone who may push
+to the repository can create a branch of that name, so the deployer could adopt and delete a branch it never made,
+which T16 says it doesn't do. The server's listing is no proof of ownership; only our own records are.
+
+- **A new upload gets a new name**: `glaciate-upload-<key>-<12 random hex>`, one the server doesn't list. The first
+  batch creates it with an all-zero old ID, so the server refuses it if someone took the name in the meantime.
+- **Resuming needs a recorded commit.** An interrupted upload resumes only while the server lists its branch at the
+  last commit we recorded after a push of our own, or at the commit of a batch whose answer was lost (recorded just
+  before that push; the server can hold it only if our push reached it). Anything else (a branch that moved, one we
+  never pushed to, a name in the old format) is left alone, the log says so, and the upload starts on a fresh name.
+- **Every move and delete names the recorded commit as the old ID**, so receive-pack refuses it if the branch moved
+  since. This was already true; it protects only when the recorded ID is really ours, which the two rules above make so.
+- **Kept branches are retried.** When the server refuses to delete an upload branch (it may be the default branch),
+  the branch and its commit are remembered (at most ten), and each later publish tries the delete again while the
+  server still lists it at that commit. A record whose branch is gone or has moved is dropped. Before this, the warning
+  was the only trace.
+- **Old upload branches are not cleaned up.** Earlier versions recorded heads taken from the server's listing, so a
+  record in the old format proves nothing. A deploy that an upgrade interrupts mid-upload starts the upload again under
+  a new name and leaves the old branch, with a log line saying it was left alone.
+
+The decisions are pure logic in `Deploy\Git\UploadBranch`, unit tested; `GitUploadBranchTest` drives the deployer
+against an in-memory receive-pack, so it runs without the test Git server.

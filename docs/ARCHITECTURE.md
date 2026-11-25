@@ -31,8 +31,8 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - `LoopbackClient` uses the WP HTTP API (`wp_remote_request`; `WpOrg\Requests\Requests::request_multiple` for
   concurrency, default 4, configurable). Requests carry **no cookies**, so pages render as an anonymous visitor.
   `redirection => 0`; redirects get recorded, not followed blindly.
-- Each request carries `X-Glaciate-Render: <build_id>.<expiry>.<hmac>`, an HMAC-SHA256 under a per-site random key
-  stored in an option with `autoload=no`. The render-side `Recorder` boots only when the token verifies (`hash_equals`)
+- Each request carries `X-Glaciate-Render: <build_id>.<url_id>.<expires>.<hmac>`, an HMAC-SHA256 over the first three
+  parts under a per-site random key stored in an option with `autoload=no`. The render-side `Recorder` boots only when the token verifies (`hash_equals`)
   and the build is active. The token **grants no privileges**. It only turns on recording, hides the admin bar and
   sets `DONOTCACHEPAGE`.
 - At shutdown, the Recorder writes the deps for (build, URL) into the DB, and in the URL's row the render's mark
@@ -68,7 +68,7 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 
 ## Discovery / crawl
 - Seeds: home; core sitemaps (`wp-sitemap.xml` and any index listed in robots.txt); enumerated content (public posts of
-  public post types, term archives, author archives, and every later page of the blog, term, author and post type
+  public post types, term archives, archives of authors with published posts, and every later page of the blog, term, author and post type
   archives, from their post counts and `posts_per_page`, so they don't form a chain of links (D24)); feeds; robots.txt; favicon;
   additional URLs and paths from settings; a 404 rendered from a guaranteed-missing URL and saved as `404.html`.
 - Frontier: a deduplicated, normalized URL set held in a DB table. `WP_HTML_Tag_Processor` (core) extracts links from
@@ -80,12 +80,17 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   by default and reported: the build log lists up to 20 of the linked ones (also kept in the build's stats as
   `query_skipped`), and each one listed under additional URLs gets a warning of its own.
 - Assets under uploads, themes, plugins or wp-includes are **copied from the filesystem**, which is faster than HTTP.
-  This only happens after the path is proven inside an allowed root and its extension is on the allowlist (see the
-  threat model). Anything else is fetched over HTTP.
+  This only happens after the path is proven inside an allowed root, its extension is on the allowlist (see the
+  threat model), and the web server has served a file of the same type from the same directory to an anonymous
+  request in this build (`AccessVerdicts`, D53). Anything else is fetched over HTTP. A file the server refuses (401,
+  403) is left out and its published copy removed; that file type in that directory is then excluded for the rest of
+  the build. Verdicts live in a transient between slices; the refused patterns are also kept in the build's stats as
+  `access_denied`.
 - Redirects: origin 301/302s plus user-defined redirects become a `_redirects` file (a de facto standard) and a
   meta-refresh HTML fallback, written only where the address maps to an HTML file (a static host serves `/old.pdf`
   as a PDF whatever it contains). `/favicon.ico`, which WordPress answers with a redirect to the site icon, is
-  published as a copy of the file it points to; a real `favicon.ico` on the server takes precedence (D35).
+  published as a copy of the file it points to; a real `favicon.ico` on the server takes precedence (D35). An origin
+  redirect whose path a static host would read as a pattern (`*`, `:name` and the like) gets no rule (D54).
 
 ## Dependency-tracked incremental builds
 **Recorded per URL during render** (stored in table `deps(url_id, type, key)`, indexed on `(type, key)`; this is the inverted map):
@@ -106,6 +111,13 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
   Widgets and theme mods are options.
 - Some options change constantly (cron, transients, `doing_cron`, Action Scheduler state, our own). They're denylisted
   as triggers (filterable). `rewrite_rules`, `permalink_structure` and the active theme trigger a full rebuild.
+- Saving the plugin's own settings (`glaciate_settings`) records a full change when anything other than the publishing
+  schedule (mode, times, days, full-rebuild time, concurrency, `connect_to`) differs (D55). The option itself is on the
+  denylist above, so it never becomes a per-URL dependency; `ChangeListener` watches it on its own hooks.
+- Comments count only while visitors can see them. Adding or editing an approved comment, and any status change into
+  or out of approved (`transition_comment_status`: unapproval, spam, trash, deletion, restore), records the comment and
+  touches its post; a post's comment count touches the post only when it moved. Held, spam and trashed comments record
+  nothing, so a comment waiting for moderation never starts a build (D61).
 - Change capture writes to a `changes` table with a debounce (default 60 s), so a burst of saves becomes one incremental build.
 - A post's own terms (`get_the_terms()`) depend on the post; only term lists record `tq:<taxonomy>`, and only a term count
   that actually moved invalidates them. A simple query (no search, meta or custom ordering) doesn't match a post whose
@@ -113,6 +125,14 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 - Affected set = URLs from the object deps ∪ matching query signatures ∪ option deps ∪ the changed post's old and new permalinks
   ∪ `deps=unknown` URLs, and the `glaciate_affected_url_ids` filter can add more.
 - **Orphans**: URLs that now return 404 or redirect get removed from the manifest, so deployers delete them.
+- **Author archives** (D62): a user change carries the user's archive addresses only while the user has published
+  posts (`Seeds::author_has_posts()`, the test the author seeds use), and a new post, or one whose author, status or
+  type moved, carries the archives of its authors who have posts. A render of an author archive or feed that lists no
+  posts is left out (`author-without-posts`), which unpublishes an archive whose user lost the last post.
+- **Re-classification** (D55): rows queued by ID (every published row in a full build, the dependency-matched rows and
+  changed addresses in an incremental one) go through the URL classifier again during planning. A row it now rejects
+  (an exclusion pattern, the `feeds` setting, the public address) is unpublished like a 404 and not rendered.
+  Generated files (`glaciate:` rows) and the 404 probe are not classified.
 - **Safety nets**: a "Full rebuild" button and `--full` flag, a scheduled full rebuild (setting: off/daily/weekly at a chosen local time, **default daily at 03:00**), and a
   `glaciate_dependencies_for_url` filter for extensions that know their own deps.
 - **Output hashing**: each URL row keeps its output path, SHA-256 and size. Deployers receive the whole manifest
@@ -121,9 +141,12 @@ UI, REST and CLI are thin adapters over one service layer, so everything the UI 
 
 ## Storage
 Custom tables per site (`$wpdb->prefix`), managed with `dbDelta` and a schema version option: `builds`, `urls`, `build_urls`,
-`deps`, `query_sigs`, `changes`, `log`, `target_files`, and for search `search_terms`, `search_docs`, `search_dirty`. The data directory is `glaciate/` in the uploads directory, as
+`deps`, `query_sigs`, `changes`, `log`, `target_files`, for search `search_terms`, `search_docs`, `search_dirty`, and for the form
+receiver `form_keys` and `form_rate` (rate-limit counters, used without a persistent object cache). The data directory is `glaciate/` in the uploads directory, as
 `wp_upload_dir()` resolves it at runtime (or `GLACIATE_DATA_DIR`). It holds the build cache (`cache/<site_id>/`, rendered
 files, public content only) and ZIP archives (`zips/<site_id>/`), both protected with index.php and .htaccess deny.
+The default local target (`public/<site_id>/`) stays reachable, so the static copy can be previewed; when the local
+deployer creates it, it gets an `.htaccess` that turns off script handlers and sends `nosniff` (D58).
 Builds never crawl its address or copy files from it. Uninstall drops tables and options. It never deletes a deploy target.
 
 **URL to file.** A URL ending in `/` (or without an extension) is saved as `<path>/index.html`, whatever its response
@@ -131,6 +154,12 @@ type, because static hosts map a folder request only to `index.html`; `/feed/` b
 is recorded with the URL: S3 and Cloudflare upload such files with it, and `Generated` writes it into `_headers` (one rule
 per path, at most 100, for Netlify and Cloudflare). Hosts that choose types by extension alone (GitHub Pages, a plain web
 server) serve these files as `text/html`, which feed readers handle (D19).
+
+`PathMapper` refuses names a web server might run or read as configuration: names starting with a dot other than
+`.well-known`, `web.config`, and extensions such as `.phtml`, `.php5`, `.phar`, `.shtml`, `.cgi`, `.pl`, `.py`, `.asp`,
+`.jsp` or `.ini`, also as an inner extension (`a.php.jpg`). The classifier skips such URLs as `excluded`, whatever
+`glaciate_exclude_patterns` says, and the manifest leaves out rows an earlier version published under them, so
+deployers delete those files (D58).
 
 ## Queue
 - Action Scheduler, bundled through Composer. It's GPL-3.0-or-later, and it resolves duplicate copies across plugins
@@ -162,7 +191,9 @@ server) serve these files as `text/html`, which feed readers handle (D19).
   select; required, pattern, default, `restricted`). `TargetConfig` resolves each field from a `GLACIATE_<TARGET>_<FIELD>`
   constant, then the environment, then the `targets` entry of the settings (secret fields: `Secrets`), then the default.
   Every write goes through the field's validation, including direct `Settings::update()` calls. `restricted` fields (hosts,
-  endpoints) follow the filesystem-path rule: super admins only on multisite. `check_connection()` makes one cheap live
+  endpoints, and whatever picks a destination behind them: bucket, prefix, branch, Worker, Netlify site, SFTP user, the
+  replacing switches) follow the filesystem-path rule: super admins only on multisite, because a pinned credential has no
+  site ID (D56). `check_connection()` makes one cheap live
   request. CLI: `wp glaciate target list|show|set|check`.
 - **Resumable deploys.** A deployer that implements `ResumableDeployerInterface` gets the slice deadline and may return with
   `done = false`; the runner keeps the build in `deploying`, adds up the counts in `deploy_progress`, and calls it again in the
@@ -194,11 +225,15 @@ server) serve these files as `text/html`, which feed readers handle (D19).
   parent, so pushes are fast-forwards and history is kept. A branch with commits from elsewhere is refused unless "Replace
   the branch's contents" is on. Only new and changed blobs are sent, located through `target_files` records of each file's
   SHA-256 and blob ID; when the branch head isn't the commit we last pushed, everything is sent again. Deploys over 16 MB
-  push their blobs in batches to `refs/heads/glaciate-upload-<key>` (one commit per batch, so the server keeps them),
-  then a final push moves the branch; the upload branch is deleted in a push of its own, so a server that refuses
-  (it might be the default branch) only costs a warning. In an empty repository the real branch is created first,
+  push their blobs in batches to `refs/heads/glaciate-upload-<key>-<random>` (one commit per batch, so the server keeps
+  them), then a final push moves the branch; the upload branch is deleted in a push of its own, so a server that refuses
+  (it might be the default branch) only costs a warning, and the next publish tries again. An upload branch is resumed
+  or deleted only while it holds a commit the deployer recorded (`Deploy\Git\UploadBranch`, D65); one it can't prove
+  is its own is left alone. In an empty repository the real branch is created first,
   with a commit holding only the marker files, because hosts such as GitHub make the first branch pushed the default
   and refuse to delete it. The test Git server's hooks copy both of those GitHub rules.
+  Before any of this, manifest paths that Git or a Git host reads as repository configuration (`.github/workflows`,
+  `.gitlab-ci.yml`, `.git`, the short name `git~1` and the like) are dropped and logged (`Git\ReservedPaths`, T27).
 - **Netlify** (D16) uses the API's file-digest deploys: one `async` deploy listing every file's SHA-1, then uploads of only
   the hashes Netlify reports missing. SHA-1s are kept per path beside the SHA-256 records, so unchanged files aren't
   re-hashed. A site with no changes since the last deploy creates no deploy (Netlify allows 100 API deploys a day). The open
@@ -233,7 +268,8 @@ Built in by default (D20); Pagefind is an optional backend where the host's buil
   Everything lives under `glaciate-search/` in the output and deploys like any generated file. The writer runs at
   the start of finalizing, a group at a time within the slice budget; a full build marks every group dirty once, which
   restores any file that went missing. The `search` setting (`builtin`, `pagefind_host` or `off`) decides whether pages are indexed;
-  `off` removes the files and empties the tables. Changing it triggers a full rebuild, like any settings change.
+  `off` removes the files and empties the tables. Changing it triggers a full rebuild, like any settings change
+  outside the publishing schedule (D55).
 - **Client** (`assets/js/search.js`, plain JavaScript, no build step): `Search\Frontend` enqueues it (deferred) only on
   render requests, so the live site keeps WordPress search; its settings (index and stylesheet addresses, labels) are
   printed as origin URLs and rewritten like everything else. It intercepts submits of any form with a field named `s`
@@ -267,6 +303,14 @@ from the internet at its own address) or `receiver` (a receiver run elsewhere, a
   inserted after its start tag: `glaciate_form` (key), `glaciate_page` (public page address), an empty
   `glaciate_t` and the `glaciate_hp` honeypot. Per-render tokens that adapters declare (WPForms' render-time tokens)
   are removed, so the markup is identical from build to build.
+- **Published forms** (`Storage\FormKeyRepository`, D57): each time the processor writes a page or the 404 page while
+  forms are on, it records the keys of the forms it rewrote there (`form_keys`: URL row ID, key). A key counts while at
+  least one published `page` or `404` row carries it; the query joins `urls`, so a key leaves with the last page that had
+  it, through any path that unpublishes, redirects or replaces a page, and incremental builds only touch the pages they
+  write. A full build with forms off forgets every key. The record is "ready" (`glaciate_form_keys_ready`) on a fresh
+  install, on a site with forms off, and after the first full build that follows the upgrade adding it; until then every
+  well-formed key is accepted, as before, and the upgrade queues that full build. `wp glaciate forms status` lists the
+  accepted keys.
 - **Client** (`assets/js/forms.js`, enqueued only on render requests while forms are on): captures `submit` on the
   document before form plugins' own handlers, fills in `glaciate_t` (seconds the page was open), sends `FormData`
   with `fetch()` asking for JSON, and shows the answer as text in the form, with a note beside each rejected field.
@@ -276,16 +320,27 @@ from the internet at its own address) or `receiver` (a receiver run elsewhere, a
   valid form key; an empty honeypot; and, when present, `glaciate_t` of at least 3 seconds. The standalone receivers
   repeat these rules, and all implementations are tested against `tests/fixtures/forms-cases.json`.
 - **WordPress receiver** (`Forms\Receiver`, routes in `Forms\Endpoint`): `POST glaciate/v1/forms/submit` (site mode)
-  checks the `Origin` header against the public site, the shared rules, the captcha (Turnstile or hCaptcha, opt-in)
-  and a rate limit (5 per 10 minutes per IP, `glaciate_form_rate_limit`), then calls the adapter. `POST
+  checks the `Origin` header against the public site, an attempt limit (20 per 10 minutes, counted before anything
+  costlier), the shared rules, the captcha (Turnstile or hCaptcha, opt-in) and a submission limit (5 per 10 minutes,
+  `glaciate_form_rate_limit`), then calls the adapter if a published page carries the form's key (otherwise the answer
+  is `error`, as for a kind no adapter knows). The limits count per IPv4 address or IPv6 /64 of the address
+  `glaciate_form_client_ip` returns (`REMOTE_ADDR` by default), atomically: `wp_cache_add()` and `wp_cache_incr()`
+  with a persistent object cache, otherwise one upsert in `form_rate`, whose ended windows are pruned whenever a new
+  counter starts (D60). Site Health warns when requests carry forwarding headers while that filter is unset. `POST
   glaciate/v1/forms/relay` accepts a submission another receiver forwarded: JSON `{v, form, page, fields: [[name,
   value], …], ip, user_agent}` signed with the forms secret (`X-Glaciate-Signature: t=<time>,v1=<HMAC-SHA256 of
-  "<time>.<body>">`, five minutes either way, each signature accepted once). Accepted submissions fire
+  "<time>.<body>">` in exactly that spelling, five minutes either way, each signature accepted once: `Forms\ReplayGuard`
+  claims it atomically, D64), with the same published-key check.
+  Accepted submissions fire
   `glaciate_form_submitted` and, when `forms_webhook` and the secret are set, are sent on in the same signed format.
   Answers are `{ok, status: sent|invalid|spam|limited|error, message, errors, redirect}`; messages are plain text.
 - **Standalone receivers** (`receivers/`, written by `wp glaciate forms receiver`): a single PHP file for any PHP
   host and a module for Cloudflare Workers or Netlify Functions. They apply the shared rules, an optional captcha and
-  rate limit, and forward to the relay or any webhook (the PHP one can also email with `mail()`).
+  rate limit, and forward to the relay or any webhook (the PHP one can also email with `mail()`). They refuse to
+  forward while the secret is empty. The PHP file keeps its counters in `data_dir`, or in a folder it creates in the
+  temporary folder and uses only while it is owned by PHP's account with mode 0700 (D59). They don't know which
+  forms are published; the relay checks the key, and a refusal there stops the PHP receiver's email too. A PHP receiver
+  set up to email only, without forwarding, accepts any well-formed key.
 
 ## Secrets
 `Security\Secrets` resolves `(deployer, field)` in this order: `GLACIATE_<DEPLOYER>_<FIELD>` constant → environment variable of
@@ -318,7 +373,7 @@ from every log line. `wp glaciate secret list|set|delete` manages stored values;
 - Capabilities: primitive caps `glaciate_manage` (settings, targets) and `glaciate_publish` (build/deploy). They're added to
   administrator (both) and editor (publish) once per site: on activation, or on the first request if activation never
   ran (the plugin was activated before `composer install`). They're removed on uninstall. Meta cap `glaciate_publish_post` is mapped in
-  `map_meta_cap` to `glaciate_publish` + `edit_post`. In multisite, filesystem paths are set **only by a super admin or a constant**.
+  `map_meta_cap` to `glaciate_publish` + `edit_post`. In multisite, filesystem paths and restricted target fields are set **only by a super admin or a constant**.
 - Activation defaults: target = Local directory at `<uploads>/glaciate/public/<site>/`, public URL = current home URL. The one
   onboarding choice: *where to deploy*.
 - WP-CLI: `wp glaciate build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--porcelain]`,

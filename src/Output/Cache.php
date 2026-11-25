@@ -100,12 +100,15 @@ final class Cache {
 	/**
 	 * Deletes a cached file and any directories it leaves empty.
 	 *
+	 * Uses PathMapper::removable_path(), so a file an earlier version cached under a name that is refused now can
+	 * still be removed.
+	 *
 	 * @param string $relative Relative path.
 	 * @return void
 	 */
 	public function delete( string $relative ): void {
 		try {
-			$file = $this->mapper->absolute_path( $relative );
+			$file = $this->mapper->removable_path( $relative );
 		} catch ( UnsafePathException $e ) {
 			return;
 		}

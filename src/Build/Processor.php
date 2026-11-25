@@ -9,6 +9,7 @@ namespace Glaciate\Build;
 
 defined( 'ABSPATH' ) || exit;
 
+use Glaciate\Crawl\AccessVerdicts;
 use Glaciate\Crawl\AssetCopier;
 use Glaciate\Crawl\LinkExtractor;
 use Glaciate\Crawl\Seeds;
@@ -21,6 +22,7 @@ use Glaciate\Rewrite\NonceStripper;
 use Glaciate\Rewrite\OriginSet;
 use Glaciate\Rewrite\UrlRewriter;
 use Glaciate\Search\PageIndexer;
+use Glaciate\Storage\FormKeyRepository;
 use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Logger;
 
@@ -35,6 +37,7 @@ use Glaciate\Support\Logger;
  * - failed:    transport or server error; the previously published file (if any) is kept.
  * - retry:     the site answered 429 or 5xx and the address gets another try after the build backs off.
  * - refused:   the response is unsafe to publish (rendered logged-in, path conflict, unsafe path).
+ * - denied:    a file the site refuses anonymous visitors (401/403); any old file is removed (D53).
  */
 final class Processor {
 
@@ -112,6 +115,13 @@ final class Processor {
 	private $forms;
 
 	/**
+	 * Where the keys of rewritten forms are recorded for the receiver, or null when forms are off.
+	 *
+	 * @var FormKeyRepository|null
+	 */
+	private $form_keys;
+
+	/**
 	 * Linked addresses skipped because of their query string, as keys (at most QUERY_EXAMPLES).
 	 *
 	 * @var array<string,true>
@@ -121,18 +131,19 @@ final class Processor {
 	/**
 	 * Constructor.
 	 *
-	 * @param OriginSet     $origins    Origin addresses.
-	 * @param UrlRewriter   $rewriter   Rewriter.
-	 * @param LinkExtractor $extractor  Link extractor.
-	 * @param UrlClassifier $classifier Classifier.
-	 * @param Cache         $cache      Build cache.
-	 * @param UrlRepository $urls       URL repository.
-	 * @param Logger        $logger     Logger.
-	 * @param int           $build_id   Build ID.
-	 * @param PageIndexer   $search     Search indexer, or null when search is off.
-	 * @param FormMarkup    $forms      Form rewriter, or null when forms are off.
+	 * @param OriginSet         $origins    Origin addresses.
+	 * @param UrlRewriter       $rewriter   Rewriter.
+	 * @param LinkExtractor     $extractor  Link extractor.
+	 * @param UrlClassifier     $classifier Classifier.
+	 * @param Cache             $cache      Build cache.
+	 * @param UrlRepository     $urls       URL repository.
+	 * @param Logger            $logger     Logger.
+	 * @param int               $build_id   Build ID.
+	 * @param PageIndexer       $search     Search indexer, or null when search is off.
+	 * @param FormMarkup        $forms      Form rewriter, or null when forms are off.
+	 * @param FormKeyRepository $form_keys  Record of the forms on each page, or null when forms are off.
 	 */
-	public function __construct( OriginSet $origins, UrlRewriter $rewriter, LinkExtractor $extractor, UrlClassifier $classifier, Cache $cache, UrlRepository $urls, Logger $logger, int $build_id, ?PageIndexer $search = null, ?FormMarkup $forms = null ) {
+	public function __construct( OriginSet $origins, UrlRewriter $rewriter, LinkExtractor $extractor, UrlClassifier $classifier, Cache $cache, UrlRepository $urls, Logger $logger, int $build_id, ?PageIndexer $search = null, ?FormMarkup $forms = null, ?FormKeyRepository $form_keys = null ) {
 		$this->origins    = $origins;
 		$this->rewriter   = $rewriter;
 		$this->extractor  = $extractor;
@@ -143,6 +154,7 @@ final class Processor {
 		$this->build_id   = $build_id;
 		$this->search     = $search;
 		$this->forms      = $forms;
+		$this->form_keys  = $form_keys;
 	}
 
 	/**
@@ -175,6 +187,25 @@ final class Processor {
 		}
 		$this->publish( $row, 'asset', 200, $mime, $relative, $hash, (int) filesize( $source ), 'static' );
 		return self::outcome( 'published' );
+	}
+
+	/**
+	 * Leaves out a file the site refuses anonymous visitors, and removes any copy an earlier build published.
+	 *
+	 * A refusal is the web server's access rule speaking (an .htaccess deny, basic auth, a download plugin), so unlike
+	 * other errors it doesn't keep the old file (threat T3, D53).
+	 *
+	 * @param array<string,mixed> $row    URL row.
+	 * @param int                 $status HTTP status: 401 or 403.
+	 * @return array{outcome:string,discovered:array<int,array{url:string,kind:string}>}
+	 */
+	public function deny( array $row, int $status ): array {
+		/* translators: %d: HTTP status code. */
+		$reason = sprintf( __( 'the site answers anonymous visitors with HTTP %d', 'glaciate' ), $status );
+		/* translators: 1: address, 2: reason. */
+		$this->logger->info( sprintf( __( 'Left out %1$s (%2$s).', 'glaciate' ), $row['url'], $reason ) );
+		$this->remove( $row, $status );
+		return self::outcome( 'denied' );
 	}
 
 	/**
@@ -241,6 +272,10 @@ final class Processor {
 			return self::outcome( 'gone' );
 		}
 
+		if ( 'asset' === $row['kind'] && AccessVerdicts::is_denial( $result->status ) ) {
+			return $this->deny( $row, $result->status );
+		}
+
 		if ( 200 !== $result->status ) {
 			/* translators: %d: HTTP status code. */
 			$this->fail( $row, sprintf( __( 'HTTP %d', 'glaciate' ), $result->status ) );
@@ -277,6 +312,8 @@ final class Processor {
 		}
 
 		$discovered = array();
+		// Pages and 404 pages record the forms they carry, even none, so the receiver knows which keys are live (D57).
+		$form_keys = null !== $this->forms && 'asset' !== $kind ? array() : null;
 		if ( self::is_text( $mime ) ) {
 			foreach ( $this->extractor->extract( $body, $mime, $result->url ) as $link ) {
 				$classified = $this->classifier->classify( $link );
@@ -289,7 +326,9 @@ final class Processor {
 			$body = $this->rewriter->rewrite( $body );
 			if ( null !== $this->forms && 'text/html' === $mime && 'asset' !== $kind ) {
 				// After rewriting, so a receiver on the origin keeps its address (D22).
-				$body = $this->forms->transform( $body, $this->rewriter->rewrite_url( (string) $row['url'] ) )['html'];
+				$rewritten = $this->forms->transform( $body, $this->rewriter->rewrite_url( (string) $row['url'] ) );
+				$body      = $rewritten['html'];
+				$form_keys = $rewritten['keys'];
 			}
 
 			/**
@@ -338,6 +377,9 @@ final class Processor {
 		}
 
 		$this->publish( $row, $kind, $result->status, $result->headers['content-type'] ?? '', $relative, $hash, strlen( $body ), $deps_state );
+		if ( null !== $form_keys && null !== $this->form_keys ) {
+			$this->form_keys->replace( (int) $row['id'], $form_keys );
+		}
 		if ( null !== $this->search && 'page' === $kind && 'text/html' === $mime ) {
 			$this->search->index( (int) $row['id'], (string) $row['url'], $body );
 		}
@@ -468,6 +510,21 @@ final class Processor {
 			$fields['deps_state'] = $deps_state;
 		}
 		$this->urls->update( (int) $row['id'], $fields );
+	}
+
+	/**
+	 * Takes a URL the classifier now rejects (an exclusion pattern or the feed setting changed) out of the published
+	 * set, the same way as a page that went 404: its file leaves the cache, so deployers delete it from the target,
+	 * and its dependencies go. Its search terms go when the index is written.
+	 *
+	 * @param array<string,mixed> $row    URL row.
+	 * @param string              $reason Classifier reason (excluded, feed, not-origin, ...).
+	 * @return void
+	 */
+	public function leave_out( array $row, string $reason ): void {
+		/* translators: 1: address, 2: reason. */
+		$this->logger->info( sprintf( __( 'Left out %1$s (%2$s).', 'glaciate' ), $row['url'], $reason ) );
+		$this->remove( $row, (int) $row['status_code'] );
 	}
 
 	/**

@@ -48,24 +48,61 @@ final class AssetCopierTest extends \WP_UnitTestCase {
 	}
 
 	public function test_allows_media_inside_root(): void {
-		$this->assertSame( realpath( $this->root . '/2026/10/photo.jpg' ), $this->copier()->source_for( '/wp-content/uploads/2026/10/photo.jpg' ) );
-		$this->assertSame( realpath( $this->root . '/my file.png' ), $this->copier()->source_for( '/wp-content/uploads/my%20file.png' ) );
-		$this->assertNotNull( $this->copier()->source_for( '/wp-content/uploads/style.css' ) );
+		$this->assertSame( realpath( $this->root . '/2026/10/photo.jpg' ), $this->copier()->candidate_for( '/wp-content/uploads/2026/10/photo.jpg' ) );
+		$this->assertSame( realpath( $this->root . '/my file.png' ), $this->copier()->candidate_for( '/wp-content/uploads/my%20file.png' ) );
+		$this->assertNotNull( $this->copier()->candidate_for( '/wp-content/uploads/style.css' ) );
+	}
+
+	public function test_copies_only_after_the_site_served_that_kind_of_file_there(): void {
+		$copier = $this->copier();
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/2026/10/photo.jpg' ), 'Not copied before the site was asked.' );
+
+		$copier->access()->record( '/wp-content/uploads/2026/10/other.jpg', 200 );
+		$this->assertSame( realpath( $this->root . '/2026/10/photo.jpg' ), $copier->source_for( '/wp-content/uploads/2026/10/photo.jpg' ) );
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/2026/10/doc.pdf' ), 'Another file type needs its own answer.' );
+
+		$copier->access()->record( '/wp-content/uploads/2026/10/doc.pdf', 404 );
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/2026/10/doc.pdf' ), 'Fetched over HTTP when the site does not serve it as is.' );
+	}
+
+	public function test_never_copies_from_a_folder_the_site_refuses(): void {
+		mkdir( $this->root . '/protected/2026', 0777, true );
+		file_put_contents( $this->root . '/protected/.htaccess', "Require all denied\n" );
+		file_put_contents( $this->root . '/protected/secret-report.pdf', '%PDF-1.4 CONFIDENTIAL' );
+		file_put_contents( $this->root . '/protected/2026/older.pdf', '%PDF-1.4 CONFIDENTIAL' );
+		$copier = $this->copier();
+		$this->assertNotNull( $copier->candidate_for( '/wp-content/uploads/protected/secret-report.pdf' ), 'Allowed by the rules on disk alone.' );
+
+		// What the web server answers an anonymous request for the folder, because of its .htaccess.
+		$this->assertSame( 'deny', $copier->access()->record( '/wp-content/uploads/protected/secret-report.pdf', 403 ) );
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/protected/secret-report.pdf' ) );
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/protected/2026/older.pdf' ), 'Subfolders are refused too.' );
+		$copier->access()->record( '/wp-content/uploads/protected/secret-report.pdf', 200 );
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/protected/secret-report.pdf' ), 'A refusal stands for the build.' );
+	}
+
+	public function test_an_encoded_slash_cannot_reach_another_folder(): void {
+		mkdir( $this->root . '/protected' );
+		file_put_contents( $this->root . '/protected/secret.jpg', 'x' );
+		$copier = $this->copier();
+		$copier->access()->record( '/wp-content/uploads/photo.jpg', 200 );
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/protected%2Fsecret.jpg' ) );
+		$this->assertNull( $copier->source_for( '/wp-content/uploads/protected%2fsecret.jpg' ) );
 	}
 
 	public function test_never_copies_from_an_excluded_directory_below_a_root(): void {
 		mkdir( $this->root . '/glaciate/zips/1', 0777, true );
 		file_put_contents( $this->root . '/glaciate/zips/1/site.zip', 'zip' );
 		$copier = new AssetCopier( array( '/wp-content/uploads' => $this->root ), array( $this->root . '/glaciate' ) );
-		$this->assertNull( $copier->source_for( '/wp-content/uploads/glaciate/zips/1/site.zip' ) );
-		$this->assertNotNull( $copier->source_for( '/wp-content/uploads/2026/10/photo.jpg' ) );
+		$this->assertNull( $copier->candidate_for( '/wp-content/uploads/glaciate/zips/1/site.zip' ) );
+		$this->assertNotNull( $copier->candidate_for( '/wp-content/uploads/2026/10/photo.jpg' ) );
 	}
 
 	/**
 	 * @dataProvider provide_refused
 	 */
 	public function test_refuses( string $path ): void {
-		$this->assertNull( $this->copier()->source_for( $path ) );
+		$this->assertNull( $this->copier()->candidate_for( $path ) );
 	}
 
 	public function provide_refused(): array {
@@ -92,6 +129,6 @@ final class AssetCopierTest extends \WP_UnitTestCase {
 
 	public function test_site_roots_cover_uploads_and_includes(): void {
 		$copier = AssetCopier::for_wordpress();
-		$this->assertNotNull( $copier->source_for( wp_parse_url( includes_url( 'js/wp-emoji.js' ), PHP_URL_PATH ) ) );
+		$this->assertNotNull( $copier->candidate_for( wp_parse_url( includes_url( 'js/wp-emoji.js' ), PHP_URL_PATH ) ) );
 	}
 }

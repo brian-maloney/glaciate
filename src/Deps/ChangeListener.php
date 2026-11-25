@@ -9,8 +9,10 @@ namespace Glaciate\Deps;
 
 defined( 'ABSPATH' ) || exit;
 
+use Glaciate\Crawl\Seeds;
 use Glaciate\Render\Recorder;
 use Glaciate\Storage\ChangeRepository;
+use Glaciate\Support\Settings;
 
 /**
  * Watches writes to posts, terms, users, comments and options, and records one change row per object at the end
@@ -45,6 +47,13 @@ final class ChangeListener {
 	 * @var array<int,string[]>
 	 */
 	private $users = array();
+
+	/**
+	 * User IDs touched => whether the user had published posts when first touched (Seeds::author_has_posts()).
+	 *
+	 * @var array<int,bool>
+	 */
+	private $user_had_posts = array();
 
 	/**
 	 * Post IDs => fields known to have moved without showing in the before/after comparison (terms, meta).
@@ -114,12 +123,13 @@ final class ChangeListener {
 		add_action( 'added_post_meta', array( $this, 'post_meta' ), 10, 3 );
 		add_action( 'updated_post_meta', array( $this, 'post_meta' ), 10, 3 );
 		add_action( 'deleted_post_meta', array( $this, 'post_meta' ), 10, 3 );
-		add_action( 'wp_update_comment_count', array( $this, 'touch_post' ), 10, 1 );
+		add_action( 'wp_update_comment_count', array( $this, 'comment_count' ), 10, 3 );
 
+		// Status changes, trash, spam and deletion all reach transition_comment_status (with the old status), so
+		// wp_set_comment_status, trashed_comment, spammed_comment and deleted_comment need no handler of their own.
 		add_action( 'wp_insert_comment', array( $this, 'comment' ), 10, 1 );
 		add_action( 'edit_comment', array( $this, 'comment' ), 10, 1 );
-		add_action( 'wp_set_comment_status', array( $this, 'comment' ), 10, 1 );
-		add_action( 'deleted_comment', array( $this, 'comment' ), 10, 1 );
+		add_action( 'transition_comment_status', array( $this, 'comment_transition' ), 10, 3 );
 
 		add_action( 'edit_terms', array( $this, 'before_term' ), 10, 2 );
 		add_action( 'pre_delete_term', array( $this, 'before_term' ), 10, 2 );
@@ -141,6 +151,8 @@ final class ChangeListener {
 		add_action( 'updated_option', array( $this, 'option' ), 10, 1 );
 		add_action( 'added_option', array( $this, 'option' ), 10, 1 );
 		add_action( 'deleted_option', array( $this, 'option' ), 10, 1 );
+		add_action( 'update_option_' . Settings::OPTION, array( $this, 'settings_updated' ), 10, 2 );
+		add_action( 'add_option_' . Settings::OPTION, array( $this, 'settings_added' ), 10, 2 );
 
 		add_action( 'upgrader_process_complete', array( $this, 'full' ), 10, 0 );
 		add_action( 'switch_theme', array( $this, 'full' ), 10, 0 );
@@ -343,7 +355,10 @@ final class ChangeListener {
 	}
 
 	/**
-	 * Comment changes.
+	 * A comment was added or edited (wp_insert_comment, edit_comment). Only an approved comment is on the public
+	 * site: one held for moderation, marked as spam or in the trash changes nothing a visitor sees, so it must not
+	 * start a build. An edit that also changes the status is caught by comment_transition(), which WordPress fires
+	 * after edit_comment with the old status, so an approved comment that an edit unapproves is still recorded.
 	 *
 	 * @param int $comment_id Comment ID.
 	 * @return void
@@ -353,11 +368,65 @@ final class ChangeListener {
 			return;
 		}
 		$comment = get_comment( (int) $comment_id );
-		$this->other['comment'][ (string) (int) $comment_id ] = true;
-		if ( $comment instanceof \WP_Comment ) {
-			$this->touch_post( (int) $comment->comment_post_ID );
+		if ( $comment instanceof \WP_Comment && self::is_approved( $comment->comment_approved ) ) {
+			$this->note_comment( $comment );
 		}
+	}
+
+	/**
+	 * Comment status changes (transition_comment_status): approval, unapproval, spam, trash, their reverses, and
+	 * deletion ("delete"). Recorded when the comment is approved now or was approved before, i.e. when it appears on
+	 * or leaves the public site.
+	 *
+	 * @param string      $new_status New status, as WordPress normalizes it ("approved", "unapproved", "spam", ...).
+	 * @param string      $old_status Old status.
+	 * @param \WP_Comment $comment    Comment (for a deletion, as it was before).
+	 * @return void
+	 */
+	public function comment_transition( $new_status, $old_status, $comment ): void {
+		if ( $this->muted() || ! $comment instanceof \WP_Comment ) {
+			return;
+		}
+		if ( self::is_approved( $new_status ) || self::is_approved( $old_status ) ) {
+			$this->note_comment( $comment );
+		}
+	}
+
+	/**
+	 * A post's approved comment count was recalculated (wp_update_comment_count). WordPress recounts on every status
+	 * change and comment edit, whatever the comment's status; only a count that moved changes the post.
+	 *
+	 * @param int $post_id   Post ID.
+	 * @param int $new_count New count.
+	 * @param int $old_count Previous count.
+	 * @return void
+	 */
+	public function comment_count( $post_id, $new_count = 0, $old_count = 0 ): void {
+		if ( (int) $new_count !== (int) $old_count ) {
+			$this->touch_post( (int) $post_id );
+		}
+	}
+
+	/**
+	 * Records a visible comment change and touches the comment's post.
+	 *
+	 * @param \WP_Comment $comment Comment.
+	 * @return void
+	 */
+	private function note_comment( \WP_Comment $comment ): void {
+		$this->other['comment'][ (string) (int) $comment->comment_ID ] = true;
+		$this->touch_post( (int) $comment->comment_post_ID );
 		$this->schedule_flush();
+	}
+
+	/**
+	 * Whether a comment status means "shown to visitors": the stored value ("1") or a name WordPress uses for it.
+	 *
+	 * @param mixed $status Status.
+	 * @return bool
+	 */
+	private static function is_approved( $status ): bool {
+		return in_array( (string) $status, array( '1', 'approve', 'approved' ), true );
 	}
 
 	/**
@@ -485,7 +554,8 @@ final class ChangeListener {
 	}
 
 	/**
-	 * Marks a user as changed.
+	 * Marks a user as changed. Whether the user has published posts is noted now as well: delete_user fires while the
+	 * posts still exist, and reassigning them afterwards fires no post hooks.
 	 *
 	 * @param int $user_id User ID.
 	 * @return void
@@ -496,7 +566,8 @@ final class ChangeListener {
 			return;
 		}
 		if ( ! isset( $this->users[ $user_id ] ) ) {
-			$this->users[ $user_id ] = array( get_author_posts_url( $user_id ) );
+			$this->users[ $user_id ]          = array( get_author_posts_url( $user_id ) );
+			$this->user_had_posts[ $user_id ] = Seeds::author_has_posts( $user_id );
 		}
 		$this->schedule_flush();
 	}
@@ -543,6 +614,45 @@ final class ChangeListener {
 	}
 
 	/**
+	 * The plugin's settings were saved (update_option_glaciate_settings). WordPress fires this only when the stored
+	 * value changed; a full build follows when the change can alter what is published or where.
+	 *
+	 * @param mixed $old_value Previous value.
+	 * @param mixed $value     New value, as sanitized.
+	 * @return void
+	 */
+	public function settings_updated( $old_value, $value ): void {
+		$this->settings_changed( $old_value, $value );
+	}
+
+	/**
+	 * The plugin's settings were stored for the first time (add_option_glaciate_settings). Until then every setting
+	 * had its default value.
+	 *
+	 * @param string $option Option name.
+	 * @param mixed  $value  Value, as sanitized.
+	 * @return void
+	 */
+	public function settings_added( $option, $value ): void {
+		$this->settings_changed( Settings::defaults(), $value );
+	}
+
+	/**
+	 * Records a full change when a settings change can alter the published site.
+	 *
+	 * @param mixed $old_value Previous value.
+	 * @param mixed $value     New value.
+	 * @return void
+	 */
+	private function settings_changed( $old_value, $value ): void {
+		if ( $this->muted() || ! OptionRules::settings_change_is_global( $old_value, $value ) ) {
+			return;
+		}
+		$this->other['full'][ 'option:' . Settings::OPTION ] = true;
+		$this->schedule_flush();
+	}
+
+	/**
 	 * Code or theme changed: everything must be rebuilt.
 	 *
 	 * @return void
@@ -575,6 +685,8 @@ final class ChangeListener {
 	public function flush(): int {
 		$repo    = new ChangeRepository();
 		$written = 0;
+		// User ID => has published posts, checked once per flush.
+		$authors = array();
 
 		foreach ( $this->posts as $post_id => $before ) {
 			clean_post_cache( $post_id );
@@ -594,7 +706,8 @@ final class ChangeListener {
 			if ( ! array_intersect( $snapshot['statuses'] ?? array(), array( 'publish', 'inherit' ) ) ) {
 				continue;
 			}
-			$snapshot['ids'] = array( $post_id );
+			$snapshot['ids']  = array( $post_id );
+			$snapshot['urls'] = array_values( array_unique( array_merge( $snapshot['urls'] ?? array(), self::author_archive_urls( $snapshot, $authors ) ) ) );
 			$repo->record( 'post', (string) $post_id, $snapshot );
 			++$written;
 		}//end foreach
@@ -616,6 +729,13 @@ final class ChangeListener {
 		foreach ( $this->users as $user_id => $urls ) {
 			$urls[] = get_author_posts_url( $user_id );
 			$urls   = array_values( array_unique( $urls ) );
+			// An author archive exists for the static site only while its user has published posts (D62). Without
+			// any, before or after, the archive's addresses stay out of the change: WordPress answers them with an
+			// empty page, which would publish the account's slug and name. Pages that show the user still depend
+			// on the change through their recorded user dependencies.
+			if ( empty( $this->user_had_posts[ $user_id ] ) && ! Seeds::author_has_posts( (int) $user_id ) ) {
+				$urls = array();
+			}
 			$repo->record( 'user', (string) $user_id, array( 'urls' => $urls ) );
 			++$written;
 			if ( count( $urls ) > 1 && false !== strpos( $structure, '%author%' ) ) {
@@ -636,14 +756,15 @@ final class ChangeListener {
 			}
 		}
 
-		$this->posts   = array();
-		$this->terms   = array();
-		$this->users   = array();
-		$this->options = array();
-		$this->other   = array();
-		$this->counts  = array();
-		$this->moved   = array();
-		$this->created = array();
+		$this->posts          = array();
+		$this->terms          = array();
+		$this->users          = array();
+		$this->user_had_posts = array();
+		$this->options        = array();
+		$this->other          = array();
+		$this->counts         = array();
+		$this->moved          = array();
+		$this->created        = array();
 
 		if ( $written > 0 ) {
 			/**
@@ -656,6 +777,35 @@ final class ChangeListener {
 			do_action( 'glaciate_changes_recorded', $written );
 		}
 		return $written;
+	}
+
+	/**
+	 * Author archives a post change can bring back or into existence: those of the post's authors who have published
+	 * posts now, when the post is new or its author, status or type moved. A published archive is reached through its
+	 * recorded query anyway, but an archive that was left out while its author had no posts has no dependencies left,
+	 * and one never rendered has none yet; without this, only a link would lead an incremental build to it (D62).
+	 *
+	 * @param array<string,array<int,mixed>> $snapshot Post change snapshot.
+	 * @param array<int,bool>                $authors  User ID => has published posts, filled in as users are checked.
+	 * @return string[]
+	 */
+	private static function author_archive_urls( array $snapshot, array &$authors ): array {
+		if ( ! in_array( Seeds::AUTHOR_POST_TYPE, (array) ( $snapshot['types'] ?? array() ), true ) ) {
+			return array();
+		}
+		if ( isset( $snapshot['moved'] ) && ! array_intersect( array( 'authors', 'statuses', 'types' ), (array) $snapshot['moved'] ) ) {
+			return array();
+		}
+		$urls = array();
+		foreach ( array_unique( array_map( 'intval', (array) ( $snapshot['authors'] ?? array() ) ) ) as $author ) {
+			if ( ! isset( $authors[ $author ] ) ) {
+				$authors[ $author ] = Seeds::author_has_posts( $author );
+			}
+			if ( $authors[ $author ] ) {
+				$urls[] = get_author_posts_url( $author );
+			}
+		}
+		return $urls;
 	}
 
 	/**

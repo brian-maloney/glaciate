@@ -38,6 +38,14 @@ final class NetlifyTest extends \WP_UnitTestCase {
 		file_put_contents( $this->cache . '/about/index.html', 'about v1' );
 		file_put_contents( $this->cache . '/_redirects', '/old /new 301' );
 
+		// The site ID is a restricted field: an administrator sets it.
+		\Glaciate\Security\Capabilities::grant_defaults();
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		if ( is_multisite() ) {
+			grant_super_admin( $admin ); // On multisite only a super admin may set it.
+		}
+		wp_set_current_user( $admin );
+
 		$this->api      = new FakeNetlify();
 		$this->deployer = new Netlify(
 			$this->api,

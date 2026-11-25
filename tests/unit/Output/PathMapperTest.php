@@ -1,6 +1,6 @@
 <?php
 /**
- * Path traversal and mapping tests (threat T2).
+ * Path traversal and mapping tests (threats T2 and T27).
  *
  * @package Glaciate
  */
@@ -55,7 +55,15 @@ final class PathMapperTest extends TestCase {
 			'dot inside name'          => array( '/v1.2/release/', 'text/html', 'v1.2/release/index.html' ),
 			'extension then slash'     => array( '/file.html/', 'text/html', 'file.html/index.html' ),
 			'unknown type is html'     => array( '/x/', '', 'x/index.html' ),
-			'dotfile-like but has ext' => array( '/a/.well-known.txt', 'text/plain', 'a/.well-known.txt' ),
+			'well-known file'          => array( '/.well-known/security.txt', 'text/plain', '.well-known/security.txt' ),
+			'well-known nested'        => array( '/.well-known/acme-challenge/tok.txt', 'text/plain', '.well-known/acme-challenge/tok.txt' ),
+			'well-known directory'     => array( '/.well-known/openid-configuration/', 'application/json', '.well-known/openid-configuration/index.html' ),
+			'stem named like an ext'   => array( '/a/php.js', 'text/javascript', 'a/php.js' ),
+			'polish locale file'       => array( '/i18n/pl.js', 'text/javascript', 'i18n/pl.js' ),
+			'inner harmless extension' => array( '/a/jquery.min.js', 'text/javascript', 'a/jquery.min.js' ),
+			'source map'               => array( '/a/style.css.map', 'application/json', 'a/style.css.map' ),
+			'tarball'                  => array( '/f/archive.tar.gz', 'application/gzip', 'f/archive.tar.gz' ),
+			'php inside a word'        => array( '/graphql-and-phpunit/', 'text/html', 'graphql-and-phpunit/index.html' ),
 		);
 	}
 
@@ -103,7 +111,144 @@ final class PathMapperTest extends TestCase {
 			'invalid utf-8'                => array( '/%C3%28/' ),
 			'overlong segment'             => array( '/' . str_repeat( 'a', 256 ) . '/' ),
 			'too deep'                     => array( str_repeat( '/a', 40 ) . '/' ),
+			// Names a web server might run or read as configuration (threat T27).
+			'htaccess'                     => array( '/.htaccess' ),
+			'encoded htaccess'             => array( '/%2Ehtaccess' ),
+			'user.ini'                     => array( '/a/.user.ini' ),
+			'git directory'                => array( '/.git/config' ),
+			'dotfile with extension'       => array( '/a/.well-known.txt' ),
+			'dotfile inside well-known'    => array( '/.well-known/.htaccess' ),
+			'well-known in other case'     => array( '/.Well-Known/x.txt' ),
+			'phtml'                        => array( '/shell.phtml' ),
+			'phtml upper case'             => array( '/shell.PHTML' ),
+			'php5'                         => array( '/shell.php5' ),
+			'php7'                         => array( '/shell.php7' ),
+			'phar'                         => array( '/shell.phar' ),
+			'pht'                          => array( '/shell.pht' ),
+			'phps'                         => array( '/shell.phps' ),
+			'shtml'                        => array( '/page.shtml' ),
+			'cgi'                          => array( '/run.cgi' ),
+			'perl'                         => array( '/run.pl' ),
+			'python'                       => array( '/run.py' ),
+			'asp'                          => array( '/page.asp' ),
+			'aspx'                         => array( '/page.aspx' ),
+			'jsp'                          => array( '/page.jsp' ),
+			'ini'                          => array( '/php.ini' ),
+			'php as inner extension'       => array( '/wp-content/uploads/shell.php.jpg' ),
+			'phtml as inner extension'     => array( '/shell.phtml.html' ),
+			'iis semicolon'                => array( '/shell.asp%3B.jpg' ),
+			'web.config'                   => array( '/web.config' ),
+			'web.config any case'          => array( '/Web.Config' ),
+			'active directory segment'     => array( '/x.php5/' ),
+			'active name mid-path'         => array( '/a/run.cgi/b.html' ),
 		);
+	}
+
+	/**
+	 * @dataProvider provide_inert_names
+	 */
+	public function test_is_inert_name( string $name, bool $expected ): void {
+		$this->assertSame( $expected, PathMapper::is_inert_name( $name ) );
+	}
+
+	public function provide_inert_names(): array {
+		return array(
+			'page index'      => array( 'index.html', true ),
+			'image'           => array( 'photo.JPG', true ),
+			'well-known'      => array( '.well-known', true ),
+			'redirects file'  => array( '_redirects', true ),
+			'headers file'    => array( '_headers', true ),
+			'search shard'    => array( '6162.json', true ),
+			'stem php'        => array( 'php.js', true ),
+			'stem only'       => array( 'php', true ),
+			'phpx is not php' => array( 'notes.phpx', true ),
+			'empty'           => array( '', false ),
+			'dotfile'         => array( '.env', false ),
+			'htaccess'        => array( '.htaccess', false ),
+			'htpasswd'        => array( '.htpasswd', false ),
+			'php'             => array( 'a.php', false ),
+			'php8 mixed case' => array( 'a.PhP8', false ),
+			'inner php'       => array( 'a.php.png', false ),
+			'shtm'            => array( 'a.shtm', false ),
+			'fcgi'            => array( 'a.fcgi', false ),
+			'cfm'             => array( 'a.cfm', false ),
+			'ashx'            => array( 'a.ashx', false ),
+			'cshtml'          => array( 'a.cshtml', false ),
+			'web.config'      => array( 'web.config', false ),
+			'semicolon trick' => array( 'a.asp;.jpg', false ),
+		);
+	}
+
+	/**
+	 * Generated files the plugin writes itself must stay writable.
+	 *
+	 * @dataProvider provide_generated_paths
+	 */
+	public function test_generated_paths_are_accepted( string $relative ): void {
+		PathMapper::assert_safe_relative( $relative );
+		$this->assertSame( $this->tmp . '/root/' . $relative, $this->mapper()->absolute_path( $relative ) );
+	}
+
+	public function provide_generated_paths(): array {
+		return array(
+			'redirects'       => array( '_redirects' ),
+			'headers'         => array( '_headers' ),
+			'search meta'     => array( 'glaciate-search/meta.json' ),
+			'search shard'    => array( 'glaciate-search/terms/6162.json' ),
+			'search docs'     => array( 'glaciate-search/docs/0.json' ),
+			'redirect page'   => array( 'old-page/index.html' ),
+			'well-known file' => array( '.well-known/security.txt' ),
+		);
+	}
+
+	/**
+	 * @dataProvider provide_active_relative
+	 */
+	public function test_absolute_path_refuses_active_names( string $relative ): void {
+		$this->expectException( UnsafePathException::class );
+		$this->mapper()->absolute_path( $relative );
+	}
+
+	/**
+	 * Covers manifest entries, ZIP entry names and the glaciate_output_path filter, which all use this check.
+	 *
+	 * @dataProvider provide_active_relative
+	 */
+	public function test_assert_safe_relative_refuses_active_names( string $relative ): void {
+		$this->expectException( UnsafePathException::class );
+		PathMapper::assert_safe_relative( $relative );
+	}
+
+	public function provide_active_relative(): array {
+		return array(
+			'htaccess'      => array( '.htaccess' ),
+			'user.ini'      => array( 'blog/.user.ini' ),
+			'phtml'         => array( 'shell.phtml' ),
+			'inner php'     => array( 'uploads/a.php.jpg' ),
+			'web.config'    => array( 'web.config' ),
+			'git directory' => array( '.git/config' ),
+			'github flow'   => array( '.github/workflows/x.yml' ),
+		);
+	}
+
+	public function test_removable_path_allows_active_names_a_past_version_wrote(): void {
+		$mapper = $this->mapper();
+		$this->assertSame( $this->tmp . '/root/shell.phtml', $mapper->removable_path( 'shell.phtml' ) );
+		$this->assertSame( $this->tmp . '/root/.htaccess', $mapper->removable_path( '.htaccess' ) );
+	}
+
+	/**
+	 * @dataProvider provide_hostile_relative
+	 */
+	public function test_removable_path_keeps_traversal_checks( string $relative ): void {
+		$this->expectException( UnsafePathException::class );
+		$this->mapper()->removable_path( $relative );
+	}
+
+	public function test_removable_path_refuses_symlinks(): void {
+		symlink( $this->tmp . '/outside', $this->tmp . '/root/link' );
+		$this->expectException( UnsafePathException::class );
+		$this->mapper()->removable_path( 'link/shell.phtml' );
 	}
 
 	public function test_double_encoding_is_decoded_only_once(): void {

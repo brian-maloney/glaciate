@@ -99,9 +99,10 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 	public function fields(): array {
 		return array(
 			'bucket'                  => array(
-				'label'    => __( 'Bucket', 'glaciate' ),
-				'required' => true,
-				'pattern'  => '[a-z0-9][a-z0-9.\-]{1,61}[a-z0-9]',
+				'label'      => __( 'Bucket', 'glaciate' ),
+				'required'   => true,
+				'restricted' => true,
+				'pattern'    => '[a-z0-9][a-z0-9.\-]{1,61}[a-z0-9]',
 			),
 			'region'                  => array(
 				'label'       => __( 'Region', 'glaciate' ),
@@ -112,6 +113,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 			),
 			'prefix'                  => array(
 				'label'       => __( 'Key prefix', 'glaciate' ),
+				'restricted'  => true,
 				'pattern'     => '[A-Za-z0-9._\-/]{0,200}',
 				'description' => __( 'Optional folder inside the bucket, for example "www/". Leave empty to publish at the bucket root.', 'glaciate' ),
 			),
@@ -149,6 +151,7 @@ final class S3 implements ConfigurableDeployerInterface, ResumableDeployerInterf
 			),
 			'cloudfront_distribution' => array(
 				'label'       => __( 'CloudFront distribution ID', 'glaciate' ),
+				'restricted'  => true,
 				'pattern'     => '[A-Z0-9]{1,32}',
 				'description' => __( 'Optional. Changed pages are invalidated after each deploy.', 'glaciate' ),
 			),

@@ -15,7 +15,10 @@ use Glaciate\Forms\Config;
 use Glaciate\Forms\Receiver;
 use Glaciate\Forms\Result;
 use Glaciate\Support\Settings;
+use Glaciate\Tests\Support\PublishedForms;
 use WP_UnitTestCase;
+
+require_once dirname( __DIR__, 2 ) . '/Support/PublishedForms.php';
 
 /**
  * @group form-plugins
@@ -56,6 +59,7 @@ final class FormPluginsTest extends WP_UnitTestCase {
 		$form->set_properties( array( 'mail' => $mail ) );
 		$form->save();
 		$id = (string) $form->id();
+		PublishedForms::publish( array( 'cf7:' . $id ) );
 
 		$pairs = static function ( string $email ) use ( $id ) {
 			return array(
@@ -144,6 +148,7 @@ final class FormPluginsTest extends WP_UnitTestCase {
 			)
 		);
 		wp_set_current_user( 0 );
+		PublishedForms::publish( array( 'wpforms:' . $id ) );
 
 		$pairs = static function ( string $email ) use ( $id ) {
 			return array(

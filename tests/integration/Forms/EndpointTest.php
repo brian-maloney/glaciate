@@ -12,8 +12,11 @@ use Glaciate\Forms\Receiver;
 use Glaciate\Forms\Signature;
 use Glaciate\Security\Secrets;
 use Glaciate\Support\Settings;
+use Glaciate\Tests\Support\PublishedForms;
 use WP_REST_Request;
 use WP_UnitTestCase;
+
+require_once dirname( __DIR__, 2 ) . '/Support/PublishedForms.php';
 
 final class EndpointTest extends WP_UnitTestCase {
 
@@ -31,6 +34,7 @@ final class EndpointTest extends WP_UnitTestCase {
 				'forms'      => 'site',
 			)
 		);
+		PublishedForms::publish( array( 'form:contact' ) );
 		do_action( 'rest_api_init', rest_get_server() ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core hook.
 	}
 
@@ -98,6 +102,33 @@ final class EndpointTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( '<p>Tom &amp; &lt;b&gt;Jerry&lt;/b&gt;</p>', $html );
 		$this->assertStringContainsString( '<li>&lt;script&gt;alert(1)&lt;/script&gt;</li>', $html );
 		$this->assertStringNotContainsString( 'javascript:', $html );
+	}
+
+	public function test_submissions_through_an_unnamed_proxy_are_remembered(): void {
+		$saved = $_SERVER;
+		delete_option( Endpoint::PROXY_OPTION );
+		try {
+			$_SERVER['REMOTE_ADDR'] = '10.0.0.1';
+			unset( $_SERVER['HTTP_X_FORWARDED_FOR'] );
+			self::submit( 'application/json', self::contact() );
+			$this->assertFalse( get_option( Endpoint::PROXY_OPTION ), 'no forwarding headers' );
+
+			$_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.9';
+			add_filter(
+				'glaciate_form_client_ip',
+				static function ( $ip ) {
+					return $ip;
+				}
+			);
+			self::submit( 'application/json', self::contact() );
+			$this->assertFalse( get_option( Endpoint::PROXY_OPTION ), 'the owner set the client address filter' );
+
+			remove_all_filters( 'glaciate_form_client_ip' );
+			self::submit( 'application/json', self::contact() );
+			$this->assertGreaterThan( time() - 60, (int) get_option( Endpoint::PROXY_OPTION ) );
+		} finally {
+			$_SERVER = $saved;
+		}
 	}
 
 	public function test_relay_route(): void {

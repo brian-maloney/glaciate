@@ -9,6 +9,7 @@ namespace Glaciate\Crawl;
 
 defined( 'ABSPATH' ) || exit;
 
+use Glaciate\Output\PathMapper;
 use Glaciate\Rewrite\OriginSet;
 use Glaciate\Security\UrlPolicy;
 
@@ -21,7 +22,9 @@ use Glaciate\Security\UrlPolicy;
  * 2. Static files (paths with a file extension other than .php) lose their query string, because static hosts
  *    ignore it: "style.css?ver=6.1" becomes "style.css".
  * 3. Other URLs with a query string are skipped (a static host can't serve "?page=2" differently).
- * 4. Built-in exclusions (admin, login, REST API, XML-RPC, PHP files, embeds, trackbacks) and user exclusions apply.
+ * 4. Built-in exclusions (admin, login, REST API, XML-RPC, PHP files, embeds, trackbacks) and user exclusions apply,
+ *    and so does PathMapper's refusal of names a web server might run or read as configuration (dotfiles other than
+ *    .well-known, .phtml, .cgi, .shtml and the like; D58), which no filter can lift.
  * 5. Feeds follow the "feeds" setting: none, main (the site feed only) or all.
  * 6. The path must map into the output root (relevant when the public URL has a base path).
  *
@@ -114,6 +117,22 @@ final class UrlClassifier {
 	}
 
 	/**
+	 * Adds exclusion patterns for the rest of this object's life: a build adds the files the site refused it (D53).
+	 * They don't pass through the glaciate_exclude_patterns filter, which applies to the configured patterns.
+	 *
+	 * @param string[] $patterns Glob patterns or "~" regexes.
+	 * @return void
+	 */
+	public function add_excludes( array $patterns ): void {
+		foreach ( $patterns as $pattern ) {
+			$regex = self::compile( $pattern );
+			if ( null !== $regex && ! in_array( $regex, $this->excludes, true ) ) {
+				$this->excludes[] = $regex;
+			}
+		}
+	}
+
+	/**
 	 * Classifies a URL.
 	 *
 	 * @param string $url Absolute URL.
@@ -142,6 +161,10 @@ final class UrlClassifier {
 				$this->reason = 'excluded';
 				return null;
 			}
+		}
+		if ( ! self::has_inert_names( $path ) ) {
+			$this->reason = 'excluded';
+			return null;
 		}
 
 		if ( '' !== $query ) {
@@ -173,6 +196,22 @@ final class UrlClassifier {
 	 */
 	public function reason(): string {
 		return $this->reason;
+	}
+
+	/**
+	 * True when every segment of a URL path is a name PathMapper would write (PathMapper::is_inert_name()), so a URL
+	 * such as "/shell.phtml" or "/.htaccess" is skipped up front instead of failing when its file is written.
+	 *
+	 * @param string $path URL path, percent-encoded.
+	 * @return bool
+	 */
+	private static function has_inert_names( string $path ): bool {
+		foreach ( explode( '/', $path ) as $segment ) {
+			if ( '' !== $segment && ! PathMapper::is_inert_name( rawurldecode( $segment ) ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**

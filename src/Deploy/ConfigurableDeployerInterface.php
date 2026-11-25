@@ -23,8 +23,9 @@ defined( 'ABSPATH' ) || exit;
  * - `options`     For select: value => label.
  * - `description` Help text.
  * - `multiline`   For secret fields: the form shows a textarea (private keys) instead of a password box.
- * - `restricted`  True for values that point the server at a host or path. In multisite only a super admin may
- *                 change them (threat T13), like the local folder path.
+ * - `restricted`  True for values that choose where output goes: a host, path, bucket, branch, site or account.
+ *                 In multisite only a super admin may change them (threats T13, T16), like the local folder path,
+ *                 because a credential pinned in wp-config.php is shared by every site (D56).
  *
  * Field names use lowercase letters, digits and underscores. Every field can also be set with a constant or
  * environment variable named `GLACIATE_<DEPLOYER>_<FIELD>` (see Secrets::name()).

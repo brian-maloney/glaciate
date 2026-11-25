@@ -214,6 +214,38 @@ final class GitTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( ' ' . $first . '|', $log[0], 'The new commit has the previous one as parent.' );
 	}
 
+	public function test_repository_configuration_paths_are_never_committed(): void {
+		// PathMapper refuses dot-leading names, but a glaciate_manifest filter can add any path, and Git reads the
+		// Windows short name "git~1" as ".git" (threat T27).
+		mkdir( $this->cache . '/.github/workflows', 0777, true );
+		mkdir( $this->cache . '/git~1', 0777, true );
+		mkdir( $this->cache . '/.well-known', 0777, true );
+		file_put_contents( $this->cache . '/.github/workflows/run.yml', "on: push\n" );
+		file_put_contents( $this->cache . '/.gitlab-ci.yml', "job: {}\n" );
+		file_put_contents( $this->cache . '/git~1/config', "[core]\n" );
+		file_put_contents( $this->cache . '/.well-known/security.txt', "Contact: mailto:security@example.org\n" );
+
+		$result = $this->deploy();
+		$this->assertTrue( $result->done );
+		$this->assertSame( 4, $result->added );
+		$this->assertSame( 0, $result->failed );
+		$this->assertSame( array( '.glaciate-target', '.nojekyll', '.well-known/security.txt', '_redirects', 'about/index.html', 'index.html' ), $this->tree() );
+		$this->assertStringContainsString( 'exit=0', $this->inspect( 'fsck', array() ) );
+		$warnings = '';
+		foreach ( Logger::lines( 0 ) as $line ) {
+			if ( 'warning' === $line['level'] ) {
+				$warnings .= $line['message'] . "\n";
+			}
+		}
+		$this->assertStringContainsString( 'Skipped .github/workflows/run.yml', $warnings );
+		$this->assertStringContainsString( 'Skipped git~1/config', $warnings );
+
+		// A second deploy has nothing new to commit: the skipped paths aren't retried as changes.
+		$this->pushes = array();
+		$this->assertSame( 4, $this->deploy()->unchanged );
+		$this->assertSame( array(), $this->pushes );
+	}
+
 	public function test_branch_with_foreign_commits_is_refused_until_replacing_is_allowed(): void {
 		$theirs = $this->repo . '-theirs';
 		$this->assertSame( 'seeded', trim( $this->inspect( 'seed', array( 'repo' => $theirs ) ) ) );
@@ -307,7 +339,7 @@ final class GitTest extends \WP_UnitTestCase {
 			}
 		};
 		$this->deploy();
-		preg_match( '#refs/heads/(glaciate-upload-[0-9a-f]+)#', $this->inspect( 'refs', array() ), $m );
+		preg_match( '#refs/heads/(glaciate-upload-[0-9a-f-]+)#', $this->inspect( 'refs', array() ), $m );
 		$this->assertSame( 'set', trim( $this->inspect( 'sethead', array( 'ref' => $m[1] ) ) ) );
 
 		$this->after = null;

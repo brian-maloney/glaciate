@@ -104,6 +104,7 @@ final class Netlify implements ConfigurableDeployerInterface, ResumableDeployerI
 			'site_id' => array(
 				'label'       => __( 'Site ID', 'glaciate' ),
 				'required'    => true,
+				'restricted'  => true,
 				'pattern'     => '[A-Za-z0-9.\-]{1,100}',
 				'description' => __( 'The site\'s API ID (Site configuration → Site details) or its netlify.app address. Every publish replaces this site\'s files; Netlify keeps earlier deploys for rollback.', 'glaciate' ),
 			),

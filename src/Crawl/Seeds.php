@@ -22,6 +22,13 @@ final class Seeds {
 
 	const STAGES = array( 'core', 'posts', 'terms', 'authors', 'paged', 'done' );
 
+	/**
+	 * The post type whose published posts give a user an author archive. Core lists only posts on author archives, and
+	 * the seeds, change capture (`ChangeListener`) and the render check (`Recorder`) all go by it, so they agree on
+	 * which archives exist (D62).
+	 */
+	const AUTHOR_POST_TYPE = 'post';
+
 	/** Path probed to render the 404 page. */
 	const NOT_FOUND_PROBE = '/glaciate-404-probe-9f3c1e/';
 
@@ -230,13 +237,24 @@ final class Seeds {
 	}
 
 	/**
+	 * Whether a user has published posts of the type author archives list, and so an author archive worth publishing.
+	 * The same test as authors(), for one user (cached by core until the next post change).
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function author_has_posts( int $user_id ): bool {
+		return $user_id > 0 && (int) count_user_posts( $user_id, self::AUTHOR_POST_TYPE, true ) > 0;
+	}
+
+	/**
 	 * Archives of users who have published posts.
 	 *
 	 * @return array<int,array{url:string,source:string}>
 	 */
 	private function authors(): array {
 		global $wpdb;
-		$ids   = $wpdb->get_col( "SELECT DISTINCT post_author FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type = 'post'" );
+		$ids   = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_author FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type = %s", self::AUTHOR_POST_TYPE ) );
 		$seeds = array();
 		foreach ( (array) $ids as $id ) {
 			$seeds[] = array(
@@ -275,7 +293,7 @@ final class Seeds {
 			$posts = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'post' AND post_status = 'publish' AND post_password = ''" );
 			$blog  = 'page' === get_option( 'show_on_front' ) ? (int) get_option( 'page_for_posts' ) : -1;
 			$this->pages( $seeds, -1 === $blog ? home_url( '/' ) : ( $blog > 0 ? (string) get_permalink( $blog ) : '' ), $posts, $per_page );
-			foreach ( (array) $wpdb->get_results( "SELECT post_author, COUNT(*) AS n FROM {$wpdb->posts} WHERE post_type = 'post' AND post_status = 'publish' AND post_password = '' GROUP BY post_author" ) as $row ) {
+			foreach ( (array) $wpdb->get_results( $wpdb->prepare( "SELECT post_author, COUNT(*) AS n FROM {$wpdb->posts} WHERE post_type = %s AND post_status = 'publish' AND post_password = '' GROUP BY post_author", self::AUTHOR_POST_TYPE ) ) as $row ) {
 				$this->pages( $seeds, get_author_posts_url( (int) $row->post_author ), (int) $row->n, $per_page );
 			}
 			foreach ( get_post_types(

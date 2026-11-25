@@ -17,7 +17,7 @@ defined( 'ABSPATH' ) || exit;
 final class Schema {
 
 	/** Bump when the table definitions change. */
-	const VERSION = 4;
+	const VERSION = 6;
 
 	/** Option holding the installed schema version. */
 	const OPTION = 'glaciate_schema_version';
@@ -27,7 +27,7 @@ final class Schema {
 	 *
 	 * @var string[]
 	 */
-	const TABLES = array( 'builds', 'urls', 'build_urls', 'deps', 'query_sigs', 'changes', 'log', 'target_files', 'search_terms', 'search_docs', 'search_dirty' );
+	const TABLES = array( 'builds', 'urls', 'build_urls', 'deps', 'query_sigs', 'changes', 'log', 'target_files', 'search_terms', 'search_docs', 'search_dirty', 'form_keys', 'form_rate' );
 
 	/**
 	 * Returns the full table name for a suffix.
@@ -60,6 +60,8 @@ final class Schema {
 	public static function install(): void {
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$previous = (int) get_option( self::OPTION, 0 );
 
 		$charset = $wpdb->get_charset_collate();
 		$t       = array();
@@ -192,6 +194,24 @@ dirty_key varchar(40) $binary NOT NULL,
 PRIMARY KEY  (kind,dirty_key)
 ) $charset;";
 
+		// Which forms each page carries, for the form receiver (D57). Keys compare byte for byte, like search terms.
+		$sql[] = "CREATE TABLE {$t['form_keys']} (
+url_id bigint(20) unsigned NOT NULL,
+form_key varchar(81) $binary NOT NULL,
+PRIMARY KEY  (url_id,form_key),
+KEY form_key (form_key)
+) $charset;";
+
+		// Form rate-limit counters (D60), used when there is no persistent object cache. The key is a salted hash of the
+		// address; rows go once their window has ended.
+		$sql[] = "CREATE TABLE {$t['form_rate']} (
+counter_key char(32) NOT NULL,
+hits int(10) unsigned NOT NULL DEFAULT 0,
+expires_at bigint(20) unsigned NOT NULL DEFAULT 0,
+PRIMARY KEY  (counter_key),
+KEY expires_at (expires_at)
+) $charset;";
+
 		dbDelta( $sql );
 
 		// dbDelta adds indexes but never drops them. Version 3 replaced build_urls.build_state with "claim", which also
@@ -199,7 +219,29 @@ PRIMARY KEY  (kind,dirty_key)
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW INDEX FROM %i WHERE Key_name = %s', $t['build_urls'], 'build_state' ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Schema upgrade of our own table.
 			$wpdb->query( $wpdb->prepare( 'ALTER TABLE %i DROP INDEX build_state', $t['build_urls'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Schema upgrade of our own table.
 		}
+		self::upgrade_form_keys( $previous );
 		update_option( self::OPTION, self::VERSION, false );
+	}
+
+	/**
+	 * Version 5 started recording the forms on published pages, and the receiver refuses keys no published page
+	 * carries (D57). The record can only be trusted once it covers every page. A fresh install has nothing published,
+	 * and a site with forms off has no rewritten form, so both start complete. A site already publishing forms gets a
+	 * full rebuild queued, and its receiver accepts every key, as before, until that build has run (the runner then
+	 * marks the record ready).
+	 *
+	 * @param int $previous Schema version before this install.
+	 * @return void
+	 */
+	private static function upgrade_form_keys( int $previous ): void {
+		if ( $previous >= 5 ) {
+			return;
+		}
+		if ( $previous > 0 && 'off' !== (string) \Glaciate\Support\Settings::get( 'forms' ) ) {
+			( new ChangeRepository() )->record( 'full', 'form-keys' );
+			return;
+		}
+		FormKeyRepository::mark_ready();
 	}
 
 	/**

@@ -9,6 +9,7 @@ namespace Glaciate\Tests\Integration\Deps;
 
 use Glaciate\Deps\ChangeListener;
 use Glaciate\Storage\ChangeRepository;
+use Glaciate\Support\Settings;
 
 final class ChangeListenerTest extends \WP_UnitTestCase {
 
@@ -203,9 +204,43 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 		$this->assertEmpty( preg_grep( '/transient/', array_keys( $changes ) ) );
 	}
 
+	public function test_saving_settings_that_change_the_output_records_a_full_change(): void {
+		Settings::update( array( 'exclude' => array( '/a/' ) ) );
+		$this->changes();
+
+		Settings::update( array( 'exclude' => array( '/a/', '/sample-page/' ) ) );
+		$this->assertArrayHasKey( 'full:option:' . Settings::OPTION, $this->changes() );
+
+		Settings::update( array( 'feeds' => 'none' ) );
+		$this->assertArrayHasKey( 'full:option:' . Settings::OPTION, $this->changes() );
+	}
+
+	public function test_saving_unchanged_or_schedule_only_settings_records_no_full_change(): void {
+		Settings::update( array( 'exclude' => array( '/a/' ) ) );
+		$this->changes();
+
+		Settings::update( array() );
+		Settings::update(
+			array(
+				'publish_mode' => 'manual',
+				'concurrency'  => 2,
+			)
+		);
+		$this->assertArrayNotHasKey( 'full:option:' . Settings::OPTION, $this->changes() );
+	}
+
+	public function test_first_settings_save_records_a_full_change(): void {
+		delete_option( Settings::OPTION );
+		$this->changes();
+
+		Settings::update( array( 'exclude' => array( '/sample-page/' ) ) );
+		$this->assertArrayHasKey( 'full:option:' . Settings::OPTION, $this->changes() );
+	}
+
 	public function test_user_profile_change_records_author_urls(): void {
 		$this->set_permalink_structure( '/%postname%/' );
 		$user = self::factory()->user->create( array( 'user_nicename' => 'old-name' ) );
+		self::factory()->post->create( array( 'post_author' => $user ) );
 		$this->changes();
 		wp_update_user(
 			array(
@@ -216,6 +251,132 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 		$u = $this->changes()[ "user:{$user}" ];
 		$this->assertNotEmpty( preg_grep( '#/old-name/?$#', $u['urls'] ) );
 		$this->assertNotEmpty( preg_grep( '#/new-name/?$#', $u['urls'] ) );
+	}
+
+	public function test_accounts_without_posts_record_no_author_url(): void {
+		$this->set_permalink_structure( '/%postname%/' );
+		$user    = self::factory()->user->create(
+			array(
+				'role'          => 'subscriber',
+				'user_nicename' => 'new-member',
+			)
+		);
+		$changes = $this->changes();
+		$this->assertArrayHasKey( "user:{$user}", $changes, 'The user change is still recorded, for pages that show the user.' );
+		$this->assertSame( array(), $changes[ "user:{$user}" ]['urls'], 'Registering records no author archive.' );
+
+		wp_update_user(
+			array(
+				'ID'           => $user,
+				'display_name' => 'New Member',
+				'description'  => 'Hello',
+			)
+		);
+		$this->assertSame( array(), $this->changes()[ "user:{$user}" ]['urls'], 'Editing the profile records no author archive.' );
+
+		// Drafts, private posts and pages don't give an author archive anything to list.
+		self::factory()->post->create(
+			array(
+				'post_author' => $user,
+				'post_status' => 'draft',
+			)
+		);
+		self::factory()->post->create(
+			array(
+				'post_author' => $user,
+				'post_status' => 'private',
+			)
+		);
+		self::factory()->post->create(
+			array(
+				'post_author' => $user,
+				'post_type'   => 'page',
+			)
+		);
+		$this->changes();
+		wp_update_user(
+			array(
+				'ID'           => $user,
+				'display_name' => 'Still No Posts',
+			)
+		);
+		$this->assertSame( array(), $this->changes()[ "user:{$user}" ]['urls'] );
+	}
+
+	public function test_author_who_lost_the_last_post_records_no_author_url(): void {
+		$this->set_permalink_structure( '/%postname%/' );
+		$user = self::factory()->user->create( array( 'role' => 'author' ) );
+		$post = self::factory()->post->create( array( 'post_author' => $user ) );
+		$this->changes();
+		wp_trash_post( $post );
+		$this->changes();
+
+		wp_update_user(
+			array(
+				'ID'           => $user,
+				'display_name' => 'Former Writer',
+			)
+		);
+		$this->assertSame( array(), $this->changes()[ "user:{$user}" ]['urls'] );
+	}
+
+	public function test_deleting_an_author_keeps_the_archive_url_to_unpublish(): void {
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+		$this->set_permalink_structure( '/%postname%/' );
+		$heir = self::factory()->user->create( array( 'role' => 'author' ) );
+		$user = self::factory()->user->create(
+			array(
+				'role'          => 'author',
+				'user_nicename' => 'leaving',
+			)
+		);
+		self::factory()->post->create( array( 'post_author' => $user ) );
+		$archive = get_author_posts_url( $user );
+		$this->changes();
+
+		// Reassigning posts to another user fires no post hooks: the archive is reached only through the user change.
+		wp_delete_user( $user, $heir );
+		$this->assertContains( $archive, $this->changes()[ "user:{$user}" ]['urls'] );
+	}
+
+	public function test_a_first_post_records_its_author_archive(): void {
+		$this->set_permalink_structure( '/%postname%/' );
+		$user = self::factory()->user->create( array( 'role' => 'author' ) );
+		$this->changes();
+
+		$id = self::factory()->post->create( array( 'post_author' => $user ) );
+		$this->assertContains( get_author_posts_url( $user ), $this->changes()[ "post:{$id}" ]['urls'] );
+
+		// An edit that can't change who has posts adds nothing: a published archive is reached through its query.
+		wp_update_post(
+			array(
+				'ID'           => $id,
+				'post_content' => 'Edited',
+			)
+		);
+		$this->assertSame( array( get_permalink( $id ) ), $this->changes()[ "post:{$id}" ]['urls'] );
+
+		// Moving the post to an author without other posts records the new author's archive, not the old one's.
+		$other = self::factory()->user->create( array( 'role' => 'author' ) );
+		$this->changes();
+		wp_update_post(
+			array(
+				'ID'          => $id,
+				'post_author' => $other,
+			)
+		);
+		$urls = $this->changes()[ "post:{$id}" ]['urls'];
+		$this->assertContains( get_author_posts_url( $other ), $urls );
+		$this->assertNotContains( get_author_posts_url( $user ), $urls );
+
+		// Pages are not listed on author archives.
+		$page = self::factory()->post->create(
+			array(
+				'post_author' => $user,
+				'post_type'   => 'page',
+			)
+		);
+		$this->assertSame( array( get_permalink( $page ) ), $this->changes()[ "post:{$page}" ]['urls'] );
 	}
 
 	public function test_comment_approval_touches_post(): void {
@@ -231,6 +392,160 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 		$changes = $this->changes();
 		$this->assertArrayHasKey( "post:{$id}", $changes );
 		$this->assertArrayHasKey( "comment:{$comment}", $changes );
+	}
+
+	/**
+	 * A comment on an already recorded post, with the changes so far flushed.
+	 *
+	 * @param int|string $approved comment_approved value.
+	 * @return int[] Post ID, comment ID.
+	 */
+	private function comment_on_post( $approved ): array {
+		$id      = self::factory()->post->create();
+		$comment = self::factory()->comment->create(
+			array(
+				'comment_post_ID'  => $id,
+				'comment_approved' => $approved,
+			)
+		);
+		$this->changes();
+		return array( $id, $comment );
+	}
+
+	public function test_a_held_or_spam_comment_records_nothing(): void {
+		$id = self::factory()->post->create();
+		$this->changes();
+		$recorded = 0;
+		add_action(
+			'glaciate_changes_recorded',
+			function () use ( &$recorded ) {
+				++$recorded;
+			}
+		);
+		foreach ( array( 0, 'spam', 'trash' ) as $approved ) {
+			self::factory()->comment->create(
+				array(
+					'comment_post_ID'  => $id,
+					'comment_approved' => $approved,
+				)
+			);
+		}
+		$this->assertSame( array(), $this->changes() );
+		$this->assertSame( 0, $recorded );
+	}
+
+	public function test_moderating_a_held_comment_without_approving_it_records_nothing(): void {
+		list( , $comment ) = $this->comment_on_post( 0 );
+		wp_update_comment(
+			array(
+				'comment_ID'      => $comment,
+				'comment_content' => 'Edited while held',
+			)
+		);
+		wp_spam_comment( $comment );
+		wp_unspam_comment( $comment );
+		wp_trash_comment( $comment );
+		wp_untrash_comment( $comment );
+		wp_delete_comment( $comment, true );
+		$this->assertSame( array(), $this->changes() );
+	}
+
+	public function test_an_approved_comment_records_the_comment_and_its_post(): void {
+		$id      = self::factory()->post->create();
+		$comment = self::factory()->comment->create(
+			array(
+				'comment_post_ID'  => $id,
+				'comment_approved' => 1,
+			)
+		);
+		$changes = $this->changes();
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertArrayHasKey( "comment:{$comment}", $changes );
+	}
+
+	public function test_editing_an_approved_comment_records_it(): void {
+		list( $id, $comment ) = $this->comment_on_post( 1 );
+		wp_update_comment(
+			array(
+				'comment_ID'      => $comment,
+				'comment_content' => 'Corrected',
+			)
+		);
+		$changes = $this->changes();
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertArrayHasKey( "comment:{$comment}", $changes );
+	}
+
+	/**
+	 * Ways an approved comment leaves the public site.
+	 *
+	 * @return array<string,array{callable}>
+	 */
+	public function provide_unpublishing(): array {
+		return array(
+			'unapproved'            => array(
+				function ( $comment ) {
+					wp_set_comment_status( $comment, 'hold' );
+				},
+			),
+			'unapproved by an edit' => array(
+				function ( $comment ) {
+					wp_update_comment(
+						array(
+							'comment_ID'       => $comment,
+							'comment_approved' => 0,
+						)
+					);
+				},
+			),
+			'marked as spam'        => array(
+				function ( $comment ) {
+					wp_spam_comment( $comment );
+				},
+			),
+			'trashed'               => array(
+				function ( $comment ) {
+					wp_trash_comment( $comment );
+				},
+			),
+			'deleted'               => array(
+				function ( $comment ) {
+					wp_delete_comment( $comment, true );
+				},
+			),
+		);
+	}
+
+	/**
+	 * @dataProvider provide_unpublishing
+	 *
+	 * @param callable $change Takes the comment ID.
+	 */
+	public function test_an_approved_comment_leaving_the_site_records_it( callable $change ): void {
+		list( $id, $comment ) = $this->comment_on_post( 1 );
+		$change( $comment );
+		$changes = $this->changes();
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertArrayHasKey( "comment:{$comment}", $changes );
+	}
+
+	public function test_restoring_a_trashed_approved_comment_records_it(): void {
+		list( $id, $comment ) = $this->comment_on_post( 1 );
+		wp_trash_comment( $comment );
+		$this->changes();
+		wp_untrash_comment( $comment );
+		$changes = $this->changes();
+		$this->assertSame( '1', get_comment( $comment )->comment_approved );
+		$this->assertArrayHasKey( "post:{$id}", $changes );
+		$this->assertArrayHasKey( "comment:{$comment}", $changes );
+	}
+
+	public function test_deleting_a_trashed_comment_records_nothing(): void {
+		list( , $comment ) = $this->comment_on_post( 1 );
+		wp_trash_comment( $comment );
+		$this->changes();
+		wp_delete_comment( $comment, true );
+		$this->assertSame( array(), $this->changes() );
 	}
 
 	public function test_moving_a_page_records_descendants_old_and_new_urls(): void {
@@ -354,6 +669,7 @@ final class ChangeListenerTest extends \WP_UnitTestCase {
 	public function test_author_in_permalinks_makes_nicename_change_global(): void {
 		$this->set_permalink_structure( '/%author%/%postname%/' );
 		$user = self::factory()->user->create( array( 'user_nicename' => 'before' ) );
+		self::factory()->post->create( array( 'post_author' => $user ) );
 		$this->changes();
 		wp_update_user(
 			array(

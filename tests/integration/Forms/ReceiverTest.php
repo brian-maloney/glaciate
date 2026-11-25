@@ -14,8 +14,13 @@ use Glaciate\Forms\Receiver;
 use Glaciate\Forms\Result;
 use Glaciate\Forms\Signature;
 use Glaciate\Security\Secrets;
+use Glaciate\Storage\FormKeyRepository;
+use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Settings;
+use Glaciate\Tests\Support\PublishedForms;
 use WP_UnitTestCase;
+
+require_once dirname( __DIR__, 2 ) . '/Support/PublishedForms.php';
 
 final class ReceiverTest extends WP_UnitTestCase {
 
@@ -26,6 +31,9 @@ final class ReceiverTest extends WP_UnitTestCase {
 
 	/** @var array<string,mixed>|null */
 	private $answer = null;
+
+	/** @var int URL ID of the published page that carries the contact and comment forms. */
+	private $page = 0;
 
 	public function set_up(): void {
 		parent::set_up();
@@ -46,6 +54,7 @@ final class ReceiverTest extends WP_UnitTestCase {
 		);
 		$this->requests = array();
 		$this->answer   = null;
+		$this->page     = PublishedForms::publish( array( 'form:contact', 'comments' ) );
 		add_filter( 'pre_http_request', array( $this, 'fake_http' ), 10, 3 );
 	}
 
@@ -124,6 +133,32 @@ final class ReceiverTest extends WP_UnitTestCase {
 		$this->assertSame( Result::ERROR, $unknown->status );
 	}
 
+	public function test_forms_no_published_page_carries_are_refused(): void {
+		$other = array_merge( array( array( 'glaciate_form', 'form:other' ) ), self::contact() );
+		$this->assertSame( Result::ERROR, $this->receiver()->direct( $other, '203.0.113.20', 'UA', self::PUBLIC_URL )->status, 'never published' );
+		$wpforms = array_merge( array( array( 'glaciate_form', 'wpforms:7' ) ), self::contact() );
+		$this->assertSame( Result::ERROR, $this->receiver()->direct( $wpforms, '203.0.113.20', 'UA', '' )->status, 'a known kind' );
+
+		// Forwarded submissions too: a separate receiver passes on any well-formed key.
+		Settings::update( array( 'forms' => 'receiver' ) );
+		Secrets::set( 'forms', 'secret', 'shared-secret' );
+		$body = Receiver::payload( 'form:other', '', $other, '192.0.2.20', 'UA' );
+		$this->assertSame( Result::ERROR, $this->receiver()->relay( $body, Signature::sign( $body, 'shared-secret', time() ) )->status, 'relayed' );
+		$this->assertFalse( tests_retrieve_phpmailer_instance()->get_sent(), 'nothing was sent' );
+	}
+
+	public function test_a_form_is_refused_once_its_last_page_leaves_the_site(): void {
+		$this->assertTrue( $this->receiver()->direct( self::contact(), '203.0.113.21', 'UA', '' )->ok() );
+		( new UrlRepository() )->unpublish( $this->page );
+		$this->assertSame( Result::ERROR, $this->receiver()->direct( self::contact(), '203.0.113.21', 'UA', '' )->status );
+	}
+
+	public function test_every_form_is_accepted_until_a_full_build_has_recorded_them(): void {
+		delete_option( FormKeyRepository::READY_OPTION );
+		$other = array_merge( array( array( 'glaciate_form', 'form:other' ) ), self::contact() );
+		$this->assertTrue( $this->receiver()->direct( $other, '203.0.113.22', 'UA', '' )->ok() );
+	}
+
 	public function test_direct_submissions_need_site_mode(): void {
 		Settings::update( array( 'forms' => 'receiver' ) );
 		$this->assertSame( Result::ERROR, $this->receiver()->direct( self::contact(), '203.0.113.5', 'UA', '' )->status );
@@ -137,6 +172,78 @@ final class ReceiverTest extends WP_UnitTestCase {
 		$this->assertSame( Result::LIMITED, $limited->status );
 		$this->assertSame( 429, $limited->http_status() );
 		$this->assertTrue( $this->receiver()->direct( self::contact(), '198.51.100.8', 'UA', '' )->ok(), 'other address' );
+	}
+
+	public function test_ipv6_addresses_share_a_limit_per_64(): void {
+		for ( $i = 1; $i <= Receiver::RATE_LIMIT; $i++ ) {
+			$this->assertTrue( $this->receiver()->direct( self::contact(), '2001:db8:7:1::' . dechex( $i ), 'UA', '' )->ok() );
+		}
+		$this->assertSame( Result::LIMITED, $this->receiver()->direct( self::contact(), '2001:db8:7:1:ffff::99', 'UA', '' )->status, 'same /64' );
+		$this->assertTrue( $this->receiver()->direct( self::contact(), '2001:db8:7:2::1', 'UA', '' )->ok(), 'other /64' );
+	}
+
+	public function test_refused_requests_count_as_attempts(): void {
+		$attempts = Receiver::RATE_LIMIT * Receiver::ATTEMPT_FACTOR;
+		$honeypot = array_merge( array( array( 'glaciate_hp', 'x' ) ), self::contact() );
+		for ( $i = 0; $i < $attempts; $i++ ) {
+			$this->assertSame( Result::SPAM, $this->receiver()->direct( $honeypot, '198.51.100.30', 'UA', '' )->status );
+		}
+		$this->assertSame( Result::LIMITED, $this->receiver()->direct( self::contact(), '198.51.100.30', 'UA', '' )->status );
+		$this->assertFalse( tests_retrieve_phpmailer_instance()->get_sent(), 'nothing was sent' );
+	}
+
+	public function test_attempts_are_limited_before_the_captcha_is_checked(): void {
+		Settings::update(
+			array(
+				'forms_captcha'          => 'turnstile',
+				'forms_captcha_site_key' => 'site-key-1',
+			)
+		);
+		Secrets::set( 'forms', 'captcha_secret', 'captcha-secret' );
+		$this->answer = array(
+			'headers'  => array(),
+			'body'     => '{"success":false}',
+			'response' => array( 'code' => 200 ),
+		);
+		$attempts     = Receiver::RATE_LIMIT * Receiver::ATTEMPT_FACTOR;
+		$pairs        = self::contact( array( array( 'cf-turnstile-response', 'tok' ) ) );
+		for ( $i = 0; $i < $attempts; $i++ ) {
+			$this->assertSame( Result::SPAM, $this->receiver()->direct( $pairs, '198.51.100.31', 'UA', '' )->status );
+		}
+		$this->assertCount( $attempts, $this->requests );
+
+		for ( $i = 0; $i < 10; $i++ ) {
+			$this->assertSame( Result::LIMITED, $this->receiver()->direct( $pairs, '198.51.100.31', 'UA', '' )->status );
+		}
+		$this->assertCount( $attempts, $this->requests, 'no captcha request once the attempts are used up' );
+	}
+
+	public function test_the_rate_limit_can_be_turned_off(): void {
+		add_filter(
+			'glaciate_form_rate_limit',
+			static function () {
+				return array( 0, 600 );
+			}
+		);
+		for ( $i = 0; $i <= Receiver::RATE_LIMIT; $i++ ) {
+			$this->assertTrue( $this->receiver()->direct( self::contact(), '198.51.100.32', 'UA', '' )->ok() );
+		}
+		remove_all_filters( 'glaciate_form_rate_limit' );
+	}
+
+	public function test_relay_applies_the_same_limits(): void {
+		Settings::update( array( 'forms' => 'receiver' ) );
+		Secrets::set( 'forms', 'secret', 'shared-secret' );
+		$receiver = $this->receiver();
+		$relay    = static function ( int $n, string $ip ) use ( $receiver ): Result {
+			$body = Receiver::payload( 'form:contact', '', self::contact( array( array( 'n', (string) $n ) ) ), $ip, 'UA' );
+			return $receiver->relay( $body, Signature::sign( $body, 'shared-secret', time() ) );
+		};
+		for ( $i = 0; $i < Receiver::RATE_LIMIT; $i++ ) {
+			$this->assertTrue( $relay( $i, '2001:db8:9:9::' . ( $i + 1 ) )->ok() );
+		}
+		$this->assertSame( Result::LIMITED, $relay( 99, '2001:db8:9:9::abc' )->status, 'per /64, as for direct submissions' );
+		$this->assertTrue( $relay( 100, '192.0.2.40' )->ok(), 'other address' );
 	}
 
 	public function test_captcha_is_verified_with_the_provider(): void {

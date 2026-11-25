@@ -1,4 +1,4 @@
-=== Glaciate - Static Site Publisher ===
+=== Glaciate - Free Static Site Publisher ===
 Contributors: brianmaloney
 Tags: static site, static html, performance, security, export
 Requires at least: 6.9
@@ -8,7 +8,7 @@ Stable tag: 2.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Publish your WordPress site as fast, secure static files. Every feature is free.
+Publish your WordPress site as fast, secure static files. Every feature is free, forever.
 
 == Description ==
 
@@ -44,7 +44,7 @@ If your server can't reach its own address (common behind proxies and in contain
 
 = Do I need to pay for anything? =
 
-No. Every feature is free and stays free.
+No. Every feature is free, forever: there is no premium version to upgrade to and nothing will be moved behind a paywall later.
 
 = Does the plugin send data anywhere? =
 

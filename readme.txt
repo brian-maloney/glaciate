@@ -4,7 +4,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.0.4
+Stable tag: 2.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,21 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 2.1.0 =
+* Changed: the plugin is listed as "Glaciate - Free Static Site Publisher" on WordPress.org and on the Plugins screen.
+* Changed: on multisite, only super admins can choose where a deploy writes (bucket, prefix, branch, Worker, Netlify site, SFTP user and whether existing content is replaced), so a site admin can't point a shared credential at another site's output.
+* Changed: files are copied from disk only when the web server would serve them to an anonymous visitor, so folders protected by .htaccess, basic auth or a download plugin stay out of the static site.
+* Changed: output names a web server might run or read (such as .phtml, .phar, .shtml or .htaccess) are never written, and the default local folder gets an .htaccess that turns off script handlers.
+* Changed: forms on the static site are accepted only when a published page carries them. Sites with forms turned on rebuild once after the update.
+* Changed: Git deploys never write .git, .github or .forgejo paths, and the upload branch is built on or deleted only while it holds a commit Glaciate pushed.
+* Changed: form rate limits are counted atomically, per IPv6 /64, and before the captcha is checked. Site Health suggests the glaciate_form_client_ip filter when requests arrive through a proxy.
+* Changed: comments held for moderation or marked as spam no longer start a rebuild.
+* Changed: author archives are published only for users with published posts. Archives an earlier version published for other users are removed by the next full build.
+* Fixed: adding an exclusion or changing the feed setting now removes the affected pages from the static site.
+* Fixed: crawled addresses containing "*", ":" or similar characters no longer become rules in _redirects and _headers.
+* Fixed: the standalone PHP receiver keeps its rate-limit counters out of other accounts' reach on shared hosting and prunes old ones. With a forward address but no secret, the receivers refuse to forward instead of signing with an empty key.
+* Fixed: a relay signature can't be replayed by changing its spelling or by sending two copies at once.
 
 = 2.0.4 =
 * Changed: the plugin is listed as "Glaciate - Static Site Publisher" on WordPress.org and on the Plugins screen.

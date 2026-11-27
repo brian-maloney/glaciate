@@ -1275,3 +1275,20 @@ which T16 says it doesn't do. The server's listing is no proof of ownership; onl
 
 The decisions are pure logic in `Deploy\Git\UploadBranch`, unit tested; `GitUploadBranchTest` drives the deployer
 against an in-memory receive-pack, so it runs without the test Git server.
+
+## D66. The Static Site screen stops polling while the tab is hidden or idle
+
+The screen asked for the status every 15 seconds for as long as it was open. A tab left open overnight keeps PHP and the
+database busy, which costs money on hosts that bill per request or pause an idle database (Lambda, Aurora Serverless).
+WordPress's own Heartbeat slows down in the background and suspends after ten minutes without activity; the poll did
+neither.
+
+- **Hidden tab: no polling.** The next poll is skipped while `document.hidden` is true. The tab becoming visible polls
+  at once, so a build that finished meanwhile still reloads the screen.
+- **Ten minutes without mouse, keyboard or touch: no polling**, even in a visible tab (a screen left on a monitor).
+  Ten minutes is when Heartbeat suspends. Moving the mouse, a key, the wheel or focusing the window polls at once.
+- **We don't reuse Heartbeat's idea of activity.** Heartbeat only starts counting idle time after a first focus or
+  mouse event, so a screen loaded and then left alone never suspends at all; and there is no public API to read it.
+- **Builds keep running.** Only the screen stops asking; it catches up the moment someone looks at it.
+
+Revisit if the screen gains something that has to update with nobody watching.

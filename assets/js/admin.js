@@ -2,6 +2,7 @@
  * Static Site → Publish screen: live status, buttons without page reloads, and build logs.
  *
  * Every button is a normal link to an admin-post action, so the screen also works without JavaScript.
+ * The status poll pauses while the tab is hidden or idle (D66).
  */
 ( function ( wp ) {
 	'use strict';
@@ -17,6 +18,10 @@
 	const part = ( name ) => app.querySelector( '[data-glaciate="' + name + '"]' );
 	let state = app.dataset.state;
 	let timer = null;
+	let fetching = false;
+	let paused = false;
+	let lastActive = Date.now();
+	const IDLE_AFTER = 10 * 60 * 1000;
 	const ANNOUNCE = 'glaciate-announce';
 
 	function setDisabled( el, disabled ) {
@@ -72,13 +77,40 @@
 
 	function poll() {
 		window.clearTimeout( timer );
+		if ( fetching ) {
+			// The request under way schedules the next one.
+			return;
+		}
+		if ( document.hidden || Date.now() - lastActive > IDLE_AFTER ) {
+			paused = true;
+			return;
+		}
+		fetching = true;
 		apiFetch( { path: '/glaciate/v1/status' } )
 			.then( render )
 			.catch( () => {} )
 			.finally( () => {
+				fetching = false;
 				timer = window.setTimeout( poll, 'building' === state ? 2000 : 15000 );
 			} );
 	}
+
+	/**
+	 * Polling stops while nobody is looking, so a forgotten tab doesn't keep a request (and the site's database) busy
+	 * every 15 seconds: when the tab is hidden, and after ten minutes without mouse, keyboard or touch, when Heartbeat
+	 * suspends too. Any of those, or the tab coming back, polls again at once.
+	 */
+	function active() {
+		lastActive = Date.now();
+		if ( paused && ! document.hidden ) {
+			paused = false;
+			poll();
+		}
+	}
+	[ 'pointermove', 'pointerdown', 'keydown', 'wheel', 'visibilitychange' ].forEach( ( type ) => {
+		document.addEventListener( type, active, { capture: true, passive: true } );
+	} );
+	window.addEventListener( 'focus', active );
 
 	function remember( message ) {
 		try {

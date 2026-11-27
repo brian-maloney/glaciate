@@ -54,7 +54,7 @@ final class BuildService {
 			throw new \InvalidArgumentException( 'Unknown build kind.' );
 		}
 		if ( empty( $options['ignore_pause'] ) && ( new \Glaciate\Service\PauseService() )->is_paused() ) {
-			throw new PausedException( __( 'Publishing is paused. Resume publishing to send changes to the static site.', 'glaciate' ) );
+			throw new PausedException( __( 'Publishing is paused. Resume publishing to send changes to the static site.', 'glaciate' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Plain text.
 		}
 		$active = $this->builds->active();
 		if ( null !== $active ) {

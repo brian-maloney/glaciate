@@ -447,7 +447,7 @@ the finish across the reload that refreshes the screen. Admin CSS uses logical p
 ## D27. Release packaging and WordPress.org readiness
 
 `npm run build:zip` builds the release from a commit: `git archive` (honouring `export-ignore`), runtime Composer
-packages from `composer.lock`, minus libraries' own build scripts and signing keys. Plugin Check (2.1.0) runs on that
+packages from `composer.lock`, minus libraries' own build scripts and signing keys. Plugin Check (2.2.0, D69) runs on that
 ZIP's contents rather than the working tree.
 
 - The standalone PHP form receiver is a template that runs on another host. Stored as `receivers/glaciate-form.php`
@@ -1353,3 +1353,21 @@ edits stayed off the static site until the next full rebuild, while the Publish 
 
 `ReleasedChangesTest` (integration) covers cancel, failure, the upgrade to full, the cancel that races a claim, order,
 and the immediate-mode scheduling.
+
+## D69. The release workflow installs Plugin Check from its versioned ZIP, and checks the version
+
+`release.yml` pinned Plugin Check with `wp plugin install plugin-check --version=…` run through `wp-env run`. wp-env
+reads `--version` as its own option, so WP-CLI never saw it and every release run installed the newest Plugin Check.
+The 2.2.0 run picked up 2.2.0, whose new `ExceptionNotEscaped` finding failed the gate on a tag that passed
+everywhere else.
+
+- **Install `plugin-check.<version>.zip` from downloads.wordpress.org**, as `npm run forms:plugins` already does for
+  the form plugins. A URL leaves wp-env nothing to take.
+- **Fail when the installed version isn't the pin.** A wrong version used to pass silently; now the step says so.
+- **Pin 2.2.0.** Every release so far was in practice checked by the newest version, and WordPress.org's own scanner
+  follows it, so pinning the older 2.1.0 would check less than the reviewers do. The gate passes on 2.2.0 once the
+  paused-build message carries its plain-text `phpcs:ignore` (PR #19).
+- **Bumping stays deliberate:** change `PLUGIN_CHECK_VERSION` and D27 together, then run the same check locally on a
+  built ZIP (`npm run build:zip -- HEAD`, `wp plugin check` on `build/pcheck/glaciate`, `node bin/release.mjs gate`).
+
+Revisit if Plugin Check is ever run somewhere other than the release workflow.

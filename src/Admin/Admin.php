@@ -10,9 +10,11 @@ namespace Glaciate\Admin;
 defined( 'ABSPATH' ) || exit;
 
 use Glaciate\Build\BuildService;
+use Glaciate\Build\PausedException;
 use Glaciate\Deploy\Zip;
 use Glaciate\Plugin;
 use Glaciate\Security\Capabilities;
+use Glaciate\Service\PauseService;
 use Glaciate\Support\Settings;
 
 /**
@@ -41,6 +43,8 @@ final class Admin {
 		add_action( 'admin_enqueue_scripts', array( self::class, 'assets' ) );
 		add_action( 'admin_post_glaciate_build', array( self::class, 'handle_build' ) );
 		add_action( 'admin_post_glaciate_cancel', array( self::class, 'handle_cancel' ) );
+		add_action( 'admin_post_glaciate_pause', array( self::class, 'handle_pause' ) );
+		add_action( 'admin_post_glaciate_resume', array( self::class, 'handle_resume' ) );
 		add_action( 'admin_post_glaciate_onboard', array( self::class, 'handle_onboard' ) );
 		add_action( 'admin_post_glaciate_publish_post', array( self::class, 'handle_publish_post' ) );
 		add_action( 'admin_post_glaciate_download_zip', array( self::class, 'handle_download' ) );
@@ -165,8 +169,7 @@ final class Admin {
 		if ( ! get_option( 'glaciate_published_once' ) ) {
 			$kind = 'full';
 		}
-		( new BuildService() )->start( $kind, 'manual', get_current_user_id(), true );
-		self::back( 'started' );
+		self::start( $kind );
 	}
 
 	/**
@@ -178,6 +181,44 @@ final class Admin {
 		self::guard( 'cancel', Capabilities::PUBLISH );
 		( new BuildService() )->cancel();
 		self::back( 'cancelled' );
+	}
+
+	/**
+	 * Pauses publishing.
+	 *
+	 * @return void
+	 */
+	public static function handle_pause(): void {
+		self::guard( 'pause', Capabilities::PUBLISH );
+		( new PauseService() )->pause( get_current_user_id() );
+		self::back( 'paused' );
+	}
+
+	/**
+	 * Resumes publishing.
+	 *
+	 * @return void
+	 */
+	public static function handle_resume(): void {
+		self::guard( 'resume', Capabilities::PUBLISH );
+		( new PauseService() )->resume( get_current_user_id() );
+		self::back( 'resumed' );
+	}
+
+	/**
+	 * Starts a build for the current user and redirects back, or explains that publishing is paused.
+	 *
+	 * @param string              $kind    full, incremental or urls.
+	 * @param array<string,mixed> $options BuildService::start() options.
+	 * @return void
+	 */
+	private static function start( string $kind, array $options = array() ): void {
+		try {
+			( new BuildService() )->start( $kind, 'manual', get_current_user_id(), true, $options );
+		} catch ( PausedException $e ) {
+			self::back( 'refused-paused' );
+		}
+		self::back( 'started' );
 	}
 
 	/**
@@ -205,8 +246,7 @@ final class Admin {
 			set_transient( 'glaciate_notice_' . get_current_user_id(), $problem, 60 );
 			self::back( 'target-problem' );
 		}
-		( new BuildService() )->start( 'full', 'manual', get_current_user_id(), true );
-		self::back( 'started' );
+		self::start( 'full' );
 	}
 
 	/**
@@ -224,8 +264,7 @@ final class Admin {
 			$listener->flush();
 		}
 		$kind = get_option( 'glaciate_published_once' ) ? 'incremental' : 'full';
-		( new BuildService() )->start( $kind, 'manual', get_current_user_id(), true, array( 'urls' => array( (string) get_permalink( $post_id ) ) ) );
-		self::back( 'started' );
+		self::start( $kind, array( 'urls' => array( (string) get_permalink( $post_id ) ) ) );
 	}
 
 	/**

@@ -27,6 +27,7 @@ use Glaciate\Support\Settings;
  * States:
  * - never:      nothing has been published yet.
  * - building:   a build is queued or running.
+ * - paused:     publishing is paused (PauseService); no build starts until it resumes.
  * - pending:    content changed since the last publish.
  * - failed:     the most recent build failed.
  * - up-to-date: the static site matches the content.
@@ -46,9 +47,12 @@ final class StatusService {
 		$pending = ( new ChangeRepository() )->pending_count();
 		$counts  = ( new UrlRepository() )->published_counts();
 		$once    = (bool) get_option( 'glaciate_published_once' );
+		$paused  = ( new PauseService() )->state();
 
 		if ( null !== $active ) {
 			$state = 'building';
+		} elseif ( null !== $paused ) {
+			$state = 'paused';
 		} elseif ( ! $once ) {
 			$state = 'never';
 		} elseif ( null !== $last && 'failed' === $last['status'] ) {
@@ -68,6 +72,7 @@ final class StatusService {
 			'active'          => null === $active ? null : self::build_summary( $active ),
 			'last'            => null === $last ? null : self::build_summary( $last ),
 			'pending_changes' => $pending,
+			'paused'          => $paused,
 			'published'       => $counts,
 			'files'           => array_sum( $counts ),
 			'public_url'      => Pipeline::public_url( $settings ),
@@ -127,6 +132,8 @@ final class StatusService {
 
 		if ( 'building' === $site['state'] ) {
 			$state = 'building';
+		} elseif ( 'paused' === $site['state'] ) {
+			$state = 'paused';
 		} elseif ( null === $row || null === $row['content_hash'] ) {
 			$state = 'not-published';
 		} elseif ( strtotime( (string) $row['rendered_at'] . ' UTC' ) < strtotime( $post->post_modified_gmt . ' UTC' ) || $site['pending_changes'] > 0 ) {
@@ -137,6 +144,7 @@ final class StatusService {
 
 		$labels = array(
 			'building'      => __( 'Publishing…', 'glaciate' ),
+			'paused'        => __( 'Publishing is paused', 'glaciate' ),
 			'not-published' => __( 'Not on the static site yet', 'glaciate' ),
 			'pending'       => __( 'Changes not published yet', 'glaciate' ),
 			'up-to-date'    => __( 'Up to date', 'glaciate' ),
@@ -194,6 +202,12 @@ final class StatusService {
 				$summary = self::build_summary( (array) $active );
 				/* translators: %d: percent complete. */
 				return sprintf( __( 'Publishing… %d%%', 'glaciate' ), $summary['percent'] );
+			case 'paused':
+				if ( $pending > 0 ) {
+					/* translators: %d: number of changes. */
+					return sprintf( _n( 'Publishing paused, %d change waiting', 'Publishing paused, %d changes waiting', $pending, 'glaciate' ), $pending );
+				}
+				return __( 'Publishing paused', 'glaciate' );
 			case 'never':
 				return __( 'Not published yet', 'glaciate' );
 			case 'failed':

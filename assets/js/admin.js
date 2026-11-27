@@ -54,8 +54,10 @@
 				);
 			}
 		}
-		setDisabled( part( 'publish' ), building );
-		setDisabled( part( 'rebuild' ), building );
+		// While publishing is paused the server refuses builds; Resume is a plain link that reloads the screen.
+		const held = building || 'paused' === status.state;
+		setDisabled( part( 'publish' ), held );
+		setDisabled( part( 'rebuild' ), held );
 		const cancel = part( 'cancel' );
 		if ( cancel ) {
 			cancel.hidden = ! building;

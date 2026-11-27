@@ -175,6 +175,10 @@ deployers delete those files (D58).
 - **When changes go out** (`publish_mode`): `immediate` debounces content changes by a minute and starts an
   incremental build; `scheduled` leaves them pending until the next of `publish_times` on `publish_days`, when
   `glaciate_publish_window` builds only if something is pending; `manual` waits for the Publish button or the CLI.
+- **Pausing** (D67): `Service\PauseService` holds every build, automatic or manual, while someone reworks the site.
+  `BuildService::start()` throws `PausedException`; changes are still recorded and go out per `publish_mode` on resume.
+  Editors pause and resume on the Publish page, administrators also on Settings; `wp glaciate pause|resume`,
+  `POST glaciate/v1/pause|resume`. Only `--ignore-pause` on `wp glaciate build` and `deploy` gets past it.
 - **Wall-clock schedules** (D18): the full rebuild and the publishing times are single Action Scheduler actions, each
   computed by `Build\Schedule::next()` in the site's timezone (`wp_timezone()`) and re-armed by the run itself, so they
   stay on the local clock across daylight-saving changes. `ensure_recurring()` (every `action_scheduler_init`) re-arms a
@@ -376,7 +380,7 @@ from every log line. `wp glaciate secret list|set|delete` manages stored values;
   `map_meta_cap` to `glaciate_publish` + `edit_post`. In multisite, filesystem paths and restricted target fields are set **only by a super admin or a constant**.
 - Activation defaults: target = Local directory at `<uploads>/glaciate/public/<site>/`, public URL = current home URL. The one
   onboarding choice: *where to deploy*.
-- WP-CLI: `wp glaciate build [--full] [--url=…] [--sync] [--no-deploy]`, `status`, `cancel`, `deploy [--target]`, `zip [--porcelain]`,
+- WP-CLI: `wp glaciate build [--full] [--url=…] [--sync] [--no-deploy] [--ignore-pause]`, `status`, `cancel`, `pause`, `resume`, `deploy [--target]`, `zip [--porcelain]`,
   `urls list|add|remove`, `why <url>` (shows recorded deps), `changes list|preview|flush`, `settings get|set|list`, `secret list|set|delete`,
   `forms status|receiver`, `doctor` (Site Health checks), `clean`.
 - Extension API: every pipeline stage has actions/filters (`glaciate_exclude_patterns`, `glaciate_exclude_render`,

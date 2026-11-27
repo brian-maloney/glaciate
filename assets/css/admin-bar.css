@@ -6,3 +6,4 @@
 #wpadminbar .glaciate-ab-building .ab-icon::before { color: #72aee6; }
 #wpadminbar .glaciate-ab-failed .ab-icon::before { color: #f86368; }
 #wpadminbar .glaciate-ab-up-to-date .ab-icon::before { color: #68de7c; }
+#wpadminbar .glaciate-ab-paused .ab-icon::before { color: #c3c4c7; }

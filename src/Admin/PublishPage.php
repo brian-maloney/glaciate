@@ -38,6 +38,13 @@ final class PublishPage {
 		self::notices( $status );
 
 		if ( ! $status['published_once'] && null === $status['active'] && current_user_can( Capabilities::MANAGE ) ) {
+			if ( null !== $status['paused'] ) {
+				wp_admin_notice(
+					esc_html__( 'Publishing is paused, so the first publish waits until you resume it. Your choice below is saved either way.', 'glaciate' ) .
+					' <a class="button button-small" href="' . esc_url( Admin::action_url( 'resume' ) ) . '">' . esc_html__( 'Resume publishing', 'glaciate' ) . '</a>',
+					array( 'type' => 'warning' )
+				);
+			}
 			self::onboarding();
 		} else {
 			self::status_card( $status );
@@ -58,8 +65,11 @@ final class PublishPage {
 	private static function notices( array $status ): void {
 		$code     = isset( $_GET['glaciate_notice'] ) ? sanitize_key( wp_unslash( $_GET['glaciate_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display only.
 		$messages = array(
-			'started'   => array( 'info', __( 'Publishing started. You can leave this page; it continues in the background.', 'glaciate' ) ),
-			'cancelled' => array( 'warning', __( 'Publishing was cancelled. Files already deployed stay in place.', 'glaciate' ) ),
+			'started'        => array( 'info', __( 'Publishing started. You can leave this page; it continues in the background.', 'glaciate' ) ),
+			'cancelled'      => array( 'warning', __( 'Publishing was cancelled. Files already deployed stay in place.', 'glaciate' ) ),
+			'paused'         => array( 'info', __( 'Publishing is paused. Changes are still recorded, and they go out when you resume publishing.', 'glaciate' ) ),
+			'resumed'        => array( 'success', __( 'Publishing resumed. Changes made while it was paused are published as your settings say.', 'glaciate' ) ),
+			'refused-paused' => array( 'warning', __( 'Nothing was published because publishing is paused. Resume publishing first.', 'glaciate' ) ),
 		);
 		if ( 'target-problem' === $code ) {
 			$text = get_transient( 'glaciate_notice_' . get_current_user_id() );
@@ -158,12 +168,34 @@ final class PublishPage {
 	private static function status_card( array $status ): void {
 		$active   = $status['active'];
 		$building = null !== $active;
+		$paused   = $status['paused'];
+		$held     = $building || null !== $paused;
+		$format   = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
 		<div class="glaciate-card glaciate-status">
 			<p class="glaciate-state">
 				<span class="glaciate-dot glaciate-dot-<?php echo esc_attr( $status['state'] ); ?>" aria-hidden="true"></span>
 				<strong data-glaciate="label"><?php echo esc_html( $status['label'] ); ?></strong>
 			</p>
+			<?php if ( null !== $paused ) : ?>
+				<p class="glaciate-paused">
+					<?php
+					if ( '' !== $paused['user'] ) {
+						/* translators: 1: user's display name, 2: date and time. */
+						echo esc_html( sprintf( __( 'Paused by %1$s on %2$s.', 'glaciate' ), $paused['user'], wp_date( $format, $paused['since'] ) ) );
+					} else {
+						/* translators: %s: date and time. */
+						echo esc_html( sprintf( __( 'Paused on %s.', 'glaciate' ), wp_date( $format, $paused['since'] ) ) );
+					}
+					echo ' ';
+					esc_html_e( 'Content changes are still recorded, but nothing goes to the static site until publishing resumes.', 'glaciate' );
+					if ( $building ) {
+						echo ' ';
+						esc_html_e( 'The publish that was already under way still finishes.', 'glaciate' );
+					}
+					?>
+				</p>
+			<?php endif; ?>
 			<div class="glaciate-progress" data-glaciate="progress" <?php echo $building ? '' : 'hidden'; ?>>
 				<progress max="100" value="<?php echo esc_attr( (string) ( $building ? $active['percent'] : 0 ) ); ?>" aria-label="<?php esc_attr_e( 'Publishing progress', 'glaciate' ); ?>"></progress>
 				<span data-glaciate="progress-text">
@@ -177,8 +209,13 @@ final class PublishPage {
 			</div>
 
 			<p class="glaciate-actions">
-				<a class="button button-primary" data-glaciate="publish" href="<?php echo esc_url( Admin::action_url( 'build' ) ); ?>" <?php echo $building ? 'aria-disabled="true"' : ''; ?>><?php esc_html_e( 'Publish changes', 'glaciate' ); ?></a>
-				<a class="button" data-glaciate="rebuild" href="<?php echo esc_url( Admin::action_url( 'build', array( 'kind' => 'full' ) ) ); ?>" <?php echo $building ? 'aria-disabled="true"' : ''; ?>><?php esc_html_e( 'Rebuild everything', 'glaciate' ); ?></a>
+				<a class="button button-primary" data-glaciate="publish" href="<?php echo esc_url( Admin::action_url( 'build' ) ); ?>" <?php echo $held ? 'aria-disabled="true"' : ''; ?>><?php esc_html_e( 'Publish changes', 'glaciate' ); ?></a>
+				<a class="button" data-glaciate="rebuild" href="<?php echo esc_url( Admin::action_url( 'build', array( 'kind' => 'full' ) ) ); ?>" <?php echo $held ? 'aria-disabled="true"' : ''; ?>><?php esc_html_e( 'Rebuild everything', 'glaciate' ); ?></a>
+				<?php if ( null !== $paused ) : ?>
+					<a class="button" data-glaciate="resume" href="<?php echo esc_url( Admin::action_url( 'resume' ) ); ?>"><?php esc_html_e( 'Resume publishing', 'glaciate' ); ?></a>
+				<?php else : ?>
+					<a class="button" data-glaciate="pause" href="<?php echo esc_url( Admin::action_url( 'pause' ) ); ?>"><?php esc_html_e( 'Pause publishing', 'glaciate' ); ?></a>
+				<?php endif; ?>
 				<a class="button button-link-delete" data-glaciate="cancel" href="<?php echo esc_url( Admin::action_url( 'cancel' ) ); ?>" <?php echo $building ? '' : 'hidden'; ?>><?php esc_html_e( 'Cancel', 'glaciate' ); ?></a>
 			</p>
 
@@ -206,11 +243,13 @@ final class PublishPage {
 				<dd>
 					<?php
 					$schedule = $status['schedule'];
-					if ( 'immediate' === $schedule['mode'] ) {
+					if ( null !== $paused ) {
+						esc_html_e( 'Paused.', 'glaciate' );
+					} elseif ( 'immediate' === $schedule['mode'] ) {
 						esc_html_e( 'Changes are published a minute after you save them.', 'glaciate' );
 					} elseif ( 'scheduled' === $schedule['mode'] && null !== $schedule['next_publish'] ) {
 						/* translators: %s: date and time. */
-						echo esc_html( sprintf( __( 'Changes are published at set times. Next: %s.', 'glaciate' ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $schedule['next_publish'] ) ) );
+						echo esc_html( sprintf( __( 'Changes are published at set times. Next: %s.', 'glaciate' ), wp_date( $format, $schedule['next_publish'] ) ) );
 					} else {
 						esc_html_e( 'Off: publish changes with the button above.', 'glaciate' );
 					}
@@ -218,7 +257,15 @@ final class PublishPage {
 				</dd>
 				<?php if ( null !== $schedule['next_full_rebuild'] ) : ?>
 					<dt><?php esc_html_e( 'Next full rebuild', 'glaciate' ); ?></dt>
-					<dd><?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $schedule['next_full_rebuild'] ) ); ?></dd>
+					<dd>
+						<?php
+						echo esc_html( wp_date( $format, $schedule['next_full_rebuild'] ) );
+						if ( null !== $paused ) {
+							echo ' ';
+							esc_html_e( '(skipped while publishing is paused)', 'glaciate' );
+						}
+						?>
+					</dd>
 				<?php endif; ?>
 			</dl>
 		</div>

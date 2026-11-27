@@ -10,7 +10,9 @@ namespace Glaciate\Cli;
 defined( 'ABSPATH' ) || exit;
 
 use Glaciate\Build\BuildService;
+use Glaciate\Build\PausedException;
 use Glaciate\Deps\DependencyStore;
+use Glaciate\Service\PauseService;
 use Glaciate\Storage\BuildRepository;
 use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Logger;
@@ -54,6 +56,9 @@ final class Command {
 	 * [--target=<id>]
 	 * : Deploy to this target instead of the configured one (local, zip, or a registered deployer).
 	 *
+	 * [--ignore-pause]
+	 * : Build even while publishing is paused (see "wp glaciate pause").
+	 *
 	 * ## EXAMPLES
 	 *
 	 *     $ wp glaciate build --full --sync
@@ -80,17 +85,23 @@ final class Command {
 		$sync    = (bool) WP_CLI\Utils\get_flag_value( $assoc, 'sync', false );
 		$deploy  = (bool) WP_CLI\Utils\get_flag_value( $assoc, 'deploy', true );
 		$service = new BuildService();
-		$id      = $service->start(
-			$kind,
-			'cli',
-			get_current_user_id(),
-			$deploy,
-			array(
-				'urls'   => $urls,
-				'target' => $assoc['target'] ?? '',
-				'sync'   => $sync,
-			)
-		);
+		try {
+			$id = $service->start(
+				$kind,
+				'cli',
+				get_current_user_id(),
+				$deploy,
+				array(
+					'urls'         => $urls,
+					'target'       => $assoc['target'] ?? '',
+					'sync'         => $sync,
+					'ignore_pause' => (bool) WP_CLI\Utils\get_flag_value( $assoc, 'ignore-pause', false ),
+				)
+			);
+		} catch ( PausedException $e ) {
+			WP_CLI::error( 'Publishing is paused. Run "wp glaciate resume", or pass --ignore-pause to build anyway.' );
+			return;
+		}
 
 		if ( ! $sync ) {
 			WP_CLI::success( sprintf( 'Build #%d queued. Follow it with "wp glaciate status".', $id ) );
@@ -168,6 +179,10 @@ final class Command {
 			);
 		}
 		WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, array( 'id', 'kind', 'status', 'phase', 'trigger', 'done', 'failed', 'pending', 'created', 'finished' ) );
+		$paused = ( new PauseService() )->state();
+		if ( null !== $paused && 'table' === ( $assoc['format'] ?? 'table' ) ) {
+			WP_CLI::warning( self::paused_since( $paused ) . ' Resume with "wp glaciate resume".' );
+		}
 	}
 
 	/**
@@ -182,6 +197,64 @@ final class Command {
 			return;
 		}
 		WP_CLI::success( sprintf( 'Cancelled build #%d.', $id ) );
+	}
+
+	/**
+	 * Pauses publishing, for example while the site is being reworked.
+	 *
+	 * Until "wp glaciate resume", no build starts: not after content changes, not at publishing times, not for the
+	 * scheduled full rebuild and not from the Publish buttons. Changes are still recorded and go out after resuming.
+	 * A build already under way finishes. "wp glaciate build --ignore-pause" builds anyway.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     $ wp glaciate pause
+	 *     $ wp glaciate resume
+	 *
+	 * @return void
+	 */
+	public function pause(): void {
+		$service = new PauseService();
+		if ( ! $service->pause( get_current_user_id() ) ) {
+			WP_CLI::warning( self::paused_since( (array) $service->state() ) );
+			return;
+		}
+		$active = ( new BuildRepository() )->active();
+		if ( null !== $active ) {
+			WP_CLI::warning( sprintf( 'Build #%d was already under way and still finishes. "wp glaciate cancel" stops it.', $active['id'] ) );
+		}
+		WP_CLI::success( 'Publishing paused. Changes are still recorded; "wp glaciate resume" publishes them.' );
+	}
+
+	/**
+	 * Resumes publishing. Changes recorded while paused go out as the publishing mode says.
+	 *
+	 * @return void
+	 */
+	public function resume(): void {
+		if ( ! ( new PauseService() )->resume( get_current_user_id() ) ) {
+			WP_CLI::warning( 'Publishing was not paused.' );
+			return;
+		}
+		$pending = ( new \Glaciate\Storage\ChangeRepository() )->pending_count();
+		$mode    = (string) \Glaciate\Support\Settings::get( 'publish_mode' );
+		$next    = array(
+			'immediate' => 'They are published in a minute.',
+			'scheduled' => 'They are published at the next publishing time.',
+			'manual'    => 'Publish them with "wp glaciate build".',
+		);
+		WP_CLI::success( sprintf( 'Publishing resumed. Changes waiting: %d.%s', $pending, $pending > 0 ? ' ' . ( $next[ $mode ] ?? '' ) : '' ) );
+	}
+
+	/**
+	 * "Publishing has been paused since …" for a pause state.
+	 *
+	 * @param array<string,mixed> $state PauseService::state().
+	 * @return string
+	 */
+	private static function paused_since( array $state ): string {
+		$when = wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) ( $state['since'] ?? 0 ) );
+		return sprintf( 'Publishing has been paused since %s%s.', $when, empty( $state['user'] ) ? '' : ' by ' . $state['user'] );
 	}
 
 	/**
@@ -233,11 +306,17 @@ final class Command {
 	 * [--target=<id>]
 	 * : Deploy target (local, zip, or a registered deployer). Defaults to the configured one.
 	 *
+	 * [--ignore-pause]
+	 * : Deploy even while publishing is paused (see "wp glaciate pause").
+	 *
 	 * @param string[]             $args  Positional arguments.
 	 * @param array<string,string> $assoc Options.
 	 * @return void
 	 */
 	public function deploy( $args, $assoc ): void {
+		if ( ! WP_CLI\Utils\get_flag_value( $assoc, 'ignore-pause', false ) && ( new PauseService() )->is_paused() ) {
+			WP_CLI::error( 'Publishing is paused. Run "wp glaciate resume", or pass --ignore-pause to deploy anyway.' );
+		}
 		$target   = (string) ( $assoc['target'] ?? \Glaciate\Support\Settings::get( 'target' ) );
 		$deployer = \Glaciate\Deploy\Registry::instance()->get( $target );
 		if ( null === $deployer ) {
@@ -555,6 +634,10 @@ final class Command {
 		WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, array( 'job', 'schedule', 'next' ) );
 		if ( 'table' === ( $assoc['format'] ?? 'table' ) ) {
 			WP_CLI::log( sprintf( 'Times are in the site\'s timezone (%s).', wp_timezone_string() ) );
+			$paused = ( new PauseService() )->state();
+			if ( null !== $paused ) {
+				WP_CLI::warning( self::paused_since( $paused ) . ' Nothing runs until "wp glaciate resume".' );
+			}
 		}
 	}
 

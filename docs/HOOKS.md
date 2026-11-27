@@ -58,6 +58,22 @@ Fires after a form submission from the static site was accepted.
 
 Since 0.4.0. Fired in `src/Forms/Receiver.php`.
 
+### `glaciate_publishing_paused`
+
+Fires when publishing has been paused.
+
+- `int $user_id` User who paused it (0 when unknown).
+
+Since 2.2.0. Fired in `src/Service/PauseService.php`.
+
+### `glaciate_publishing_resumed`
+
+Fires when publishing has been resumed.
+
+- `int $user_id` User who resumed it (0 when unknown).
+
+Since 2.2.0. Fired in `src/Service/PauseService.php`.
+
 ### `glaciate_register_deployers`
 
 Fires once so extensions can register deployers.

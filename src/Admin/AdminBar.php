@@ -52,7 +52,8 @@ final class AdminBar {
 				),
 			)
 		);
-		if ( 'building' !== $status['state'] ) {
+		// Builds are refused while publishing is paused; the Static Site screen has the Resume button.
+		if ( ! in_array( $status['state'], array( 'building', 'paused' ), true ) ) {
 			$bar->add_node(
 				array(
 					'parent' => 'glaciate',

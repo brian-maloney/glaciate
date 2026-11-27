@@ -50,6 +50,7 @@
 .glaciate-dot-pending { background: #dba617; }
 .glaciate-dot-building { background: #2271b1; }
 .glaciate-dot-failed { background: #d63638; }
+.glaciate-dot-paused { background: #8c8f94; }
 
 .glaciate .glaciate-progress progress {
 	max-width: 420px;

@@ -55,6 +55,8 @@ final class AdminActionsTest extends \WP_UnitTestCase {
 		return array(
 			array( 'handle_build', 'build' ),
 			array( 'handle_cancel', 'cancel' ),
+			array( 'handle_pause', 'pause' ),
+			array( 'handle_resume', 'resume' ),
 			array( 'handle_onboard', 'onboard' ),
 			array( 'handle_publish_post', 'publish_post' ),
 			array( 'handle_download', 'download_zip' ),
@@ -85,6 +87,80 @@ final class AdminActionsTest extends \WP_UnitTestCase {
 		} finally {
 			unset( $_POST['build'], $_POST['token'] );
 		}
+	}
+
+	/**
+	 * Runs an admin-post handler up to its redirect, which would otherwise exit.
+	 *
+	 * @param string $handler Admin method.
+	 * @param string $action  Nonce action without the prefix.
+	 * @return string Redirect location.
+	 */
+	private function run_until_redirect( string $handler, string $action ): string {
+		$_REQUEST['_wpnonce'] = wp_create_nonce( 'glaciate_' . $action );
+		$stop                 = static function ( $location ) {
+			throw new \RuntimeException( esc_url_raw( (string) $location ) );
+		};
+		add_filter( 'wp_redirect', $stop );
+		try {
+			Admin::$handler();
+		} catch ( \RuntimeException $e ) {
+			return $e->getMessage();
+		} finally {
+			remove_filter( 'wp_redirect', $stop );
+		}
+		$this->fail( 'The handler did not redirect.' );
+		return '';
+	}
+
+	public function test_editors_can_pause_and_resume_publishing(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
+		$pause = new \Glaciate\Service\PauseService();
+
+		$this->assertStringContainsString( 'glaciate_notice=paused', $this->run_until_redirect( 'handle_pause', 'pause' ) );
+		$this->assertSame( get_current_user_id(), $pause->state()['user_id'] );
+
+		$this->assertStringContainsString( 'glaciate_notice=refused-paused', $this->run_until_redirect( 'handle_build', 'build' ) );
+		$this->assertNull( ( new BuildRepository() )->active(), 'The Publish button starts nothing while paused.' );
+
+		$this->assertStringContainsString( 'glaciate_notice=resumed', $this->run_until_redirect( 'handle_resume', 'resume' ) );
+		$this->assertFalse( $pause->is_paused() );
+	}
+
+	public function test_settings_form_checkbox_pauses_and_resumes(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$pause                = new \Glaciate\Service\PauseService();
+		$_POST['option_page'] = SettingsPage::GROUP;
+
+		$clean = SettingsPage::sanitize(
+			array(
+				'paused_shown' => '1',
+				'paused'       => '1',
+			)
+		);
+		$this->assertTrue( $pause->is_paused() );
+		$this->assertArrayNotHasKey( 'paused', $clean, 'The pause never reaches the settings array.' );
+		$this->assertArrayNotHasKey( 'paused_shown', $clean );
+
+		// A form without the box (another plugin's code saving the option) leaves the pause alone.
+		SettingsPage::sanitize( array( 'feeds' => 'all' ) );
+		$this->assertTrue( $pause->is_paused() );
+
+		// An unchecked box is missing from the submission.
+		SettingsPage::sanitize( array( 'paused_shown' => '1' ) );
+		$this->assertFalse( $pause->is_paused() );
+	}
+
+	public function test_saving_settings_elsewhere_never_touches_the_pause(): void {
+		( new \Glaciate\Service\PauseService() )->pause( 0 );
+		Settings::update(
+			array(
+				'paused_shown' => '1',
+				'feeds'        => 'all',
+			)
+		);
+		$this->assertTrue( ( new \Glaciate\Service\PauseService() )->is_paused(), 'Only the settings form submission changes it.' );
+		$this->assertArrayNotHasKey( 'paused_shown', get_option( Settings::OPTION ) );
 	}
 
 	public function test_settings_form_keeps_paths_for_users_who_cannot_edit_them(): void {

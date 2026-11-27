@@ -107,7 +107,7 @@
 			{
 				variant: variant || 'secondary',
 				isBusy: busy || building,
-				disabled: busy || building || 'up-to-date' === status.state,
+				disabled: busy || building || [ 'up-to-date', 'paused' ].includes( status.state ),
 				onClick: publish,
 				__next40pxDefaultSize: true,
 			},

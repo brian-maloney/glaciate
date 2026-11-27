@@ -51,6 +51,8 @@ final class RestPermissionsTest extends \WP_UnitTestCase {
 			array( 'GET', '/builds' ),
 			array( 'POST', '/builds' ),
 			array( 'POST', '/builds/cancel' ),
+			array( 'POST', '/pause' ),
+			array( 'POST', '/resume' ),
 			array( 'GET', '/builds/1/log' ),
 			array( 'GET', '/posts/{post}' ),
 			array( 'POST', '/posts/{post}/publish' ),
@@ -79,6 +81,24 @@ final class RestPermissionsTest extends \WP_UnitTestCase {
 		$this->assertSame( 200, $response->get_status() );
 		$this->assertIsInt( $response->get_data()['build'] );
 		$this->assertSame( 403, $this->request( 'GET', '/health/loopback' )->get_status() );
+	}
+
+	public function test_editor_can_pause_and_builds_are_refused_while_paused(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
+		$response = $this->request( 'POST', '/pause' );
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 'paused', $response->get_data()['state'] );
+
+		$refused = $this->request( 'POST', '/builds', array( 'kind' => 'full' ) );
+		$this->assertSame( 409, $refused->get_status() );
+		$this->assertSame( 'glaciate_paused', $refused->get_data()['code'] );
+
+		$post = self::factory()->post->create();
+		$this->assertSame( 409, $this->request( 'POST', "/posts/{$post}/publish" )->get_status(), 'Nor from the editor.' );
+
+		$response = $this->request( 'POST', '/resume' );
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertNull( $response->get_data()['paused'] );
 	}
 
 	public function test_author_without_publish_cap_cannot_publish_own_post(): void {

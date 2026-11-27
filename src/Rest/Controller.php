@@ -10,10 +10,12 @@ namespace Glaciate\Rest;
 defined( 'ABSPATH' ) || exit;
 
 use Glaciate\Build\BuildService;
+use Glaciate\Build\PausedException;
 use Glaciate\Plugin;
 use Glaciate\Security\Capabilities;
 use Glaciate\Service\ChangesetService;
 use Glaciate\Service\HealthChecks;
+use Glaciate\Service\PauseService;
 use Glaciate\Service\StatusService;
 use Glaciate\Storage\BuildRepository;
 use Glaciate\Support\Logger;
@@ -102,6 +104,24 @@ final class Controller {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'cancel' ),
+				'permission_callback' => $publish,
+			)
+		);
+		register_rest_route(
+			self::NAMESPACE,
+			'/pause',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'pause' ),
+				'permission_callback' => $publish,
+			)
+		);
+		register_rest_route(
+			self::NAMESPACE,
+			'/resume',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'resume' ),
 				'permission_callback' => $publish,
 			)
 		);
@@ -212,11 +232,15 @@ final class Controller {
 	 * POST /builds.
 	 *
 	 * @param \WP_REST_Request $request Request.
-	 * @return \WP_REST_Response
+	 * @return \WP_REST_Response|\WP_Error
 	 */
-	public function start( \WP_REST_Request $request ): \WP_REST_Response {
+	public function start( \WP_REST_Request $request ) {
 		$kind = 'full' === $request['kind'] || ! get_option( 'glaciate_published_once' ) ? 'full' : 'incremental';
-		$id   = ( new BuildService() )->start( $kind, 'manual', get_current_user_id(), true );
+		try {
+			$id = ( new BuildService() )->start( $kind, 'manual', get_current_user_id(), true );
+		} catch ( PausedException $e ) {
+			return self::paused_error( $e );
+		}
 		return rest_ensure_response(
 			array(
 				'build'  => $id,
@@ -232,6 +256,36 @@ final class Controller {
 	 */
 	public function cancel(): \WP_REST_Response {
 		return rest_ensure_response( array( 'cancelled' => ( new BuildService() )->cancel() ) );
+	}
+
+	/**
+	 * POST /pause: holds every build until /resume. Answers with the site status.
+	 *
+	 * @return \WP_REST_Response
+	 */
+	public function pause(): \WP_REST_Response {
+		( new PauseService() )->pause( get_current_user_id() );
+		return rest_ensure_response( ( new StatusService() )->site() );
+	}
+
+	/**
+	 * POST /resume. Answers with the site status.
+	 *
+	 * @return \WP_REST_Response
+	 */
+	public function resume(): \WP_REST_Response {
+		( new PauseService() )->resume( get_current_user_id() );
+		return rest_ensure_response( ( new StatusService() )->site() );
+	}
+
+	/**
+	 * The answer to a build request while publishing is paused.
+	 *
+	 * @param PausedException $e Refusal.
+	 * @return \WP_Error
+	 */
+	private static function paused_error( PausedException $e ): \WP_Error {
+		return new \WP_Error( 'glaciate_paused', $e->getMessage(), array( 'status' => 409 ) );
 	}
 
 	/**
@@ -270,7 +324,11 @@ final class Controller {
 			$listener->flush();
 		}
 		$kind = get_option( 'glaciate_published_once' ) ? 'incremental' : 'full';
-		$id   = ( new BuildService() )->start( $kind, 'manual', get_current_user_id(), true, array( 'urls' => array( (string) get_permalink( $post ) ) ) );
+		try {
+			$id = ( new BuildService() )->start( $kind, 'manual', get_current_user_id(), true, array( 'urls' => array( (string) get_permalink( $post ) ) ) );
+		} catch ( PausedException $e ) {
+			return self::paused_error( $e );
+		}
 		return rest_ensure_response(
 			array(
 				'build'  => $id,

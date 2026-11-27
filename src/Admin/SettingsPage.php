@@ -17,6 +17,7 @@ use Glaciate\Deploy\TargetConfig;
 use Glaciate\Security\Capabilities;
 use Glaciate\Security\Secrets;
 use Glaciate\Security\TargetPolicy;
+use Glaciate\Service\PauseService;
 use Glaciate\Support\Settings;
 
 /**
@@ -103,6 +104,7 @@ final class SettingsPage {
 			}
 		}
 		self::field( 'public_url', __( 'Public address', 'glaciate' ), 'glaciate_deploy', array( self::class, 'field_public_url' ) );
+		self::field( 'paused', __( 'Pause publishing', 'glaciate' ), 'glaciate_publishing', array( self::class, 'field_paused' ) );
 		self::field( 'publish_mode', __( 'Publish changes', 'glaciate' ), 'glaciate_publishing', array( self::class, 'field_publish_mode' ), false );
 		self::field( 'full_rebuild', __( 'Full rebuild', 'glaciate' ), 'glaciate_publishing', array( self::class, 'field_full_rebuild' ) );
 		self::field( 'additional_urls', __( 'Extra addresses', 'glaciate' ), 'glaciate_content', array( self::class, 'field_additional_urls' ) );
@@ -167,7 +169,10 @@ final class SettingsPage {
 		$from_form = isset( $_POST['option_page'] ) && self::GROUP === sanitize_key( wp_unslash( $_POST['option_page'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- options.php verified the nonce.
 		if ( $from_form ) {
 			$input = self::submitted_schedule( $input, $current );
+			self::submitted_pause( $input );
 		}
+		// The pause is its own option (Service\PauseService), never part of the settings array.
+		unset( $input['paused'], $input['paused_shown'] );
 		if ( $from_form && ! self::can_edit_paths() ) {
 			$input['local_path']    = $current['local_path'] ?? '';
 			$input['connect_to']    = $current['connect_to'] ?? '';
@@ -269,6 +274,25 @@ final class SettingsPage {
 		$input['publish_times'] = $times;
 		$input['publish_days']  = $days;
 		return $input;
+	}
+
+	/**
+	 * Pauses or resumes publishing from the form's checkbox. An unchecked box is missing from the submission, so the
+	 * hidden `paused_shown` field tells "unchecked" apart from a form that didn't show the box.
+	 *
+	 * @param array<string,mixed> $input Submitted values.
+	 * @return void
+	 */
+	private static function submitted_pause( array $input ): void {
+		if ( empty( $input['paused_shown'] ) ) {
+			return;
+		}
+		$pause = new PauseService();
+		if ( ! empty( $input['paused'] ) ) {
+			$pause->pause( get_current_user_id() );
+		} else {
+			$pause->resume( get_current_user_id() );
+		}
 	}
 
 	/**
@@ -438,6 +462,34 @@ final class SettingsPage {
 		if ( ! self::pinned_note( 'public_url' ) ) {
 			self::description( 'glaciate-public-url', array( __( 'The address visitors will use. Leave empty to keep this site\'s address.', 'glaciate' ) ) );
 		}
+	}
+
+	/**
+	 * The pause switch. Editors pause and resume on the Static Site screen, which shows the same state.
+	 *
+	 * @return void
+	 */
+	public static function field_paused(): void {
+		$paused = ( new PauseService() )->state();
+		printf( '<input type="hidden" name="%s" value="1">', esc_attr( self::name( 'paused_shown' ) ) );
+		printf(
+			'<label><input type="checkbox" id="glaciate-paused" name="%s" value="1" aria-describedby="glaciate-paused-description" %s> %s</label>',
+			esc_attr( self::name( 'paused' ) ),
+			checked( null !== $paused, true, false ),
+			esc_html__( 'Hold all publishing while the site is being reworked', 'glaciate' )
+		);
+		$lines = array( __( 'Nothing goes to the static site while this is on, not even with the Publish button. Changes are still recorded and are published when you turn it off. Editors can pause and resume on the Static Site screen.', 'glaciate' ) );
+		if ( null !== $paused ) {
+			$when = wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $paused['since'] );
+			if ( '' !== $paused['user'] ) {
+				/* translators: 1: user's display name, 2: date and time. */
+				$lines[] = sprintf( __( 'Paused by %1$s on %2$s.', 'glaciate' ), $paused['user'], $when );
+			} else {
+				/* translators: %s: date and time. */
+				$lines[] = sprintf( __( 'Paused on %s.', 'glaciate' ), $when );
+			}
+		}
+		self::description( 'glaciate-paused', $lines );
 	}
 
 	/**

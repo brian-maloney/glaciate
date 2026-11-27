@@ -201,7 +201,8 @@ final class Queue {
 		if ( 'immediate' !== Settings::get( 'publish_mode' ) || ! get_option( 'glaciate_published_once' ) ) {
 			return;
 		}
-		if ( ! self::ready() ) {
+		// While paused, changes wait for PauseService::resume(), which calls this again.
+		if ( ! self::ready() || ( new \Glaciate\Service\PauseService() )->is_paused() ) {
 			return;
 		}
 		// Debounce: push the pending auto-publish back on every change.
@@ -215,7 +216,22 @@ final class Queue {
 	 * @return void
 	 */
 	public static function auto_publish(): void {
-		( new BuildService() )->start( 'incremental', 'content', 0, true );
+		try {
+			( new BuildService() )->start( 'incremental', 'content', 0, true );
+		} catch ( PausedException $e ) {
+			unset( $e ); // The changes stay pending until publishing resumes.
+		}
+	}
+
+	/**
+	 * Drops a debounced publish that hasn't run yet.
+	 *
+	 * @return void
+	 */
+	public static function drop_auto_publish(): void {
+		if ( self::ready() ) {
+			as_unschedule_all_actions( self::AUTO_HOOK, array(), self::GROUP );
+		}
 	}
 
 	/**
@@ -224,7 +240,11 @@ final class Queue {
 	 * @return void
 	 */
 	public static function scheduled_rebuild(): void {
-		( new BuildService() )->start( 'full', 'schedule', 0, true );
+		try {
+			( new BuildService() )->start( 'full', 'schedule', 0, true );
+		} catch ( PausedException $e ) {
+			unset( $e ); // Skipped, not postponed: the next one runs at its usual time.
+		}
 		self::schedule_next( self::SCHEDULED_HOOK );
 	}
 
@@ -235,7 +255,11 @@ final class Queue {
 	 */
 	public static function publish_window(): void {
 		if ( 'scheduled' === Settings::get( 'publish_mode' ) && get_option( 'glaciate_published_once' ) && ( new \Glaciate\Storage\ChangeRepository() )->pending_count() > 0 ) {
-			( new BuildService() )->start( 'incremental', 'schedule', 0, true );
+			try {
+				( new BuildService() )->start( 'incremental', 'schedule', 0, true );
+			} catch ( PausedException $e ) {
+				unset( $e ); // The changes wait for the first publishing time after resuming.
+			}
 		}
 		self::schedule_next( self::WINDOW_HOOK );
 	}

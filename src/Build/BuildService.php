@@ -42,13 +42,18 @@ final class BuildService {
 	 * @param string              $trigger manual, cli, schedule or content.
 	 * @param int                 $user_id User starting it.
 	 * @param bool                $deploy  Deploy when done.
-	 * @param array<string,mixed> $options urls (for kind "urls"), target (deployer ID override).
+	 * @param array<string,mixed> $options urls (for kind "urls"), target (deployer ID override), ignore_pause (start
+	 *                                     even while publishing is paused; WP-CLI only).
 	 * @return int Build ID.
 	 * @throws \InvalidArgumentException For an unknown kind.
+	 * @throws PausedException While publishing is paused.
 	 */
 	public function start( string $kind, string $trigger, int $user_id, bool $deploy, array $options = array() ): int {
 		if ( ! in_array( $kind, self::KINDS, true ) ) {
 			throw new \InvalidArgumentException( 'Unknown build kind.' );
+		}
+		if ( empty( $options['ignore_pause'] ) && ( new \Glaciate\Service\PauseService() )->is_paused() ) {
+			throw new PausedException( __( 'Publishing is paused. Resume publishing to send changes to the static site.', 'glaciate' ) );
 		}
 		$active = $this->builds->active();
 		if ( null !== $active ) {

@@ -62,6 +62,25 @@ final class PublishPageTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'Waiting to be published', $this->render() );
 	}
 
+	public function test_first_run_says_publishing_is_paused(): void {
+		( new \Glaciate\Service\PauseService() )->pause( 0 );
+		$html = $this->render();
+		$this->assertStringContainsString( 'the first publish waits until you resume it', $html );
+		$this->assertStringContainsString( 'action=glaciate_resume', $html );
+	}
+
+	public function test_paused_screen_offers_resume_and_holds_the_buttons(): void {
+		update_option( 'glaciate_published_once', 1 );
+		$this->assertStringContainsString( 'data-glaciate="pause"', $this->render() );
+
+		( new \Glaciate\Service\PauseService() )->pause( get_current_user_id() );
+		$html = $this->render();
+		$this->assertStringContainsString( 'data-glaciate="resume"', $html );
+		$this->assertStringNotContainsString( 'data-glaciate="pause"', $html );
+		$this->assertMatchesRegularExpression( '/data-glaciate="publish"[^>]*aria-disabled="true"/', $html );
+		$this->assertStringContainsString( 'nothing goes to the static site until publishing resumes', $html );
+	}
+
 	public function test_first_run_keeps_zip_selected(): void {
 		Settings::update( array( 'target' => 'zip' ) );
 		$html = $this->render();

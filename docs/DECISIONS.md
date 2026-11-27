@@ -1275,3 +1275,49 @@ which T16 says it doesn't do. The server's listing is no proof of ownership; onl
 
 The decisions are pure logic in `Deploy\Git\UploadBranch`, unit tested; `GitUploadBranchTest` drives the deployer
 against an in-memory receive-pack, so it runs without the test Git server.
+
+## D66. The Static Site screen stops polling while the tab is hidden or idle
+
+The screen asked for the status every 15 seconds for as long as it was open. A tab left open overnight keeps PHP and the
+database busy, which costs money on hosts that bill per request or pause an idle database (Lambda, Aurora Serverless).
+WordPress's own Heartbeat slows down in the background and suspends after ten minutes without activity; the poll did
+neither.
+
+- **Hidden tab: no polling.** The next poll is skipped while `document.hidden` is true. The tab becoming visible polls
+  at once, so a build that finished meanwhile still reloads the screen.
+- **Ten minutes without mouse, keyboard or touch: no polling**, even in a visible tab (a screen left on a monitor).
+  Ten minutes is when Heartbeat suspends. Moving the mouse, a key, the wheel or focusing the window polls at once.
+- **We don't reuse Heartbeat's idea of activity.** Heartbeat only starts counting idle time after a first focus or
+  mouse event, so a screen loaded and then left alone never suspends at all; and there is no public API to read it.
+- **Builds keep running.** Only the screen stops asking; it catches up the moment someone looks at it.
+
+Revisit if the screen gains something that has to update with nobody watching.
+
+## D67. Publishing can be paused, and a pause holds every build, not only the automatic ones
+
+Someone reworking a site (a redesign, a restructure, a big content import) needs the static copy to stay as it is until
+they're done. Switching the publishing mode to manual isn't enough: the scheduled full rebuild still runs, an editor's
+"Publish to static" still goes out, and switching back is easy to forget.
+
+- **One switch, `Service\PauseService`.** While paused, `BuildService::start()` throws `Build\PausedException` for every
+  kind and trigger. The queue handlers catch it, the admin, REST (`409 glaciate_paused`) and editor show it, and
+  `changes_recorded()` doesn't schedule the debounced publish at all, so a paused site isn't woken every minute.
+  `wp glaciate build --ignore-pause` and `wp glaciate deploy --ignore-pause` are the only way past it.
+- **Changes are still recorded.** Resuming hands them to the publishing mode: a minute later (immediate), the next
+  publishing time (scheduled) or the next Publish (manual). Resuming never publishes on its own in the other modes:
+  the mode is what the site owner chose.
+- **A skipped full rebuild is skipped, not owed.** It stays armed for its next time. The pending changes cover the
+  edits, and a full rebuild right on resume would hit the site at the moment someone is checking the result.
+- **A build already under way finishes.** Pausing doesn't cancel it: a cancelled incremental build has claimed its
+  changes, so cancelling would lose them until the next full rebuild. The screen and `wp glaciate pause` say so.
+- **Its own option, `glaciate_paused`, not a key of `glaciate_settings`.** Saving the settings records a full change
+  (D55), and editors may pause but can't save the settings. The option holds `{since, user_id}` and an empty array
+  once resumed (kept, autoloaded, so reading it costs no query).
+- **Editors can pause.** It needs `glaciate_publish`, like the buttons it holds back. Administrators get a checkbox on
+  the Settings screen; everyone with `glaciate_publish` gets Pause/Resume on the Static Site screen. The checkbox acts
+  only on a settings form submission that showed it (a hidden `paused_shown` field), so `Settings::update()` from
+  code or WP-CLI never resumes a pause by accident.
+- **The status says so everywhere.** `paused` is a site state between `building` and the rest, so the admin bar,
+  Publish screen and editor show "Publishing paused" to everyone who can publish, which is the reminder that it's on.
+
+Revisit if people want a pause that ends by itself at a set time.

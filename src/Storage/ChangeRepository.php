@@ -72,6 +72,21 @@ final class ChangeRepository {
 	}
 
 	/**
+	 * Hands the changes a build claimed back to the queue, for a build that stopped before publishing them (D68).
+	 * They keep their IDs, so they stay in the order they were recorded among changes recorded since.
+	 *
+	 * @param int $build_id Build ID.
+	 * @return int Changes released.
+	 */
+	public function release( int $build_id ): int {
+		global $wpdb;
+		if ( $build_id <= 0 ) {
+			return 0;
+		}
+		return (int) $wpdb->query( $wpdb->prepare( 'UPDATE %i SET build_id = 0 WHERE build_id = %d', Schema::table( 'changes' ), $build_id ) );
+	}
+
+	/**
 	 * Pending changes with their payloads, oldest first, without claiming them: what the next incremental build
 	 * would plan from.
 	 *

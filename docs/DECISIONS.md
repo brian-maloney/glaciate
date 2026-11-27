@@ -1308,8 +1308,8 @@ they're done. Switching the publishing mode to manual isn't enough: the schedule
   the mode is what the site owner chose.
 - **A skipped full rebuild is skipped, not owed.** It stays armed for its next time. The pending changes cover the
   edits, and a full rebuild right on resume would hit the site at the moment someone is checking the result.
-- **A build already under way finishes.** Pausing doesn't cancel it: a cancelled incremental build has claimed its
-  changes, so cancelling would lose them until the next full rebuild. The screen and `wp glaciate pause` say so.
+- **A build already under way finishes.** Pausing doesn't cancel it, because it was asked for before the pause; the
+  screen and `wp glaciate pause` say so. Cancel stops it, and its changes go back to the queue (D68) to wait for resume.
 - **Its own option, `glaciate_paused`, not a key of `glaciate_settings`.** Saving the settings records a full change
   (D55), and editors may pause but can't save the settings. The option holds `{since, user_id}` and an empty array
   once resumed (kept, autoloaded, so reading it costs no query).
@@ -1321,3 +1321,35 @@ they're done. Switching the publishing mode to manual isn't enough: the schedule
   Publish screen and editor show "Publishing paused" to everyone who can publish, which is the reminder that it's on.
 
 Revisit if people want a pause that ends by itself at a set time.
+
+## D68. A build that stops before publishing hands its changes back
+
+An incremental build claims every pending change (`build_id` set to the build) when it plans. A cancelled or failed
+build kept them claimed, and the pending count and the next incremental build look only at `build_id = 0`, so the
+edits stayed off the static site until the next full rebuild, while the Publish page said nothing was waiting.
+
+- **Cancelled and failed builds release their changes.** `ChangeRepository::release()` sets `build_id` back to 0 for
+  that build's rows. `BuildService::cancel()` calls it, and so does `Runner::finished()` for a build that ends
+  `cancelled` or `failed`. The runner's call covers a slice that was still planning when another process cancelled:
+  its claim can land after `cancel()` released, and the slice notices the cancel at the top of its next loop.
+  `finished()` runs only in the slice that saw the build stop, under the build lock, and the update matches the
+  build's own ID, so it can't take changes from a later build.
+- **Every kind of build, everything it claimed.** A full build consumes all pending changes at the start of planning,
+  and an incremental build that met a `full` change is upgraded and consumes again; all of those rows carry the same
+  build ID, so one update hands them all back. A released `full` change makes the next incremental build full again,
+  which is right: the theme switch or permalink change it stands for never reached the output. Pages a cancelled build
+  had already rendered are rendered again; that costs time, not correctness.
+- **Order is kept.** Released rows keep their IDs, so the next plan sees them before changes recorded during the build,
+  in the order they happened.
+- **Done builds keep theirs.** Only `cancelled` and `failed` release; a build that reached `done` planned and
+  rendered from its changes, so they stay claimed until `prune()` deletes them.
+- **After a cancel, immediate publishing starts again.** `glaciate_build_finished` sees the pending changes and
+  schedules an incremental build a minute later, as it already did for changes recorded during the build. Cancel
+  stops this build, not publishing; pausing publishing is the way to hold changes back.
+- **After a failure, no automatic retry.** Rescheduling would rebuild every minute for as long as the cause (a broken
+  deploy target, a fatal error on a page) lasts. The changes stay pending and visible on the Publish page; the next
+  change, the next publishing time or a manual publish takes them. This also applies to changes recorded during a
+  failed build, which used to get one automatic retry.
+
+`ReleasedChangesTest` (integration) covers cancel, failure, the upgrade to full, the cancel that races a claim, order,
+and the immediate-mode scheduling.

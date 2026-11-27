@@ -23,6 +23,7 @@ use Glaciate\Search\PagefindBundle;
 use Glaciate\Search\TextExtractor;
 use Glaciate\Search\Tokenizer;
 use Glaciate\Storage\BuildRepository;
+use Glaciate\Storage\ChangeRepository;
 use Glaciate\Storage\FormKeyRepository;
 use Glaciate\Storage\UrlRepository;
 use Glaciate\Support\Logger;
@@ -789,6 +790,11 @@ final class Runner {
 		( new Frontier( $build_id ) )->clear();
 		delete_transient( self::access_key( $build_id ) );
 		$build = $this->builds->get( $build_id );
+		// A failed build published none of the changes it claimed. A cancelled one is released by cancel() as well;
+		// releasing here too catches a claim made by a slice that was still planning when the cancel came (D68).
+		if ( null !== $build && in_array( $build['status'], array( 'failed', 'cancelled' ), true ) ) {
+			( new ChangeRepository() )->release( $build_id );
+		}
 
 		/**
 		 * Fires when a build stops: done, failed or cancelled.

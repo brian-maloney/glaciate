@@ -326,7 +326,9 @@ final class Queue {
 	}
 
 	/**
-	 * After a build: remember the first publish, and pick up changes that arrived during the build.
+	 * After a build: remember the first publish, and pick up changes that arrived during the build or that a cancelled
+	 * build handed back. Not after a failed build: its changes are pending again, and building them straight away would
+	 * fail again every minute while the cause lasts. The next change, publishing time or manual publish takes them (D68).
 	 *
 	 * @param array<string,mixed>|null $build Build row.
 	 * @return void
@@ -334,6 +336,9 @@ final class Queue {
 	public static function build_finished( $build ): void {
 		if ( is_array( $build ) && 'done' === $build['status'] && ! empty( $build['deploy'] ) ) {
 			update_option( 'glaciate_published_once', 1, false );
+		}
+		if ( is_array( $build ) && 'failed' === $build['status'] ) {
+			return;
 		}
 		if ( ( new \Glaciate\Storage\ChangeRepository() )->pending_count() > 0 ) {
 			self::changes_recorded();

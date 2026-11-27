@@ -4,7 +4,7 @@ Tags: static site, static html, performance, security, export
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.1.0
+Stable tag: 2.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,11 @@ Every form gets a hidden field that people don't see and bots fill in, the time 
 Drafts, private posts and password-protected posts are never published. You can leave out more addresses in Settings.
 
 == Changelog ==
+
+= 2.2.0 =
+* New: pause publishing while you rework the site, from the Static Site screen (editors can too), the Settings screen or `wp glaciate pause`. Until you resume, nothing goes to the static site, not even with the Publish button. Edits are still recorded and go out when you resume. `wp glaciate build --ignore-pause` publishes anyway.
+* Changed: the Static Site screen stops checking the publishing status while its tab is hidden or nobody has used it for ten minutes, so a forgotten tab no longer keeps the site and its database busy.
+* Fixed: edits picked up by a publish that was cancelled or failed are published by the next one, instead of waiting for the next full rebuild.
 
 = 2.1.0 =
 * Changed: the plugin is listed as "Glaciate - Free Static Site Publisher" on WordPress.org and on the Plugins screen.

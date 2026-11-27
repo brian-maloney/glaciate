@@ -10,6 +10,7 @@ namespace Glaciate\Build;
 defined( 'ABSPATH' ) || exit;
 
 use Glaciate\Storage\BuildRepository;
+use Glaciate\Storage\ChangeRepository;
 
 /**
  * The one entry point for starting builds, shared by the admin screen, REST API, WP-CLI and the scheduler.
@@ -132,6 +133,8 @@ final class BuildService {
 		$from = $active['status'];
 		if ( $this->builds->transition( $active['id'], $from, 'cancelled' ) ) {
 			( new Frontier( $active['id'] ) )->clear();
+			// Nothing it claimed was published, so the next publish takes it up again (D68).
+			( new ChangeRepository() )->release( $active['id'] );
 
 			/** This action is documented in src/Build/Runner.php */
 			do_action( 'glaciate_build_finished', $this->builds->get( $active['id'] ) );

@@ -201,6 +201,22 @@ final class PauseServiceTest extends \WP_UnitTestCase {
 		$this->assertNull( $status['paused'] );
 	}
 
+	public function test_cancelling_while_paused_keeps_the_changes_waiting(): void {
+		$this->require_action_scheduler();
+		$changes = new ChangeRepository();
+		$changes->record( 'post', '1' );
+		$id = ( new BuildService() )->start( 'incremental', 'manual', 0, false, array( 'sync' => true ) );
+		$changes->claim( $id );
+		$this->pause->pause( 0 );
+
+		( new BuildService() )->cancel();
+		$this->assertSame( 1, $changes->pending_count(), 'The cancelled build handed its change back (D68).' );
+		$this->assertNull( $this->next_scheduled( Queue::AUTO_HOOK ), 'It waits for resume, not a minute.' );
+
+		$this->pause->resume( 0 );
+		$this->assertNotNull( $this->next_scheduled( Queue::AUTO_HOOK ) );
+	}
+
 	public function test_a_running_build_shows_as_building_while_paused(): void {
 		( new BuildService() )->start( 'full', 'manual', 0, false, array( 'sync' => true ) );
 		$this->pause->pause( 0 );

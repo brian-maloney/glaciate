@@ -167,6 +167,8 @@ deployers delete those files (D58).
 - A build is a state machine (`queued → discovering → rendering → finalizing → deploying → done|failed|cancelled`).
   Each AS action handles a batch within a time budget (default 20 s, kept under `max_execution_time`) and then
   schedules the next one. Batches can resume after a crash, and a lock prevents two builds running at once.
+- A build claims the pending changes it plans from. One that ends cancelled or failed hands them back, so the next
+  publish takes them up; after a failure nothing retries on its own (D68).
 - WP-CLI can run the same pipeline synchronously in-process (`--sync`).
 - Starting a build from the admin or REST also sends a signed, non-blocking request to `admin-ajax.php`
   (`glaciate_run`) that runs the first slice right away and chains the next, so a build starts within a second rather
